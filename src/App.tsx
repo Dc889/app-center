@@ -113,6 +113,7 @@ const categoryData = [
 ]
 
 type AgentCallRecord = {
+  recordId: string
   time: string
   method: '广场 Web' | '外部 API'
   userAccount: string
@@ -121,31 +122,194 @@ type AgentCallRecord = {
   callerName: string
   callerOrg: string
   sourceIp: string
+  apiPath: string
+  appId: string
   appName: string
+  appMode: 'chatbot' | 'agent-chat' | 'workflow' | 'advanced-chat'
+  messageId: string
   runId: string
+  models: string[]
+  totalTokens: string
+  knowledgeBases: string[]
+  mcpCalls: string[]
+  pluginCalls: string[]
   duration: string
+  httpStatus: string
   result: '成功' | '失败'
+  errorCode: string
 }
 
-const agentCallRecords: AgentCallRecord[] = [
-  { time: '11-16 20:42:18', method: '广场 Web', userAccount: 'chen.yu', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.72', appName: '案件摘要助手', runId: 'run_01JCF8Q9A2', duration: '1.8s', result: '成功' },
-  { time: '11-16 20:39:44', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0188', callerName: '警情数据交换服务', callerOrg: '情指中心', sourceIp: '10.24.31.18', appName: '警情辅助分析', runId: 'run_01JCF8K3B7', duration: '8.2s', result: '失败' },
-  { time: '11-16 20:34:06', method: '广场 Web', userAccount: 'wu.fan', userOrg: '网安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.22.41', appName: '线索分析 Agent', runId: 'run_01JCF89P4C', duration: '2.4s', result: '成功' },
-  { time: '11-16 20:28:31', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0142', callerName: '资金研判平台', callerOrg: '经侦支队', sourceIp: '10.24.40.26', appName: '资金研判助手', runId: 'run_01JCF80N8E', duration: '1.2s', result: '成功' },
-  { time: '11-16 19:56:20', method: '广场 Web', userAccount: 'lin.jie', userOrg: '经侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.40.81', appName: '企业风险查询', runId: 'run_01JCF6A7M1', duration: '3.6s', result: '成功' },
-  { time: '11-16 19:42:12', method: '广场 Web', userAccount: 'zheng.yi', userOrg: '情指中心', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.31.45', appName: '警情辅助分析', runId: 'run_01JCF5D2T9', duration: '2.1s', result: '成功' },
-  { time: '11-16 18:54:03', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0201', callerName: '日志分析平台', callerOrg: '网安支队', sourceIp: '10.24.22.19', appName: '网络日志研判', runId: 'run_01JCF2J8H4', duration: '12.8s', result: '失败' },
-  { time: '11-16 18:36:47', method: '广场 Web', userAccount: 'sun.ning', userOrg: '治安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.28.61', appName: '勤务问答助手', runId: 'run_01JCF1F6K8', duration: '1.5s', result: '成功' },
-  { time: '11-16 17:58:25', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0096', callerName: '移动警务门户', callerOrg: '业务一部', sourceIp: '10.24.16.12', appName: '执法文书校验', runId: 'run_01JCEZ73Q3', duration: '4.3s', result: '成功' },
-  { time: '11-16 17:26:38', method: '广场 Web', userAccount: 'tang.yu', userOrg: '刑侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.36.54', appName: '案件串并助手', runId: 'run_01JCEXC5R6', duration: '2.9s', result: '成功' },
-  { time: '11-16 16:48:16', method: '广场 Web', userAccount: 'gao.feng', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.93', appName: '案件摘要助手', runId: 'run_01JCEV5D7A', duration: '7.6s', result: '失败' },
-  { time: '11-16 16:14:52', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0165', callerName: '案件协同系统', callerOrg: '刑侦支队', sourceIp: '10.24.36.20', appName: '案件串并助手', runId: 'run_01JCET56W2', duration: '1.9s', result: '成功' },
-  { time: '11-16 15:32:19', method: '广场 Web', userAccount: 'ma.xin', userOrg: '治安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.28.87', appName: '勤务问答助手', runId: 'run_01JCEQPF4B', duration: '2.3s', result: '成功' },
-  { time: '11-16 14:46:05', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0188', callerName: '警情数据交换服务', callerOrg: '情指中心', sourceIp: '10.24.31.18', appName: '警情辅助分析', runId: 'run_01JCEN1S6P', duration: '3.7s', result: '成功' },
-  { time: '11-16 13:24:33', method: '广场 Web', userAccount: 'chen.yu', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.72', appName: '知识检索助手', runId: 'run_01JCEHA9J5', duration: '1.6s', result: '成功' },
-  { time: '11-16 12:18:41', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0142', callerName: '资金研判平台', callerOrg: '经侦支队', sourceIp: '10.24.40.26', appName: '资金研判助手', runId: 'run_01JCECZY8N', duration: '9.4s', result: '失败' },
-  { time: '11-16 11:42:27', method: '广场 Web', userAccount: 'wu.fan', userOrg: '网安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.22.41', appName: '网络日志研判', runId: 'run_01JCEAT2V4', duration: '2.8s', result: '成功' },
-  { time: '11-16 10:36:14', method: '广场 Web', userAccount: 'tang.yu', userOrg: '刑侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.36.54', appName: '案件摘要助手', runId: 'run_01JCE73X9M', duration: '2.0s', result: '成功' },
+type AgentCallSeed = Pick<AgentCallRecord,
+  'time' | 'method' | 'userAccount' | 'userOrg' | 'keyId' | 'callerName' |
+  'callerOrg' | 'sourceIp' | 'appName' | 'duration' | 'result'
+> & { difyRef: string }
+
+const agentCallSeeds: AgentCallSeed[] = [
+  { time: '11-16 20:42:18', method: '广场 Web', userAccount: 'chen.yu', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.72', appName: '案件摘要助手', difyRef: '01JCF8Q9A2', duration: '1.8s', result: '成功' },
+  { time: '11-16 20:39:44', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0188', callerName: '警情数据交换服务', callerOrg: '情指中心', sourceIp: '10.24.31.18', appName: '警情辅助分析', difyRef: '01JCF8K3B7', duration: '8.2s', result: '失败' },
+  { time: '11-16 20:34:06', method: '广场 Web', userAccount: 'wu.fan', userOrg: '网安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.22.41', appName: '线索分析 Agent', difyRef: '01JCF89P4C', duration: '2.4s', result: '成功' },
+  { time: '11-16 20:28:31', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0142', callerName: '资金研判平台', callerOrg: '经侦支队', sourceIp: '10.24.40.26', appName: '资金研判助手', difyRef: '01JCF80N8E', duration: '1.2s', result: '成功' },
+  { time: '11-16 19:56:20', method: '广场 Web', userAccount: 'lin.jie', userOrg: '经侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.40.81', appName: '企业风险查询', difyRef: '01JCF6A7M1', duration: '3.6s', result: '成功' },
+  { time: '11-16 19:42:12', method: '广场 Web', userAccount: 'zheng.yi', userOrg: '情指中心', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.31.45', appName: '警情辅助分析', difyRef: '01JCF5D2T9', duration: '2.1s', result: '成功' },
+  { time: '11-16 18:54:03', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0201', callerName: '日志分析平台', callerOrg: '网安支队', sourceIp: '10.24.22.19', appName: '网络日志研判', difyRef: '01JCF2J8H4', duration: '12.8s', result: '失败' },
+  { time: '11-16 18:36:47', method: '广场 Web', userAccount: 'sun.ning', userOrg: '治安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.28.61', appName: '勤务问答助手', difyRef: '01JCF1F6K8', duration: '1.5s', result: '成功' },
+  { time: '11-16 17:58:25', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0096', callerName: '移动警务门户', callerOrg: '业务一部', sourceIp: '10.24.16.12', appName: '执法文书校验', difyRef: '01JCEZ73Q3', duration: '4.3s', result: '成功' },
+  { time: '11-16 17:26:38', method: '广场 Web', userAccount: 'tang.yu', userOrg: '刑侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.36.54', appName: '案件串并助手', difyRef: '01JCEXC5R6', duration: '2.9s', result: '成功' },
+  { time: '11-16 16:48:16', method: '广场 Web', userAccount: 'gao.feng', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.93', appName: '案件摘要助手', difyRef: '01JCEV5D7A', duration: '7.6s', result: '失败' },
+  { time: '11-16 16:14:52', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0165', callerName: '案件协同系统', callerOrg: '刑侦支队', sourceIp: '10.24.36.20', appName: '案件串并助手', difyRef: '01JCET56W2', duration: '1.9s', result: '成功' },
+  { time: '11-16 15:32:19', method: '广场 Web', userAccount: 'ma.xin', userOrg: '治安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.28.87', appName: '勤务问答助手', difyRef: '01JCEQPF4B', duration: '2.3s', result: '成功' },
+  { time: '11-16 14:46:05', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0188', callerName: '警情数据交换服务', callerOrg: '情指中心', sourceIp: '10.24.31.18', appName: '警情辅助分析', difyRef: '01JCEN1S6P', duration: '3.7s', result: '成功' },
+  { time: '11-16 13:24:33', method: '广场 Web', userAccount: 'chen.yu', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.72', appName: '知识检索助手', difyRef: '01JCEHA9J5', duration: '1.6s', result: '成功' },
+  { time: '11-16 12:18:41', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0142', callerName: '资金研判平台', callerOrg: '经侦支队', sourceIp: '10.24.40.26', appName: '资金研判助手', difyRef: '01JCECZY8N', duration: '9.4s', result: '失败' },
+  { time: '11-16 11:42:27', method: '广场 Web', userAccount: 'wu.fan', userOrg: '网安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.22.41', appName: '网络日志研判', difyRef: '01JCEAT2V4', duration: '2.8s', result: '成功' },
+  { time: '11-16 10:36:14', method: '广场 Web', userAccount: 'tang.yu', userOrg: '刑侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.36.54', appName: '案件摘要助手', difyRef: '01JCE73X9M', duration: '2.0s', result: '成功' },
+]
+
+type AppTraceProfile = Pick<AgentCallRecord,
+  'appId' | 'appMode' | 'models' | 'knowledgeBases' | 'mcpCalls' | 'pluginCalls'
+>
+
+const appTraceProfiles: Record<string, AppTraceProfile> = {
+  '案件摘要助手': {
+    appId: 'app_case_summary', appMode: 'advanced-chat',
+    models: ['openai / gpt-4.1-mini · 1,284入 / 342出'],
+    knowledgeBases: ['案件法规库（ds_case_01）· 命中2段', '文书范例库（ds_doc_06）· 命中1段'],
+    mcpCalls: ['档案检索 / search_archive · 成功 0.6s'],
+    pluginCalls: ['langgenius/jina_tool / reader · 成功 0.4s'],
+  },
+  '警情辅助分析': {
+    appId: 'app_incident_analysis', appMode: 'workflow',
+    models: ['azure_openai / gpt-4.1 · 2,104入 / 518出', 'openai / text-embedding-3-large · 226'],
+    knowledgeBases: ['警情处置规范（ds_incident_08）· 命中4段'],
+    mcpCalls: ['地图服务 / geo_search · 成功 0.8s', '警情库 / get_incident · 成功 0.5s'],
+    pluginCalls: ['langgenius/json_process / parse · 成功 0.1s'],
+  },
+  '线索分析 Agent': {
+    appId: 'app_clue_agent', appMode: 'agent-chat',
+    models: ['anthropic / claude-sonnet-4 · 1,876入 / 622出'],
+    knowledgeBases: ['线索研判手册（ds_clue_03）· 命中3段'],
+    mcpCalls: ['线索查询 / get_clue · 成功 0.7s'],
+    pluginCalls: ['langgenius/duckduckgo / search · 成功 0.5s', 'langgenius/chart / render · 成功 0.2s'],
+  },
+  '资金研判助手': {
+    appId: 'app_fund_analysis', appMode: 'workflow',
+    models: ['deepseek / deepseek-chat · 1,032入 / 288出'],
+    knowledgeBases: ['经侦指标库（ds_fund_05）· 命中2段'],
+    mcpCalls: ['企业查询 / query_company · 成功 0.4s'],
+    pluginCalls: ['langgenius/code / python · 成功 0.3s'],
+  },
+  '企业风险查询': {
+    appId: 'app_company_risk', appMode: 'chatbot',
+    models: ['qwen / qwen-max · 864入 / 176出'],
+    knowledgeBases: ['企业风险规则库（ds_risk_11）· 命中5段'],
+    mcpCalls: ['企业查询 / query_company · 成功 0.9s'],
+    pluginCalls: [],
+  },
+  '网络日志研判': {
+    appId: 'app_netlog_analysis', appMode: 'workflow',
+    models: ['azure_openai / gpt-4.1-mini · 3,412入 / 708出'],
+    knowledgeBases: ['网络安全规则库（ds_net_04）· 命中6段'],
+    mcpCalls: ['日志检索 / search_log · 成功 1.1s'],
+    pluginCalls: ['langgenius/code / python · 成功 0.8s'],
+  },
+  '勤务问答助手': {
+    appId: 'app_duty_qa', appMode: 'chatbot',
+    models: ['qwen / qwen-plus · 724入 / 166出'],
+    knowledgeBases: ['勤务规范库（ds_duty_02）· 命中3段'],
+    mcpCalls: [],
+    pluginCalls: [],
+  },
+  '执法文书校验': {
+    appId: 'app_doc_check', appMode: 'workflow',
+    models: ['openai / gpt-4.1-mini · 1,506入 / 298出'],
+    knowledgeBases: ['执法文书标准库（ds_lawdoc_07）· 命中4段'],
+    mcpCalls: [],
+    pluginCalls: ['internal/document_validator / validate · 成功 0.7s'],
+  },
+  '案件串并助手': {
+    appId: 'app_case_link', appMode: 'agent-chat',
+    models: ['anthropic / claude-sonnet-4 · 2,224入 / 544出'],
+    knowledgeBases: ['案件特征库（ds_case_09）· 命中5段'],
+    mcpCalls: ['案件协同 / find_similar_case · 成功 0.8s'],
+    pluginCalls: ['langgenius/chart / render · 成功 0.2s'],
+  },
+  '知识检索助手': {
+    appId: 'app_knowledge_search', appMode: 'chatbot',
+    models: ['openai / gpt-4.1-mini · 696入 / 142出', 'openai / text-embedding-3-large · 184'],
+    knowledgeBases: ['综合政策库（ds_policy_01）· 命中5段', '办事指南库（ds_guide_03）· 命中2段'],
+    mcpCalls: [],
+    pluginCalls: [],
+  },
+}
+
+const tokenTotals = ['1,852', '2,848', '2,498', '1,320', '1,040', '2,934', '4,120', '890', '1,988', '2,768', '1,946', '2,442', '902', '3,016', '1,022', '1,566', '4,120', '1,832']
+
+const agentCallRecords: AgentCallRecord[] = agentCallSeeds.map((seed, index) => {
+  const profile = appTraceProfiles[seed.appName]
+  const hasWorkflowRun = profile.appMode === 'workflow' || profile.appMode === 'advanced-chat'
+  const hasMessage = profile.appMode !== 'workflow'
+  const failureCode = index === 1 ? 'DIFY_MODEL_TIMEOUT' : index === 6 ? 'MCP_UPSTREAM_TIMEOUT' : index === 10 ? 'MODEL_RATE_LIMIT' : index === 15 ? 'PLUGIN_EXECUTION_ERROR' : '—'
+  return {
+    ...seed,
+    recordId: `CALL-20261116-${String(18 - index).padStart(4, '0')}`,
+    apiPath: seed.method === '广场 Web'
+      ? `/explore/apps/${profile.appId.replace('app_', '')}/chat`
+      : profile.appMode === 'workflow' ? '/v1/workflows/run' : '/v1/chat-messages',
+    ...profile,
+    messageId: hasMessage ? `msg_${seed.difyRef}` : '—',
+    runId: hasWorkflowRun ? `run_${seed.difyRef}` : '—',
+    totalTokens: tokenTotals[index],
+    httpStatus: seed.result === '成功' ? '200' : index === 10 ? '429' : '504',
+    errorCode: seed.result === '成功' ? '—' : failureCode,
+  }
+})
+
+type AvailabilityCategory = 'knowledge' | 'plugins' | 'mcp' | 'skills' | 'agents'
+type AvailabilityStatus = '能用' | '不能用'
+type AvailabilityRecord = {
+  category: AvailabilityCategory
+  name: string
+  source: string
+  status: AvailabilityStatus
+  reason: string
+  orgScope: string
+  changedAt: string
+}
+
+const availabilityRecords: AvailabilityRecord[] = [
+  { category: 'knowledge', name: '案件法规库', source: 'Dify', status: '能用', reason: '已分享、审查通过、未暂停', orgScope: '全局 · 本网段', changedAt: '11-16 20:32' },
+  { category: 'knowledge', name: '反诈话术资料库', source: 'RAGFlow', status: '能用', reason: '已分享、审查通过、未暂停', orgScope: '业务一部 / 刑侦支队', changedAt: '11-16 18:45' },
+  { category: 'knowledge', name: '经侦案例知识库', source: 'RAGFlow', status: '能用', reason: '已分享、审查通过、未暂停', orgScope: '经侦支队', changedAt: '11-16 17:26' },
+  { category: 'knowledge', name: '网络安全规则库', source: 'Dify', status: '不能用', reason: '知识库已暂停', orgScope: '网安支队', changedAt: '11-16 19:18' },
+  { category: 'knowledge', name: '公共安全知识集', source: 'Dify', status: '不能用', reason: '文档安全审查未通过', orgScope: '全局 · 本网段', changedAt: '11-16 16:09' },
+  { category: 'knowledge', name: '个人测试语料库', source: 'RAGFlow', status: '不能用', reason: '未分享，仅创建人可见', orgScope: '创建人本人', changedAt: '11-16 14:52' },
+
+  { category: 'plugins', name: 'document-parser', source: '内网插件仓库', status: '能用', reason: '已上架、公开、未自动禁用', orgScope: '全局 · 本网段', changedAt: '11-16 20:11' },
+  { category: 'plugins', name: 'json-process', source: 'Dify Plugin Daemon', status: '能用', reason: '已上架、公开、未自动禁用', orgScope: '全局 · 本网段', changedAt: '11-16 18:42' },
+  { category: 'plugins', name: 'case-chart', source: '内网插件仓库', status: '能用', reason: '非公开，业务一部已批准安装', orgScope: '业务一部', changedAt: '11-16 17:15' },
+  { category: 'plugins', name: 'browser-agent', source: 'Dify Plugin Daemon', status: '不能用', reason: '失败率越线，已自动禁用', orgScope: '全局 · 本网段', changedAt: '11-16 20:38' },
+  { category: 'plugins', name: 'legacy-ocr', source: '内网插件仓库', status: '不能用', reason: '插件已下架', orgScope: '全局 · 本网段', changedAt: '11-16 15:20' },
+  { category: 'plugins', name: 'private-exporter', source: '内网插件仓库', status: '不能用', reason: '非公开，尚未批准安装', orgScope: '经侦支队', changedAt: '11-16 13:46' },
+
+  { category: 'mcp', name: '档案检索服务', source: '内网 MCP 目录', status: '能用', reason: '已上架、绑定正常', orgScope: '全局 · 本网段', changedAt: '11-16 20:26' },
+  { category: 'mcp', name: '企业查询服务', source: '内网 MCP 目录', status: '能用', reason: '已上架、绑定正常', orgScope: '经侦支队 / 业务一部', changedAt: '11-16 18:08' },
+  { category: 'mcp', name: '线索查询服务', source: 'Dify MCP 目录', status: '能用', reason: '已上架、绑定正常', orgScope: '网安支队', changedAt: '11-16 16:37' },
+  { category: 'mcp', name: '地图服务', source: 'Dify MCP 目录', status: '不能用', reason: '连续调用异常', orgScope: '情指中心', changedAt: '11-16 20:39' },
+  { category: 'mcp', name: '旧版警情接口', source: '内网 MCP 目录', status: '不能用', reason: '应用绑定已解绑', orgScope: '情指中心', changedAt: '11-16 15:58' },
+  { category: 'mcp', name: '测试文件服务', source: 'Dify MCP 目录', status: '不能用', reason: '尚未上架', orgScope: '平台运营组', changedAt: '11-16 12:10' },
+
+  { category: 'skills', name: 'incident-report', source: '内网 Skill 仓库', status: '能用', reason: '当前版本已上架', orgScope: '全局 · 本网段', changedAt: '11-16 19:55' },
+  { category: 'skills', name: 'case-summary', source: 'GitHub Enterprise', status: '能用', reason: '当前版本已上架', orgScope: '业务一部 / 刑侦支队', changedAt: '11-16 18:31' },
+  { category: 'skills', name: 'security-review', source: '内网 Skill 仓库', status: '能用', reason: '当前版本已上架', orgScope: '网安支队', changedAt: '11-16 16:22' },
+  { category: 'skills', name: 'legacy-export', source: 'GitHub Enterprise', status: '不能用', reason: 'Skill 已下架', orgScope: '全局 · 本网段', changedAt: '11-16 17:48' },
+  { category: 'skills', name: 'draft-research', source: '内网 Skill 仓库', status: '不能用', reason: '尚未上架', orgScope: '平台运营组', changedAt: '11-16 14:05' },
+
+  { category: 'agents', name: '案件摘要助手', source: 'Dify 应用广场', status: '能用', reason: '已上架广场', orgScope: '全局 · 本网段', changedAt: '11-16 20:18' },
+  { category: 'agents', name: '警情辅助分析', source: 'Dify 应用广场', status: '能用', reason: '已上架广场', orgScope: '情指中心', changedAt: '11-16 19:36' },
+  { category: 'agents', name: '线索分析 Agent', source: 'Dify 应用广场', status: '能用', reason: '已上架广场', orgScope: '网安支队', changedAt: '11-16 18:20' },
+  { category: 'agents', name: '勤务问答助手', source: 'Dify 应用广场', status: '能用', reason: '已上架广场', orgScope: '治安支队', changedAt: '11-16 17:42' },
+  { category: 'agents', name: '旧版文书助手', source: 'Dify 应用广场', status: '不能用', reason: '应用已下架', orgScope: '全局 · 本网段', changedAt: '11-16 16:28' },
+  { category: 'agents', name: '资金研判实验版', source: 'Dify 工作区', status: '不能用', reason: '尚未上架广场', orgScope: '经侦支队', changedAt: '11-16 13:15' },
 ]
 
 const monitorData: Record<string, {
@@ -581,8 +745,87 @@ function Overview({ role, onWorkOrder }: { role: Role; onWorkOrder: (title: stri
   )
 }
 
+const availabilityMeta: Record<AvailabilityCategory, { title: string; rule: string }> = {
+  knowledge: { title: '知识库可用性', rule: '已分享、审查通过且未暂停，才判定为能用' },
+  plugins: { title: '插件可用性', rule: '公开插件须已上架且未自动禁用；非公开插件还须批准安装' },
+  mcp: { title: 'MCP 可用性', rule: '已上架且绑定正常，才判定为能用' },
+  skills: { title: 'Skill 可用性', rule: '已上架为能用；未上架或已下架为不能用' },
+  agents: { title: '智能体可用性', rule: '已上架广场为能用；未上架或已下架为不能用' },
+}
+
+function RepositoryAvailability({ defaultCategory }: { defaultCategory: AvailabilityCategory }) {
+  const toolRepository = defaultCategory === 'mcp' || defaultCategory === 'skills'
+  const [category, setCategory] = useState<AvailabilityCategory>(defaultCategory)
+  const [status, setStatus] = useState<'全部' | AvailabilityStatus>('全部')
+  const currentRecords = availabilityRecords.filter((record) => record.category === category)
+  const visibleRecords = currentRecords.filter((record) => status === '全部' || record.status === status)
+  const availableCount = currentRecords.filter((record) => record.status === '能用').length
+  const unavailableCount = currentRecords.length - availableCount
+  const meta = availabilityMeta[category]
+
+  const changeCategory = (nextCategory: AvailabilityCategory) => {
+    setCategory(nextCategory)
+    setStatus('全部')
+  }
+
+  return (
+    <section className="panel availability-panel" data-testid="availability-panel" data-category={category}>
+      <div className="availability-head">
+        <div>
+          <span className="mini-label">本网段资源仓库</span>
+          <h3>{toolRepository ? 'MCP 与 Skill 可用性' : meta.title}</h3>
+          <p>{meta.rule}。运维人员与系统管理员查看本网段全部资源。</p>
+        </div>
+        <div className="availability-controls">
+          {toolRepository && (
+            <div className="repository-tabs" aria-label="资源仓库分栏">
+              <button className={category === 'mcp' ? 'active' : ''} onClick={() => changeCategory('mcp')}>MCP</button>
+              <button className={category === 'skills' ? 'active' : ''} onClick={() => changeCategory('skills')}>Skill</button>
+            </div>
+          )}
+          <label>
+            <span>状态筛选</span>
+            <select data-testid="availability-status-filter" value={status} onChange={(event) => setStatus(event.target.value as '全部' | AvailabilityStatus)}>
+              <option>全部</option>
+              <option>能用</option>
+              <option>不能用</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div className="availability-body">
+        <div className="availability-summary">
+          <button className={status === '能用' ? 'active available' : 'available'} onClick={() => setStatus(status === '能用' ? '全部' : '能用')}>
+            <span><Check size={16} /> 能用数</span>
+            <strong data-testid="available-count">{availableCount}</strong>
+            <small>满足当前仓库判定规则</small>
+          </button>
+          <button className={status === '不能用' ? 'active unavailable' : 'unavailable'} onClick={() => setStatus(status === '不能用' ? '全部' : '不能用')}>
+            <span><X size={16} /> 不能用数</span>
+            <strong data-testid="unavailable-count">{unavailableCount}</strong>
+            <small>原因已逐项列在右侧</small>
+          </button>
+        </div>
+        <div className="availability-table" data-testid="availability-table" data-count={visibleRecords.length}>
+          <div className="availability-table-caption">
+            <span>{meta.title}</span>
+            <em>{status === '全部' ? `全部 ${visibleRecords.length} 项` : `${status} ${visibleRecords.length} 项`}</em>
+          </div>
+          <DataTable
+            columns={['名称', '来源', '状态', '原因', '组织范围', '最近变化时间']}
+            rows={visibleRecords.map((record) => [
+              record.name, record.source, record.status, record.reason, record.orgScope, record.changedAt,
+            ])}
+          />
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function AgentMonitorPage({ onWorkOrder }: { onWorkOrder: (title: string) => void }) {
   const [organization, setOrganization] = useState('全部组织')
+  const [selectedCall, setSelectedCall] = useState<AgentCallRecord | null>(null)
   const data = monitorData.agents
   const organizations = useMemo(() => Array.from(new Set(
     agentCallRecords.map((record) => record.method === '广场 Web' ? record.userOrg : record.callerOrg),
@@ -620,18 +863,13 @@ function AgentMonitorPage({ onWorkOrder }: { onWorkOrder: (title: string) => voi
       { name: '失败', count: filteredCalls.length - success },
     ]
   }, [filteredCalls])
-  const callRows = filteredCalls.map((record) => [
-    record.time, record.method, record.userAccount, record.userOrg, record.keyId,
-    record.callerName, record.callerOrg, record.sourceIp, record.appName,
-    record.runId, record.duration, record.result,
-  ])
-
   return (
     <>
       <PageHeader
         view="agents"
         action={<div className="time-filter"><button>1 小时</button><button className="active">24 小时</button><button>7 天</button></div>}
       />
+      <RepositoryAvailability defaultCategory="agents" />
       <div className="metric-grid six">
         {data.metrics.map(([label, value, delta], i) => (
           <article className="metric-card" key={label}>
@@ -650,7 +888,10 @@ function AgentMonitorPage({ onWorkOrder }: { onWorkOrder: (title: string) => voi
           <select
             data-testid="organization-filter"
             value={organization}
-            onChange={(event) => setOrganization(event.target.value)}
+            onChange={(event) => {
+              setOrganization(event.target.value)
+              setSelectedCall(null)
+            }}
           >
             <option>全部组织</option>
             {organizations.map((item) => <option key={item}>{item}</option>)}
@@ -709,7 +950,7 @@ function AgentMonitorPage({ onWorkOrder }: { onWorkOrder: (title: string) => voi
       </div>
       <section className="panel table-panel call-trace-panel">
         <div className="panel-title">
-          <div><h3>调用追踪</h3><p>一行一次运行 · 当前显示 {filteredCalls.length} 条模拟记录</p></div>
+          <div><h3>调用追踪</h3><p>一行一次运行 · 当前显示 {filteredCalls.length} 条模拟记录 · 点击记录 ID 查看字段来源</p></div>
           <div className="trace-legend">
             <span><i className="web" />广场 Web：记录用户与用户组织</span>
             <span><i className="api" />外部 API：记录密钥与调用方组织</span>
@@ -717,11 +958,9 @@ function AgentMonitorPage({ onWorkOrder }: { onWorkOrder: (title: string) => voi
           </div>
         </div>
         <div data-testid="agent-call-table">
-          <DataTable
-            columns={['时间', '调用方式', '用户账户名', '用户组织', '密钥登记 ID', '调用方名称', '调用方组织', '来源 IP', '应用名', 'Dify 运行 ID', '耗时', '结果']}
-            rows={callRows}
-          />
+          <CallTraceTable records={filteredCalls} onSelect={setSelectedCall} selectedId={selectedCall?.recordId} />
         </div>
+        {selectedCall && <CallTraceDetails record={selectedCall} onClose={() => setSelectedCall(null)} />}
       </section>
       <section className="panel table-panel">
         <div className="panel-title">
@@ -744,6 +983,9 @@ function MonitorPage({ view, onWorkOrder }: { view: View; onWorkOrder: (title: s
         view={view}
         action={<div className="time-filter"><button>1 小时</button><button className="active">24 小时</button><button>7 天</button></div>}
       />
+      {(['knowledge', 'plugins', 'mcp', 'skills'] as View[]).includes(view) && (
+        <RepositoryAvailability key={view} defaultCategory={view as AvailabilityCategory} />
+      )}
       <div className={`metric-grid ${data.metrics.length === 6 ? 'six' : 'five'}`}>
         {data.metrics.map(([label, value, delta], i) => (
           <article className="metric-card" key={label}>
@@ -813,7 +1055,9 @@ function DataTable({ columns, rows, onAction }: { columns: string[]; rows: strin
             <tr key={`${row[0]}-${index}`}>
               {row.map((cell, cellIndex) => (
                 <td key={`${cell}-${cellIndex}`}>
-                  {/(正常|成功|已完成|一致|已批准|允许|已恢复|已关闭)/.test(cell) ? <span className="status success">{cell}</span>
+                  {cell === '能用' ? <span className="status success">{cell}</span>
+                    : cell === '不能用' ? <span className="status danger">{cell}</span>
+                    : /(正常|成功|已完成|一致|已批准|允许|已恢复|已关闭)/.test(cell) ? <span className="status success">{cell}</span>
                     : /(严重|紧急|失败|异常|冲突|未批准|禁止|停滞)/.test(cell) ? <span className="status danger">{cell}</span>
                     : /(进行中|审核中|待|观察|一般|波动)/.test(cell) ? <span className="status warning">{cell}</span>
                     : cell}
@@ -825,6 +1069,146 @@ function DataTable({ columns, rows, onAction }: { columns: string[]; rows: strin
         </tbody>
       </table>
     </div>
+  )
+}
+
+const callTraceColumns = [
+  ['平台调用记录ID', '本平台入口记录'],
+  ['时间', '本平台入口记录'],
+  ['调用方式', '本平台入口记录'],
+  ['用户账户名', '广场 Web 由本平台入口记录'],
+  ['用户组织', '广场 Web 由本平台入口记录'],
+  ['密钥登记ID', '外部 API 由本平台入口记录'],
+  ['调用方名称', '外部 API 由本平台入口记录'],
+  ['调用方组织', '外部 API 由本平台入口记录'],
+  ['来源IP', '本平台入口记录，不来自 Dify 表'],
+  ['API路径', '本平台入口记录'],
+  ['应用ID', 'Dify messages.app_id 或 workflow_runs.app_id'],
+  ['应用名', '按应用 ID 关联 Dify 应用'],
+  ['应用模式', 'Dify messages.app_mode 或应用配置'],
+  ['Dify消息ID', 'Dify messages.id；纯工作流显示“—”'],
+  ['Dify运行ID', 'Dify workflow_runs.id；非工作流消息显示“—”'],
+  ['模型调用摘要（多值）', 'messages.model_provider/model_id，或 workflow_node_executions.process_data'],
+  ['Token总数', 'workflow_runs.total_tokens，或 messages.message_tokens + answer_tokens'],
+  ['知识库检索摘要（多值）', 'dataset_retriever_resources，或知识检索节点执行记录'],
+  ['MCP调用摘要（多值）', 'workflow_node_executions + workflow_runs.graph；Agent 兼容 message_agent_thoughts'],
+  ['插件调用摘要（多值）', 'workflow_node_executions + workflow_runs.graph；Agent 兼容 message_agent_thoughts'],
+  ['耗时', 'workflow_runs.elapsed_time 或 messages.provider_response_latency'],
+  ['HTTP响应状态', '本平台入口记录'],
+  ['业务结果', 'Dify workflow_runs.status 或 messages.status'],
+  ['错误码', '本平台归一化错误码，保留 Dify 原始错误'],
+] as const
+
+function TraceSummary({ items, empty = '未使用' }: { items: string[]; empty?: string }) {
+  if (!items.length) return <span className="trace-empty">— · {empty}</span>
+  return (
+    <span className="trace-summary">
+      {items.map((item) => <span key={item}>{item}</span>)}
+    </span>
+  )
+}
+
+function CallTraceTable({
+  records,
+  onSelect,
+  selectedId,
+}: {
+  records: AgentCallRecord[]
+  onSelect: (record: AgentCallRecord) => void
+  selectedId?: string
+}) {
+  return (
+    <div className="table-wrap call-trace-wrap">
+      <table className="call-trace-table">
+        <thead>
+          <tr>{callTraceColumns.map(([label, source]) => <th key={label} title={source}>{label}</th>)}</tr>
+        </thead>
+        <tbody>
+          {records.map((record) => (
+            <tr key={record.recordId} className={record.recordId === selectedId ? 'selected' : ''}>
+              <td><button className="trace-record-link" onClick={() => onSelect(record)}>{record.recordId}</button></td>
+              <td>{record.time}</td>
+              <td><span className={`method-tag ${record.method === '广场 Web' ? 'web' : 'api'}`}>{record.method}</span></td>
+              <td>{record.userAccount}</td>
+              <td>{record.userOrg}</td>
+              <td>{record.keyId}</td>
+              <td>{record.callerName}</td>
+              <td>{record.callerOrg}</td>
+              <td className="mono-cell">{record.sourceIp}</td>
+              <td className="mono-cell">{record.apiPath}</td>
+              <td className="mono-cell">{record.appId}</td>
+              <td className="strong-cell">{record.appName}</td>
+              <td><span className="mode-tag">{record.appMode}</span></td>
+              <td className="mono-cell">{record.messageId}</td>
+              <td className="mono-cell">{record.runId}</td>
+              <td><TraceSummary items={record.models} /></td>
+              <td className="token-cell">{record.totalTokens}</td>
+              <td><TraceSummary items={record.knowledgeBases} /></td>
+              <td><TraceSummary items={record.mcpCalls} empty="未调用 MCP" /></td>
+              <td><TraceSummary items={record.pluginCalls} empty="未调用插件" /></td>
+              <td>{record.duration}</td>
+              <td className="mono-cell">{record.httpStatus}</td>
+              <td><span className={`status ${record.result === '成功' ? 'success' : 'danger'}`}>{record.result}</span></td>
+              <td className={`mono-cell ${record.errorCode !== '—' ? 'error-code' : ''}`}>{record.errorCode}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function CallTraceDetails({ record, onClose }: { record: AgentCallRecord; onClose: () => void }) {
+  const platformIdentity = record.method === '广场 Web'
+    ? `${record.userAccount} · ${record.userOrg}`
+    : `${record.keyId} · ${record.callerName} · ${record.callerOrg}`
+  return (
+    <aside className="trace-details" data-testid="call-trace-details">
+      <div className="trace-details-head">
+        <div>
+          <span className="mini-label">运行证据</span>
+          <h4>{record.appName} <em>{record.recordId}</em></h4>
+          <p>{record.time} · {record.method} · {platformIdentity}</p>
+        </div>
+        <div>
+          <span className={`status ${record.result === '成功' ? 'success' : 'danger'}`}>{record.result}</span>
+          <button aria-label="关闭调用详情" onClick={onClose}><X size={16} /></button>
+        </div>
+      </div>
+      <div className="trace-details-grid">
+        <section>
+          <h5>平台入口记录</h5>
+          <dl>
+            <div><dt>身份口径</dt><dd>{platformIdentity}</dd></div>
+            <div><dt>来源 IP</dt><dd>{record.sourceIp}</dd></div>
+            <div><dt>API 路径</dt><dd>{record.apiPath}</dd></div>
+            <div><dt>HTTP / 错误码</dt><dd>{record.httpStatus} / {record.errorCode}</dd></div>
+          </dl>
+          <small>IP、账户或密钥登记、组织只由平台入口记录，不从 Dify 表反推。</small>
+        </section>
+        <section>
+          <h5>Dify 运行记录</h5>
+          <dl>
+            <div><dt>应用</dt><dd>{record.appId} · {record.appMode}</dd></div>
+            <div><dt>消息 ID</dt><dd>{record.messageId}</dd></div>
+            <div><dt>运行 ID</dt><dd>{record.runId}</dd></div>
+            <div><dt>耗时 / Token</dt><dd>{record.duration} / {record.totalTokens}</dd></div>
+          </dl>
+          <small>{record.runId === '—' ? '主记录：messages' : '主记录：workflow_runs；消息型运行同时关联 messages'}</small>
+        </section>
+        <section className="trace-resource-detail">
+          <h5>本次实际使用资源</h5>
+          <div><strong>模型</strong><TraceSummary items={record.models} /></div>
+          <div><strong>知识库</strong><TraceSummary items={record.knowledgeBases} /></div>
+          <div><strong>MCP</strong><TraceSummary items={record.mcpCalls} empty="未调用 MCP" /></div>
+          <div><strong>插件</strong><TraceSummary items={record.pluginCalls} empty="未调用插件" /></div>
+        </section>
+      </div>
+      <div className="trace-source-note">
+        <Database size={15} />
+        <span>模型与节点 Token 来自 <code>workflow_node_executions</code> 或 <code>messages</code>；知识库命中来自 <code>dataset_retriever_resources</code> 或知识检索节点；MCP、插件来自节点执行记录和该次运行的 <code>workflow_runs.graph</code> 快照。</span>
+      </div>
+    </aside>
   )
 }
 

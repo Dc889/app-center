@@ -960,7 +960,18 @@ Skill 是本平台自己的独立网盘仓库，使用本平台对象存储和�
 5. **调用来源组织**：柱状图，X轴为组织，Y轴为调用次数，显示前10个组织；广场Web调用取登录用户组织，外部API调用取密钥登记的调用方组织，均不把身份传给模型中心。
 6. **应用调用排行**：横向条形图，Y轴为应用名称，X轴为调用次数，显示前10名，标签附失败率。适合显示长应用名。
 7. **发布资源校验**：表格，列为应用、版本、资源类型（知识库/插件/工具/MCP）、资源名称、批准状态、对外权限、告警原因、告警处理决定、处理人、关联发布工单。未批准即显示告警，运维人员必须在工单填写“驳回整改”或“确认风险并继续审批”。
-8. **调用追踪表**：表格，列为平台调用记录ID、时间、调用方式（广场Web/外部API）、用户账户名、用户组织、密钥登记ID、调用方名称、调用方组织、来源IP、API路径、应用ID、应用名、Dify运行ID、耗时、HTTP响应状态、业务状态、错误码。广场Web行填写用户账户名和用户组织，密钥三列显示“—”；外部API行填写密钥登记三列，用户账户名和用户组织显示“—”，不得从密钥推断个人身份。追踪必须使用表格；不显示跨中心traceId，也不向模型中心发送身份。
+8. **调用追踪表**：主表一行对应一次应用运行，列为平台调用记录ID、时间、调用方式（广场Web/外部API）、用户账户名、用户组织、密钥登记ID、调用方名称、调用方组织、来源IP、API路径、应用ID、应用名、应用模式、Dify消息ID、Dify运行ID、模型调用摘要（多值）、Token总数、知识库检索摘要（多值）、MCP调用摘要（多值）、插件调用摘要（多值）、耗时、HTTP响应状态、业务结果、错误码。广场Web行填写用户账户名和用户组织，密钥登记ID、调用方名称、调用方组织显示“—”；外部API行填写密钥登记ID、调用方名称、调用方组织，用户账户名和用户组织显示“—”，不得从密钥推断个人身份。来源IP、平台调用记录ID、API路径、HTTP响应状态、登录账户或密钥登记、组织均由本平台入口记录，不来自Dify表。追踪不显示跨中心traceId，也不向模型中心发送身份。
+
+   主表的四个多值摘要可以在单元格内逐项换行，展开后使用可重复子表，不得只保留一个资源。**模型调用明细**列为节点执行ID、模型提供商、模型名称、输入Token、输出Token、总Token、调用状态、耗时；**知识库检索明细**列为节点执行ID、知识库ID、知识库名称、文档ID、文档名称、分段ID、相关分数、检索来源；**MCP调用明细**列为节点执行ID、MCP provider ID、工具名、状态、耗时、错误；**插件调用明细**列为节点执行ID、插件唯一标识、provider ID、工具名、状态、耗时、错误。
+
+   Dify字段按下列规则读取，两版适配器均按字段存在性兼容：
+
+   - 工作流类应用以`workflow_app_logs.workflow_run_id`关联`workflow_runs.id`。运行ID、应用ID、工作流ID、触发来源、状态、输入、输出、错误、耗时、总Token、开始和结束时间分别取`workflow_runs.id/app_id/workflow_id/triggered_from/status/inputs/outputs/error/elapsed_time/total_tokens/created_at/finished_at`；调用来源可同时参考`workflow_app_logs.created_from`，但本平台仍以入口记录的广场Web/外部API为准。
+   - 聊天助手、Agent和文本生成等消息类运行以`messages.id`作为Dify消息ID；应用、模型、输入/输出Token、模型响应耗时、状态、错误、调用来源、运行关联和应用模式取`messages.app_id/model_provider/model_id/message_tokens/answer_tokens/provider_response_latency/status/error/invoke_from/workflow_run_id/app_mode`。`messages.from_account_id`或`from_end_user_id`只用于Dify内部关联，不替代本平台入口身份。
+   - 工作流中的每次节点执行以`workflow_node_executions.workflow_run_id`关联运行。模型明细优先读取LLM/Agent节点的`process_data` JSON中的`model_provider`、`model_name`和`usage`，Token同时读取`execution_metadata.total_tokens`；若某版本或节点没有写入上述键，则按同一行`node_id`回查`workflow_runs.graph`快照中的节点`data.model`，不得用当前草稿配置覆盖历史运行。
+   - 消息类知识库命中逐条读取`dataset_retriever_resources`，用`message_id`关联`messages.id`，读取`dataset_id/dataset_name/document_id/document_name/segment_id/score/retriever_from`。工作流知识检索节点从`workflow_node_executions`中筛选知识检索节点并读取`outputs/process_data`，再按`node_id`从`workflow_runs.graph`历史快照读取`dataset_ids`。`dataset_queries`只记录`dataset_id/content/source/source_app_id/created_by_role/created_by/created_at`，没有`message_id`或`workflow_run_id`，只能用于辅助核对，不能单独据此认定某次运行使用了哪个知识库。
+   - 工作流工具、插件和MCP逐次调用以`workflow_node_executions`的工具或Agent节点记录为执行事实，读取`node_execution_id/node_id/node_type/status/error/elapsed_time/execution_metadata`；按`node_id`从`workflow_runs.graph`历史快照读取`provider_type/provider_id/tool_name/plugin_unique_identifier`。`provider_type=mcp`归入MCP明细；存在`plugin_unique_identifier`或插件provider标识的归入插件明细。Agent节点还读取`execution_metadata.agent_log`中的逐次工具日志。非工作流Agent读取`message_agent_thoughts`的`message_id/position/tool/tool_meta_str/tool_input/observation/latency/created_at`；该表没有可用的`plugin_id`列，因此插件或MCP身份仍须与该次运行锁定的应用配置或工作流快照核对。
+   - `tool_model_invokes`记录的是工具内部再次调用模型时的`provider/tool_type/tool_name/prompt_tokens/answer_tokens/provider_response_latency/total_price/currency`，它不是所有插件或MCP调用的通用流水表，只作为模型与Token补充。一次运行的Token总数以`workflow_runs.total_tokens`为工作流汇总；消息类使用`messages.message_tokens+answer_tokens`；节点级明细使用`workflow_node_executions.execution_metadata.total_tokens`，不得把同一层级重复累加。
 9. **广场访问告警**：表格，列为时间、应用、告警类型（调用突增/失败率/耗时/入口不可用）、统计窗口、阈值、实测值、级别、状态、关联工单。
 10. **Dify站点关闭核对**：表格，列为应用ID、应用名、所有者、Dify Web站点状态、入口代理站点路径状态、Dify API路径状态、最近核对时间、异常告警ID。表格用于逐应用核查“Web关闭、API开放”；发现Web站点或代理站点路径开放时产生严重告警。
 

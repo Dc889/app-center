@@ -20,8 +20,11 @@ try {
   await page.getByTestId('agent-call-table').waitFor()
 
   const expectedHeaders = [
-    '时间', '调用方式', '用户账户名', '用户组织', '密钥登记 ID', '调用方名称',
-    '调用方组织', '来源 IP', '应用名', 'Dify 运行 ID', '耗时', '结果',
+    '平台调用记录ID', '时间', '调用方式', '用户账户名', '用户组织', '密钥登记ID',
+    '调用方名称', '调用方组织', '来源IP', 'API路径', '应用ID', '应用名', '应用模式',
+    'Dify消息ID', 'Dify运行ID', '模型调用摘要（多值）', 'Token总数',
+    '知识库检索摘要（多值）', 'MCP调用摘要（多值）', '插件调用摘要（多值）',
+    '耗时', 'HTTP响应状态', '业务结果', '错误码',
   ]
   assert.deepEqual(
     await page.getByTestId('agent-call-table').locator('thead th').allTextContents(),
@@ -32,6 +35,15 @@ try {
   assert.equal(await page.getByTestId('organization-chart').getAttribute('data-bars'), '6')
   assert.equal(await page.getByTestId('result-chart').getAttribute('data-success'), '14')
   assert.equal(await page.getByTestId('result-chart').getAttribute('data-failure'), '4')
+  const firstAllOrgRow = await page.getByTestId('agent-call-table').locator('tbody tr').first().locator('td').allTextContents()
+  assert.match(firstAllOrgRow[15], /gpt-/)
+  assert.match(firstAllOrgRow[17], /案件法规库/)
+  assert.match(firstAllOrgRow[18], /search_archive/)
+  assert.match(firstAllOrgRow[19], /jina_tool/)
+  await page.getByRole('button', { name: 'CALL-20261116-0018' }).click()
+  await page.getByTestId('call-trace-details').waitFor()
+  assert.match(await page.getByTestId('call-trace-details').innerText(), /平台入口记录/)
+  assert.match(await page.getByTestId('call-trace-details').innerText(), /workflow_runs/)
 
   await page.getByTestId('organization-filter').selectOption('业务一部')
   assert.equal(await page.getByTestId('agent-call-table').locator('tbody tr').count(), 4)
@@ -43,7 +55,7 @@ try {
 
   for (const row of await page.getByTestId('agent-call-table').locator('tbody tr').all()) {
     const cells = await row.locator('td').allTextContents()
-    assert(cells[3] === '业务一部' || cells[6] === '业务一部')
+    assert(cells[4] === '业务一部' || cells[7] === '业务一部')
   }
 
   await page.getByTestId('organization-filter').selectOption('情指中心')
