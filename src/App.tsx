@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Activity, AlertTriangle, ArrowRight, Bell, Bot,
+  Activity, AlertTriangle, ArrowRight, BarChart3, Bell, Bot,
   Check, ChevronDown, CircleHelp, ClipboardCheck,
   ClipboardList, Clock3, Database, Download, FileCheck2, FilePlus2, Filter,
   Gauge, Headphones, KeyRound, Layers3, ListChecks, LogOut,
@@ -110,6 +110,42 @@ const categoryData = [
   { name: '插件', value: 48, secondary: 16 },
   { name: 'MCP', value: 62, secondary: 13 },
   { name: '集成', value: 38, secondary: 9 },
+]
+
+type AgentCallRecord = {
+  time: string
+  method: '广场 Web' | '外部 API'
+  userAccount: string
+  userOrg: string
+  keyId: string
+  callerName: string
+  callerOrg: string
+  sourceIp: string
+  appName: string
+  runId: string
+  duration: string
+  result: '成功' | '失败'
+}
+
+const agentCallRecords: AgentCallRecord[] = [
+  { time: '11-16 20:42:18', method: '广场 Web', userAccount: 'chen.yu', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.72', appName: '案件摘要助手', runId: 'run_01JCF8Q9A2', duration: '1.8s', result: '成功' },
+  { time: '11-16 20:39:44', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0188', callerName: '警情数据交换服务', callerOrg: '情指中心', sourceIp: '10.24.31.18', appName: '警情辅助分析', runId: 'run_01JCF8K3B7', duration: '8.2s', result: '失败' },
+  { time: '11-16 20:34:06', method: '广场 Web', userAccount: 'wu.fan', userOrg: '网安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.22.41', appName: '线索分析 Agent', runId: 'run_01JCF89P4C', duration: '2.4s', result: '成功' },
+  { time: '11-16 20:28:31', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0142', callerName: '资金研判平台', callerOrg: '经侦支队', sourceIp: '10.24.40.26', appName: '资金研判助手', runId: 'run_01JCF80N8E', duration: '1.2s', result: '成功' },
+  { time: '11-16 19:56:20', method: '广场 Web', userAccount: 'lin.jie', userOrg: '经侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.40.81', appName: '企业风险查询', runId: 'run_01JCF6A7M1', duration: '3.6s', result: '成功' },
+  { time: '11-16 19:42:12', method: '广场 Web', userAccount: 'zheng.yi', userOrg: '情指中心', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.31.45', appName: '警情辅助分析', runId: 'run_01JCF5D2T9', duration: '2.1s', result: '成功' },
+  { time: '11-16 18:54:03', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0201', callerName: '日志分析平台', callerOrg: '网安支队', sourceIp: '10.24.22.19', appName: '网络日志研判', runId: 'run_01JCF2J8H4', duration: '12.8s', result: '失败' },
+  { time: '11-16 18:36:47', method: '广场 Web', userAccount: 'sun.ning', userOrg: '治安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.28.61', appName: '勤务问答助手', runId: 'run_01JCF1F6K8', duration: '1.5s', result: '成功' },
+  { time: '11-16 17:58:25', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0096', callerName: '移动警务门户', callerOrg: '业务一部', sourceIp: '10.24.16.12', appName: '执法文书校验', runId: 'run_01JCEZ73Q3', duration: '4.3s', result: '成功' },
+  { time: '11-16 17:26:38', method: '广场 Web', userAccount: 'tang.yu', userOrg: '刑侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.36.54', appName: '案件串并助手', runId: 'run_01JCEXC5R6', duration: '2.9s', result: '成功' },
+  { time: '11-16 16:48:16', method: '广场 Web', userAccount: 'gao.feng', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.93', appName: '案件摘要助手', runId: 'run_01JCEV5D7A', duration: '7.6s', result: '失败' },
+  { time: '11-16 16:14:52', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0165', callerName: '案件协同系统', callerOrg: '刑侦支队', sourceIp: '10.24.36.20', appName: '案件串并助手', runId: 'run_01JCET56W2', duration: '1.9s', result: '成功' },
+  { time: '11-16 15:32:19', method: '广场 Web', userAccount: 'ma.xin', userOrg: '治安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.28.87', appName: '勤务问答助手', runId: 'run_01JCEQPF4B', duration: '2.3s', result: '成功' },
+  { time: '11-16 14:46:05', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0188', callerName: '警情数据交换服务', callerOrg: '情指中心', sourceIp: '10.24.31.18', appName: '警情辅助分析', runId: 'run_01JCEN1S6P', duration: '3.7s', result: '成功' },
+  { time: '11-16 13:24:33', method: '广场 Web', userAccount: 'chen.yu', userOrg: '业务一部', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.16.72', appName: '知识检索助手', runId: 'run_01JCEHA9J5', duration: '1.6s', result: '成功' },
+  { time: '11-16 12:18:41', method: '外部 API', userAccount: '—', userOrg: '—', keyId: 'KEY-REG-0142', callerName: '资金研判平台', callerOrg: '经侦支队', sourceIp: '10.24.40.26', appName: '资金研判助手', runId: 'run_01JCECZY8N', duration: '9.4s', result: '失败' },
+  { time: '11-16 11:42:27', method: '广场 Web', userAccount: 'wu.fan', userOrg: '网安支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.22.41', appName: '网络日志研判', runId: 'run_01JCEAT2V4', duration: '2.8s', result: '成功' },
+  { time: '11-16 10:36:14', method: '广场 Web', userAccount: 'tang.yu', userOrg: '刑侦支队', keyId: '—', callerName: '—', callerOrg: '—', sourceIp: '10.24.36.54', appName: '案件摘要助手', runId: 'run_01JCE73X9M', duration: '2.0s', result: '成功' },
 ]
 
 const monitorData: Record<string, {
@@ -545,9 +581,163 @@ function Overview({ role, onWorkOrder }: { role: Role; onWorkOrder: (title: stri
   )
 }
 
+function AgentMonitorPage({ onWorkOrder }: { onWorkOrder: (title: string) => void }) {
+  const [organization, setOrganization] = useState('全部组织')
+  const data = monitorData.agents
+  const organizations = useMemo(() => Array.from(new Set(
+    agentCallRecords.map((record) => record.method === '广场 Web' ? record.userOrg : record.callerOrg),
+  )).sort((a, b) => a.localeCompare(b, 'zh-CN')), [])
+  const filteredCalls = useMemo(() => agentCallRecords.filter((record) => {
+    const recordOrg = record.method === '广场 Web' ? record.userOrg : record.callerOrg
+    return organization === '全部组织' || recordOrg === organization
+  }), [organization])
+  const callTrend = useMemo(() => {
+    const hourly = new Map<string, { time: string; total: number; success: number; failure: number }>()
+    filteredCalls.forEach((record) => {
+      const hour = `${record.time.slice(6, 8)}:00`
+      const point = hourly.get(hour) ?? { time: hour, total: 0, success: 0, failure: 0 }
+      point.total += 1
+      if (record.result === '成功') point.success += 1
+      else point.failure += 1
+      hourly.set(hour, point)
+    })
+    return Array.from(hourly.values()).sort((a, b) => a.time.localeCompare(b.time))
+  }, [filteredCalls])
+  const organizationCalls = useMemo(() => {
+    const counts = new Map<string, number>()
+    filteredCalls.forEach((record) => {
+      const recordOrg = record.method === '广场 Web' ? record.userOrg : record.callerOrg
+      counts.set(recordOrg, (counts.get(recordOrg) ?? 0) + 1)
+    })
+    return Array.from(counts, ([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+  }, [filteredCalls])
+  const resultData = useMemo(() => {
+    const success = filteredCalls.filter((record) => record.result === '成功').length
+    return [
+      { name: '成功', count: success },
+      { name: '失败', count: filteredCalls.length - success },
+    ]
+  }, [filteredCalls])
+  const callRows = filteredCalls.map((record) => [
+    record.time, record.method, record.userAccount, record.userOrg, record.keyId,
+    record.callerName, record.callerOrg, record.sourceIp, record.appName,
+    record.runId, record.duration, record.result,
+  ])
+
+  return (
+    <>
+      <PageHeader
+        view="agents"
+        action={<div className="time-filter"><button>1 小时</button><button className="active">24 小时</button><button>7 天</button></div>}
+      />
+      <div className="metric-grid six">
+        {data.metrics.map(([label, value, delta], i) => (
+          <article className="metric-card" key={label}>
+            <div className={`metric-icon tone-${(i % 5) + 1}`}><Bot size={19} /></div>
+            <span>{label}</span><strong>{value}</strong><small>{delta}</small>
+          </article>
+        ))}
+      </div>
+      <section className="analysis-toolbar panel">
+        <div>
+          <span className="analysis-icon"><BarChart3 size={18} /></span>
+          <div><strong>全应用调用分析</strong><small>每行对应一次 Dify 应用运行，身份字段按调用方式分开记录</small></div>
+        </div>
+        <label className="organization-filter">
+          <span>组织范围</span>
+          <select
+            data-testid="organization-filter"
+            value={organization}
+            onChange={(event) => setOrganization(event.target.value)}
+          >
+            <option>全部组织</option>
+            {organizations.map((item) => <option key={item}>{item}</option>)}
+          </select>
+        </label>
+        <div className="analysis-count" data-testid="filtered-call-count">
+          <span>{organization}</span>
+          <strong>{filteredCalls.length}</strong>
+          <small>次运行</small>
+        </div>
+      </section>
+      <div className="call-analysis-grid">
+        <ChartPanel title="调用趋势" subtitle={`${organization} · 总调用 / 成功 / 失败`} wide>
+          <div className="chart-data" data-testid="call-trend-chart" data-total={filteredCalls.length} data-points={callTrend.length}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={callTrend} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+                <CartesianGrid stroke="#edf0f5" vertical={false} />
+                <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#8b94a7', fontSize: 11 }} />
+                <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#8b94a7', fontSize: 11 }} />
+                <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid #e8ebf2' }} />
+                <Line isAnimationActive={false} type="monotone" dataKey="total" name="总调用" stroke="#5b6cf9" strokeWidth={2.5} dot={{ r: 2 }} />
+                <Line isAnimationActive={false} type="monotone" dataKey="success" name="成功" stroke="#22a98a" strokeWidth={2.2} dot={false} />
+                <Line isAnimationActive={false} type="monotone" dataKey="failure" name="失败" stroke="#ed795e" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartPanel>
+        <ChartPanel title="调用来源组织" subtitle="调用次数前 10 个组织">
+          <div className="chart-data" data-testid="organization-chart" data-bars={organizationCalls.length} data-total={filteredCalls.length}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={organizationCalls} margin={{ top: 8, right: 6, left: -24, bottom: 26 }}>
+                <CartesianGrid stroke="#edf0f5" vertical={false} />
+                <XAxis dataKey="name" interval={0} angle={-24} textAnchor="end" axisLine={false} tickLine={false} tick={{ fill: '#778196', fontSize: 9 }} />
+                <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#8b94a7', fontSize: 10 }} />
+                <Tooltip cursor={{ fill: '#f6f7fb' }} contentStyle={{ borderRadius: 10, border: '1px solid #e8ebf2' }} />
+                <Bar isAnimationActive={false} dataKey="count" name="调用次数" fill="#6a67e8" radius={[5, 5, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartPanel>
+        <ChartPanel title="调用结果" subtitle={`${filteredCalls.length ? Math.round(resultData[0].count / filteredCalls.length * 100) : 0}% 成功率`}>
+          <div className="chart-data" data-testid="result-chart" data-success={resultData[0].count} data-failure={resultData[1].count}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={resultData} margin={{ top: 8, right: 6, left: -24, bottom: 0 }}>
+                <CartesianGrid stroke="#edf0f5" vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#778196', fontSize: 10 }} />
+                <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#8b94a7', fontSize: 10 }} />
+                <Tooltip cursor={{ fill: '#f6f7fb' }} contentStyle={{ borderRadius: 10, border: '1px solid #e8ebf2' }} />
+                <Bar isAnimationActive={false} dataKey="count" name="次数" radius={[5, 5, 0, 0]}>
+                  <Cell fill="#24aa87" /><Cell fill="#ed795e" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartPanel>
+      </div>
+      <section className="panel table-panel call-trace-panel">
+        <div className="panel-title">
+          <div><h3>调用追踪</h3><p>一行一次运行 · 当前显示 {filteredCalls.length} 条模拟记录</p></div>
+          <div className="trace-legend">
+            <span><i className="web" />广场 Web：记录用户与用户组织</span>
+            <span><i className="api" />外部 API：记录密钥与调用方组织</span>
+            <button className="secondary-button"><Download size={15} /> 导出当前</button>
+          </div>
+        </div>
+        <div data-testid="agent-call-table">
+          <DataTable
+            columns={['时间', '调用方式', '用户账户名', '用户组织', '密钥登记 ID', '调用方名称', '调用方组织', '来源 IP', '应用名', 'Dify 运行 ID', '耗时', '结果']}
+            rows={callRows}
+          />
+        </div>
+      </section>
+      <section className="panel table-panel">
+        <div className="panel-title">
+          <div><h3>发布资源校验</h3><p>未批准的插件、工具或 MCP 仅在发布工单中告警</p></div>
+          <button className="text-button">查看发布工单 <ArrowRight size={15} /></button>
+        </div>
+        <DataTable columns={data.columns} rows={data.rows} onAction={(row) => onWorkOrder(`发布资源校验 · ${row[0]}`)} />
+      </section>
+    </>
+  )
+}
+
 function MonitorPage({ view, onWorkOrder }: { view: View; onWorkOrder: (title: string) => void }) {
   const data = monitorData[view]
   if (!data) return null
+  if (view === 'agents') return <AgentMonitorPage onWorkOrder={onWorkOrder} />
   return (
     <>
       <PageHeader
