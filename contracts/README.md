@@ -8,3 +8,6 @@
 | 其他三个仓库 | 能力组件 | [插件样例包](repository-api/plugin.openapi.json)、[MCP 只读目录](repository-api/mcp.openapi.json)、[智能体只读目录](repository-api/agent.openapi.json) |
 
 提供方和调用方共同维护契约。接口变更同时更新规范、实现和 tests/integration 中的用例。浏览器使用的 /api/tickets 由管理组维护。Dify、RAGFlow 和模型中心的协议由能力组在适配器内处理。
+部署核验接口为 GET /internal/v1/capabilities，可按 workspaceId 查询。能力服务通过 CAPABILITY_EVIDENCE_FILE 读取本部署维护的 JSON 数组，每项包含 ticketType、ticketTypeVersion、action、variant、workspaceId、state、reasonCode、checkedAt。通用范围用 null，实际工作区只匹配自身证据。缺少处理器返回 unsupported，已接线且缺少核验记录返回 unverified。
+
+每个工单类型、类型版本、动作、实现方式和工作区的组合只保存一条当前核验记录。更新状态时替换原记录。查询遇到重复记录返回 HTTP 503 和错误码 `AMBIGUOUS_EVIDENCE`，管理端应暂停依赖该核验结果的发布操作。

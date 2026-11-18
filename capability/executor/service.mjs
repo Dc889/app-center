@@ -55,6 +55,32 @@ export function startExecutor(options) {
     }
   }
   return listen(async (req,res,path) => {
+    if (req.method === 'GET' && path === prefix + '/capabilities') {
+      const workspaceId = new URL(req.url,'http://localhost').searchParams.get('workspaceId')
+      const evidence = process.env.CAPABILITY_EVIDENCE_FILE
+        ? JSON.parse(readFileSync(process.env.CAPABILITY_EVIDENCE_FILE,'utf8')) : []
+      const items = []
+      for (const [ticketType, names] of Object.entries(actions)) {
+        for (const action of names) {
+          const variants = ticketType === 'KB-03'
+            ? ['RAGFlow外部知识库','Dify同workspace授权','Dify跨workspace复制'] : [null]
+          for (const variant of variants) {
+            const matches = evidence.filter(e => e.ticketType === ticketType && e.ticketTypeVersion === '1'
+              && e.action === action && e.variant === variant && e.workspaceId === workspaceId)
+            check(matches.length <= 1,503,'AMBIGUOUS_EVIDENCE','同一能力分支存在重复核验记录')
+            const proof = matches[0]
+            const wired = action === 'download' || action === 'install'
+            const valid = proof && ['verified','unsupported'].includes(proof.state)
+              && typeof proof.reasonCode === 'string' && typeof proof.checkedAt === 'string' && Number.isFinite(Date.parse(proof.checkedAt))
+            items.push({ticketType,ticketTypeVersion:'1',action,variant,
+              state: wired && valid ? proof.state : wired ? 'unverified' : 'unsupported',
+              reasonCode: wired ? (valid ? proof.reasonCode : 'NO_DEPLOYMENT_EVIDENCE') : 'NO_HANDLER',
+              checkedAt: wired && valid ? proof.checkedAt : null})
+          }
+        }
+      }
+      return json(res,{items,asOf:stamp()})
+    }
     if (req.method==='GET' && path===prefix+'/catalog/plugin/document-parser') {
       const info=await (await plugin('/plugins/document-parser/versions/v2.4.1')).json()
       return json(res,{resourceId:info.resourceId,name:info.resourceId,status:'approved',actions:['install'],data:info})

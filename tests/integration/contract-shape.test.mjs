@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { localStack } from '../../dev/services.mjs'
@@ -11,12 +11,46 @@ function hasKeys(value, keys) {
   for (const key of keys) assert.equal(Object.hasOwn(value, key), true, '缺少 ' + key)
 }
 
+test('能力核验按工作区隔离，冲突记录不能用于发布', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'capability-evidence-'))
+  const file = join(dir, 'evidence.json')
+  const stack = await localStack(dir)
+  const original = process.env.CAPABILITY_EVIDENCE_FILE
+  t.after(async () => {
+    if (original === undefined) delete process.env.CAPABILITY_EVIDENCE_FILE
+    else process.env.CAPABILITY_EVIDENCE_FILE = original
+    await stack.close()
+    await rm(dir, {recursive:true, force:true})
+  })
+  const record = {ticketType:'SKL-03',ticketTypeVersion:'1',action:'download',variant:null,
+    workspaceId:'alpha',state:'verified',reasonCode:'CHECK_PASSED',checkedAt:'2026-11-18T01:00:00Z'}
+  await writeFile(file, JSON.stringify([record]))
+  process.env.CAPABILITY_EVIDENCE_FILE = file
+  const query = workspace => fetch(stack.executor+'/internal/v1/capabilities?workspaceId='+workspace,
+    {headers:{authorization:'Bearer '+stack.token}})
+  for (const [workspace, expected] of [['alpha','verified'],['beta','unverified']]) {
+    const response = await query(workspace)
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).items.find(item => item.action==='download').state, expected)
+  }
+  await writeFile(file, JSON.stringify([record,{...record,state:'unsupported'}]))
+  const conflict = await query('alpha')
+  assert.equal(conflict.status,503)
+  assert.equal((await conflict.json()).error.code,'AMBIGUOUS_EVIDENCE')
+})
+
 test('运行结果符合两份已接通的 OpenAPI', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'app-center-contract-'))
   const stack = await localStack(dir)
   t.after(async () => { await stack.close(); await rm(dir, { recursive: true, force: true }) })
   const auth = { authorization: 'Bearer ' + stack.token, 'content-type': 'application/json' }
   const owner = { ...auth, 'x-account': 'chen.yu', 'x-org': encodeURIComponent('业务一部') }
+
+  const catalogStatus = await (await fetch(stack.executor + '/internal/v1/capabilities?workspaceId=test', { headers: auth })).json()
+  assert.equal(new Set(catalogStatus.items.map(item => item.action)).size, 33)
+  assert.equal(catalogStatus.items.filter(item => item.ticketType === 'KB-03').length, 3)
+  assert.ok(catalogStatus.items.every(item => item.ticketType !== 'EVT-01'))
+  assert.equal(catalogStatus.items.find(item => item.action === 'rotate_key').state, 'unsupported')
 
   const skills = await (await fetch(stack.skill + '/internal/v1/skills', { headers: auth })).json()
   hasKeys(skills, ['items', 'nextCursor'])

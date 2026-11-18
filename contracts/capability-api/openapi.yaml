@@ -6,6 +6,37 @@ info:
 servers:
   - url: /internal/v1
 paths:
+  /capabilities:
+    get:
+      operationId: listExecutionCapabilities
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: workspaceId, in: query, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: 当前部署对每个已登记执行分支的核验结果；省略工作区时仅查询通用证据。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, asOf]
+                properties:
+                  asOf: {type: string, format: date-time}
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [ticketType, ticketTypeVersion, action, variant, state, reasonCode, checkedAt]
+                      properties:
+                        ticketType: {type: string}
+                        ticketTypeVersion: {type: string}
+                        action: {type: string}
+                        variant: {type: string, nullable: true}
+                        state: {type: string, enum: [verified, unverified, unsupported]}
+                        reasonCode: {type: string}
+                        checkedAt: {type: string, format: date-time, nullable: true}
+        '403': {description: 服务身份无效}
+        '503': {description: 核验记录暂不可读取}
   /executions:
     post:
       operationId: submitExecution
