@@ -1,0 +1,2 @@
+document-parser v2.4.1
+内网安装包记录。这里不包含 GitHub 地址，也不从公网市场拉取。

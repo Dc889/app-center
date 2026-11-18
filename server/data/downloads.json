@@ -1,0 +1,52 @@
+[
+  {
+    "resultId": "DL-1794925903442",
+    "ticketNo": "SKL-TEST-1",
+    "account": "chen.yu",
+    "org": "业务一部",
+    "name": "公文摘要 Skill",
+    "version": "v2.1.0",
+    "sha256": "656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1",
+    "at": "2026-11-17T14:31:43.442Z"
+  },
+  {
+    "resultId": "DL-1794925942404",
+    "ticketNo": "SKL-TEST-1",
+    "account": "chen.yu",
+    "org": "业务一部",
+    "name": "公文摘要 Skill",
+    "version": "v2.1.0",
+    "sha256": "656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1",
+    "at": "2026-11-17T14:32:22.404Z"
+  },
+  {
+    "resultId": "DL-1794925966283",
+    "ticketNo": "SKL-03-1794925966281",
+    "account": "chen.yu",
+    "org": "业务一部",
+    "name": "公文摘要 Skill",
+    "version": "v2.1.0",
+    "sha256": "656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1",
+    "at": "2026-11-17T14:32:46.284Z"
+  },
+  {
+    "resultId": "DL-1794926012222",
+    "ticketNo": "SKL-TEST-1",
+    "account": "chen.yu",
+    "org": "业务一部",
+    "name": "公文摘要 Skill",
+    "version": "v2.1.0",
+    "sha256": "656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1",
+    "at": "2026-11-17T14:33:32.223Z"
+  },
+  {
+    "resultId": "DL-1794926269042",
+    "ticketNo": "SKL-TEST-1",
+    "account": "chen.yu",
+    "org": "业务一部",
+    "name": "公文摘要 Skill",
+    "version": "v2.1.0",
+    "sha256": "656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1",
+    "at": "2026-11-17T14:37:49.042Z"
+  }
+]
