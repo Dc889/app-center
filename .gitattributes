@@ -1,0 +1,2 @@
+capability/repositories/skill/objects/* -text
+capability/repositories/plugin/packages/* -text

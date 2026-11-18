@@ -1,0 +1,88 @@
+{
+  "KB-01": [
+    "sync_dataset"
+  ],
+  "KB-02": [
+    "publish_dataset"
+  ],
+  "KB-03": [
+    "bind_dataset"
+  ],
+  "KB-04": [
+    "review_dataset_changes"
+  ],
+  "KB-05": [
+    "pause_share",
+    "dispose_dataset"
+  ],
+  "AG-01": [
+    "sync_app"
+  ],
+  "AG-02": [
+    "publish"
+  ],
+  "AG-03": [
+    "grant_app_access"
+  ],
+  "AG-04": [
+    "republish"
+  ],
+  "AG-05": [
+    "withdraw_app"
+  ],
+  "KEY-01": [
+    "create_key"
+  ],
+  "KEY-02": [
+    "rotate_key",
+    "revoke_key"
+  ],
+  "TOL-01": [
+    "set_tool_approval"
+  ],
+  "PLG-01": [
+    "publish_package"
+  ],
+  "PLG-02": [
+    "revise_package"
+  ],
+  "PLG-03": [
+    "install",
+    "upgrade",
+    "uninstall"
+  ],
+  "PLG-04": [
+    "disable_plugin",
+    "restore_plugin"
+  ],
+  "SKL-01": [
+    "publish_skill"
+  ],
+  "SKL-02": [
+    "revise_skill"
+  ],
+  "SKL-03": [
+    "download"
+  ],
+  "SKL-04": [
+    "withdraw_skill"
+  ],
+  "MCP-01": [
+    "register_mcp"
+  ],
+  "MCP-02": [
+    "bind"
+  ],
+  "MCP-03": [
+    "unbind_mcp",
+    "isolate_mcp",
+    "withdraw_mcp"
+  ],
+  "ACC-01": [
+    "apply_account_change"
+  ],
+  "ACC-02": [
+    "rename_account"
+  ],
+  "EVT-01": []
+}

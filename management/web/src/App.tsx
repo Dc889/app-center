@@ -1,3 +1,4 @@
+import { submitTicket, type TicketResult } from './tickets'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity, AlertTriangle, ArrowRight, Bell, Bot,
@@ -1676,6 +1677,7 @@ function CatalogWarehouse({ view, role, onWorkOrder }: { view: CatalogView; role
   const [status, setStatus] = useState('全部')
   const [selectedId, setSelectedId] = useState('')
   const [notice, setNotice] = useState('')
+  const [reserving,setReserving] = useState(false)
   const statuses = ['全部', ...Array.from(new Set(catalog.map((item) => item.status)))]
   const filtered = catalog.filter((item) => {
     const haystack = [item.name, item.owner, item.org, item.summary, item.meta, ...item.tags].join(' ').toLowerCase()
@@ -1778,7 +1780,20 @@ function CatalogWarehouse({ view, role, onWorkOrder }: { view: CatalogView; role
               <h4>{view === 'skillWarehouse' ? '下载' : view === 'mcpWarehouse' ? '绑定' : '安装'}</h4>
               <p>这个动作只生成 {selected.ticket}，不直接改 Dify 或对象存储。</p>
               {selected.unavailable && <div className="method-block-note">{selected.reason}{staff ? ` · ${selected.releases[0]?.ticket}` : ''}</div>}
-              <button className="primary-button" disabled={selected.unavailable} onClick={() => setNotice(`已生成 ${selected.ticket}。${selected.action}申请已记入我的申请；公开或本人私有的即办单由系统自动执行。`)}>
+              <button className="primary-button" disabled={selected.unavailable || reserving} onClick={async () => {
+                if (view !== 'skillWarehouse') {
+                  setNotice(`${selected.ticket} · 此页面使用演示目录，请到手工申请查看办理条件。`)
+                  return
+                }
+                setReserving(true)
+                try {
+                  const ticket = await submitTicket('SKL-03-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),'SKL-03','download',selected.id,personOf(role).account)
+                  if (ticket.downloadUrl) window.location.assign(ticket.downloadUrl)
+                  setNotice(`${ticket.ticketNo} · ${ticket.failureReason || '可在我的申请查看交付结果。'}`)
+                } catch (error) {
+                  setNotice(error instanceof Error ? error.message : '下载服务未响应')
+                } finally { setReserving(false) }
+              }}>
                 {selected.action}
               </button>
               {notice && <div className="method-block-note" data-testid="catalog-notice">{notice}</div>}
@@ -2071,7 +2086,7 @@ function personOf(role: Role) {
   return { name: '陈宇', account: 'chen.yu', org: '业务一部', line: '刑侦', level: '内部' }
 }
 
-type ResourceStamp = { name: string; level: string; line: string }
+type ResourceStamp = { name: string; level: string; line: string; action?: string }
 
 function defaultPath(code: string) {
   if (code === 'MCP-03') return '解绑'
@@ -2462,6 +2477,7 @@ function AgentTicketBody({ code, role, onMeta }: { code: string; role: Role; onM
 
 function CatalogActionBody({ code, role, onMeta }: { code: string; role: Role; onMeta: (meta: ResourceStamp) => void }) {
   const person = personOf(role)
+  const [operation, setOperation] = useState('install')
   const [pick, setPick] = useState(code === 'PLG-03' ? 'document-parser' : code === 'MCP-02' ? '档案检索服务' : '公文摘要 Skill')
   useEffect(() => {
     const table: Record<string, ResourceStamp> = {
@@ -2473,8 +2489,8 @@ function CatalogActionBody({ code, role, onMeta }: { code: string; role: Role; o
       '公文摘要 Skill': { name: '公文摘要 Skill', level: '内部', line: '刑侦' },
       '表格分析 Skill': { name: '表格分析 Skill', level: '', line: '' },
     }
-    onMeta(table[pick] ?? { name: pick, level: '', line: '' })
-  }, [pick, onMeta])
+    onMeta({...table[pick] ?? { name: pick, level: '', line: '' }, action:operation})
+  }, [pick, operation, onMeta])
   if (code === 'PLG-03') {
     return (
       <div className="form-section">
@@ -2492,7 +2508,7 @@ function CatalogActionBody({ code, role, onMeta }: { code: string; role: Role; o
         </div>
         <FormField label="版本指纹" source="本平台"><input value="plg_fp_2f91" readOnly /></FormField>
         <div className="form-row">
-          <FormField label="操作类型" source="用户" required><select><option>安装</option><option>升级</option><option>卸载</option></select></FormField>
+          <FormField label="操作类型" source="用户" required><select value={operation} onChange={e=>setOperation(e.target.value)}><option value="install">安装</option><option value="upgrade">升级</option><option value="uninstall">卸载</option></select></FormField>
           <FormField label="公开方式" source="本平台"><input value="公开免审" readOnly /></FormField>
         </div>
         <div className="form-row">
@@ -2544,13 +2560,13 @@ function CatalogActionBody({ code, role, onMeta }: { code: string; role: Role; o
         <FormField label="Skill名称" source="本平台"><input value={pick} readOnly /></FormField>
         <FormField label="版本号" source="本平台"><input value={pick === '表格分析 Skill' ? 'v1.8.2' : 'v2.1.0'} readOnly /></FormField>
       </div>
-      <FormField label="文件SHA-256" source="本平台"><input value="a8df…930c" readOnly /></FormField>
+      <FormField label="文件SHA-256" source="本平台"><input value="提交时按仓库版本核验" readOnly /></FormField>
       <div className="form-row">
         <FormField label="下载人账户名" source="本平台"><input value={`${person.name} · ${person.account}`} readOnly /></FormField>
         <FormField label="下载人组织" source="本平台"><input value={person.org} readOnly /></FormField>
       </div>
       <div className="form-row">
-        <FormField label="权限核对结果" source="本平台"><input value="允许" readOnly /></FormField>
+        <FormField label="权限核对结果" source="本平台"><input value="提交时由管理端核验" readOnly /></FormField>
         <FormField label="下载结果" source="本平台"><input value="交付后写入成功或失败" readOnly /></FormField>
       </div>
       <FormField label="下载流水号" source="本平台"><input value="交付成功后生成" readOnly /></FormField>
@@ -2575,7 +2591,9 @@ function ManualApplication({ role }: { role: Role }) {
   const [resourceName, setResourceName] = useState(opening.name)
   const [resourceLevel, setResourceLevel] = useState(opening.level)
   const [resourceLine, setResourceLine] = useState(opening.line)
+  const [pluginAction,setPluginAction] = useState('install')
   const onMeta = useCallback((meta: ResourceStamp) => {
+    setPluginAction(meta.action ?? 'install')
     setResourceName(meta.name)
     setResourceLevel(meta.level)
     setResourceLine(meta.line)
@@ -2604,7 +2622,7 @@ function ManualApplication({ role }: { role: Role }) {
     setResourceLine(found.line)
   }
   const person = personOf(role)
-  const [execution, setExecution] = useState<null | { ok: boolean; failureReason: string; resultId: string; ticketNo?: string }>(null)
+  const [execution, setExecution] = useState<TicketResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const note = needsApplicationNote(selected[0], path)
   const chooseLevel = needsLevelPick(selected[0], path)
@@ -2699,8 +2717,26 @@ function ManualApplication({ role }: { role: Role }) {
           {execution && (
             <div className={`read-source ${execution.ok ? '' : 'warn'}`}>
               <span>
-                <strong>{execution.ok ? `执行完成 · ${execution.resultId}` : '执行失败'}</strong>
-                <small>{execution.ok ? `${execution.ticketNo} 已写入下载流水` : execution.failureReason}</small>
+                <strong>{execution.ok ? `执行完成 · ${execution.resultId}` : execution.downloadUrl ? '等待领取文件' : execution.status === 'reconciling' ? '正在查证安装结果' : execution.status === 'queued' ? '等待执行' : '执行失败'}</strong>
+                <small>{execution.ok ? `${execution.ticketNo} 已完成` : execution.failureReason}</small>
+                {execution.downloadUrl && <button className="secondary-button" disabled={submitting} onClick={async () => {
+                  setSubmitting(true)
+                  try {
+                    const file = await fetch(execution.downloadUrl!)
+                    if (!file.ok) throw new Error('文件暂不可领取')
+                    const url = URL.createObjectURL(await file.blob())
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = /filename="([^"]+)"/.exec(file.headers.get('content-disposition') ?? '')?.[1] ?? 'skill.txt'
+                    link.click()
+                    setTimeout(() => URL.revokeObjectURL(url), 1000)
+                    const state = await fetch('/api/tickets/' + execution.ticketNo)
+                    if (!state.ok) throw new Error('回执待核对，可用原流水重试')
+                    setExecution(await state.json())
+                  } catch (error) {
+                    setExecution({...execution, failureReason: error instanceof Error ? error.message : '交付中断，可重试'})
+                  } finally { setSubmitting(false) }
+                }}>领取文件</button>}
               </span>
             </div>
           )}
@@ -2711,22 +2747,10 @@ function ManualApplication({ role }: { role: Role }) {
               const ticketNo = `${selected[0]}-${Date.now()}`
               setSubmitting(true)
               try {
-                const response = await fetch('/api/execute', {
-                  method: 'POST',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({
-                    ticketNo,
-                    ticketType: selected[0],
-                    action: selected[0] === 'SKL-03' ? 'download' : selected[0] === 'PLG-03' ? 'install' : '',
-                    resourceId: resourceName,
-                    account: person.account,
-                    org: person.org,
-                  }),
-                })
-                const result = await response.json()
-                setExecution({ ...result, ticketNo })
-              } catch {
-                setExecution({ ok: false, failureReason: '执行服务没有响应', resultId: '', ticketNo })
+                const action = selected[0] === 'SKL-03' ? 'download' : selected[0] === 'PLG-03' ? pluginAction : ''
+                setExecution(await submitTicket(ticketNo,selected[0],action,resourceName,person.account))
+              } catch (error) {
+                setExecution({ok:false, resultId:'', ticketNo, failureReason:error instanceof Error ? error.message : '执行服务没有响应'})
               } finally {
                 setSubmitting(false)
               }
@@ -2741,6 +2765,17 @@ function ManualApplication({ role }: { role: Role }) {
 function TicketList({ view, role, onWorkOrder }: { view: 'mine' | 'todo' | 'query'; role: Role; onWorkOrder: (title: string) => void }) {
   const isTodo = view === 'todo'
   const isQuery = view === 'query'
+  const [liveRows,setLiveRows] = useState<string[][]>([])
+  useEffect(()=>{
+    let current=true
+    if (view==='mine') fetch('/api/tickets?account='+encodeURIComponent(personOf(role).account))
+      .then(r=>r.json()).then(({items})=>{
+        if (current && Array.isArray(items)) setLiveRows(items.map(t=>[t.ticketNo,t.ticketType,t.selection,
+          t.status==='succeeded'?'已完成':t.status==='failed'?'执行失败':'执行中',
+          t.status==='awaiting_delivery'?'待领取文件':t.status==='succeeded'?'执行完成':t.failureReason || '执行查证',t.updatedAt]))
+      }).catch(()=>{})
+    return ()=>{current=false}
+  },[role,view])
   const adminRows = role === 'admin' && (isTodo || isQuery)
     ? [['ACC-20261115-0031', '跨平台账号开通 / 权限变更', '为林杰开通三方账号', '待受理', '账号配置办理', '今天 19:08']]
     : []
@@ -2753,7 +2788,7 @@ function TicketList({ view, role, onWorkOrder }: { view: 'mine' | 'todo' | 'quer
     ]
     : isQuery
       ? [...workOrders, ...adminRows]
-      : workOrders
+      : [...liveRows,...workOrders]
   const tabs = isTodo
     ? (role === 'admin' ? ['账号类待办 3', '运维待办 12'] : ['全部待办 12', '待受理 4', '审核中 5', '系统事件 3'])
     : ['全部', '草稿', '办理中', '待补正', '已完成', '已驳回', '执行失败', '已终止']
@@ -2772,7 +2807,11 @@ function TicketList({ view, role, onWorkOrder }: { view: 'mine' | 'todo' | 'quer
         <DataTable
           columns={['工单号', '工单类型', '工单标题', '当前状态', '当前节点', '最后更新']}
           rows={rows}
-          onAction={(row) => onWorkOrder(`${row[0]} · ${row[2]}`)}
+          onAction={(row) => {
+            if (liveRows.includes(row) && row[4]==='待领取文件') {
+              window.location.assign('/api/tickets/'+encodeURIComponent(row[0])+'/file')
+            } else onWorkOrder(`${row[0]} · ${row[2]}`)
+          }}
         />
         <div className="pagination"><span>共 {rows.length} 条</span><button disabled>上一页</button><button className="active">1</button><button>2</button><button>下一页</button></div>
       </section>
@@ -2880,8 +2919,8 @@ function App() {
   else if (safeView === 'pluginWarehouse' || safeView === 'mcpWarehouse' || safeView === 'skillWarehouse') content = <CatalogWarehouse view={safeView} role={role} onWorkOrder={setDrawer} />
   else if (monitorViews.includes(safeView)) content = <MonitorPage view={safeView} onWorkOrder={setDrawer} />
   else if (safeView === 'chat') content = <ChatApplication role={role} onSubmitted={() => undefined} />
-  else if (safeView === 'manual') content = <ManualApplication role={role} />
-  else if (safeView === 'mine' || safeView === 'todo' || safeView === 'query') content = <TicketList view={safeView} role={role} onWorkOrder={setDrawer} />
+  else if (safeView === 'manual') content = <ManualApplication key={role} role={role} />
+  else if (safeView === 'mine' || safeView === 'todo' || safeView === 'query') content = <TicketList key={role+safeView} view={safeView} role={role} onWorkOrder={setDrawer} />
   else if (safeView === 'types' && role === 'admin') content = <TicketTypes />
   else content = <ChatApplication role={role} onSubmitted={() => undefined} />
 

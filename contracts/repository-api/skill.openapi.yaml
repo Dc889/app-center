@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: Skill 仓库接口
+  version: 0.1.0
+  description: 能力组件调用。仓库只核验版本、摘要和下载范围，不审批工单。
+servers:
+  - url: /internal/v1
+paths:
+  /skills:
+    get:
+      operationId: listSkills
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 当前可交付的 Skill
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  nextCursor:
+                    nullable: true
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SkillItem'
+  /deliveries:
+    post:
+      operationId: reserveDelivery
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveRequest'
+      responses:
+        '200':
+          description: 新建或返回已有预约
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '403':
+          description: 不在下载范围内
+        '409':
+          description: 版本或摘要与仓库不一致，或同一流水的请求内容不同
+  /deliveries/{resultId}/file:
+    get:
+      operationId: readDeliveryFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ResultId'
+      responses:
+        '200':
+          description: 文件字节
+          headers:
+            X-Content-SHA256:
+              schema:
+                type: string
+        '404':
+          description: 没有这个流水
+  /deliveries/{resultId}/receipt:
+    put:
+      operationId: recordReceipt
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ResultId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sha256, bytesSent]
+              properties:
+                sha256:
+                  type: string
+                bytesSent:
+                  type: integer
+      responses:
+        '200':
+          description: 记下交付时间。重复回执返回第一次的时间
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [resultId, deliveredAt]
+                properties:
+                  resultId:
+                    type: string
+                  deliveredAt:
+                    type: string
+                    format: date-time
+        '409':
+          description: 摘要或字节数与预约不一致
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ResultId:
+      name: resultId
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    SkillItem:
+      type: object
+      required: [resourceId, name, version, orgs, sha256, sizeBytes, status, revision]
+      properties:
+        resourceId:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        orgs:
+          type: array
+          items:
+            type: string
+          description: 空数组表示不限组织
+        sha256:
+          type: string
+        sizeBytes:
+          type: integer
+        status:
+          type: string
+          enum: [available]
+        revision:
+          type: integer
+    ReserveRequest:
+      type: object
+      required: [executionId, resourceId, account, org, version, sha256]
+      properties:
+        executionId:
+          type: string
+        resourceId:
+          type: string
+        account:
+          type: string
+        org:
+          type: string
+        version:
+          type: string
+        sha256:
+          type: string
+    Delivery:
+      type: object
+      required: [resultId, version, sha256, filename, contentType, sizeBytes]
+      properties:
+        resultId:
+          type: string
+        version:
+          type: string
+        sha256:
+          type: string
+        filename:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer

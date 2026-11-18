@@ -1,0 +1,394 @@
+openapi: 3.0.3
+info:
+  title: 能力组件接口
+  version: 0.1.0
+  description: 管理系统调用。动作与 actions.json 对齐。SKL-03 已接通，插件安装按部署配置核验，其余登记动作返回 UPSTREAM_UNSUPPORTED。
+servers:
+  - url: /internal/v1
+paths:
+  /executions:
+    post:
+      operationId: submitExecution
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutionRequest'
+      responses:
+        '202':
+          description: 首次接单
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionState'
+        '200':
+          description: 同一执行标识的重复请求
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionState'
+        '400':
+          description: 字段或动作不合法
+        '409':
+          description: 同一标识内容不同，或同一工单已有未结束的执行
+  /executions/{executionId}:
+    get:
+      operationId: getExecution
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      responses:
+        '200':
+          description: 当前执行状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionState'
+        '404':
+          description: 没有这个执行标识
+  /catalog:
+    get:
+      operationId: listSkillCatalog
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [skill]
+        - name: X-Account
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Org
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 当前组织可见的 Skill
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogPage'
+        '501':
+          description: 除 skill 以外的种类尚未接通
+  /downloads/{resultId}:
+    get:
+      operationId: getSkillFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ResultId'
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 文件字节
+          headers:
+            X-Content-SHA256:
+              schema:
+                type: string
+        '404':
+          description: 流水不存在，或账户、组织与流水不一致
+  /downloads/{resultId}/receipt:
+    put:
+      operationId: confirmSkillDelivery
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ResultId'
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Receipt'
+      responses:
+        '200':
+          description: 执行变为 succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionState'
+        '409':
+          description: 摘要或字节数与预约不一致
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ExecutionId:
+      name: executionId
+      in: path
+      required: true
+      schema:
+        type: string
+    ResultId:
+      name: resultId
+      in: path
+      required: true
+      schema:
+        type: string
+    Account:
+      name: X-Account
+      in: header
+      required: true
+      schema:
+        type: string
+    Org:
+      name: X-Org
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    ExecutionRequest:
+      type: "object"
+      required: ["executionId", "ticketNo", "ticketType", "ticketTypeVersion", "action", "resourceId", "account", "org", "payload"]
+      properties: {"executionId": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$", "maxLength": 160}, "ticketNo": {"type": "string"}, "ticketType": {"type": "string"}, "ticketTypeVersion": {"type": "string", "enum": ["1"]}, "action": {"type": "string"}, "resourceId": {"type": "string"}, "account": {"type": "string"}, "org": {"type": "string"}, "payload": {"type": "object"}}
+      oneOf:
+        - properties:
+            ticketType: {enum: [KB-01]}
+            action: {enum: [sync_dataset]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [KB-02]}
+            action: {enum: [publish_dataset]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [KB-03]}
+            action: {enum: [bind_dataset]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [KB-04]}
+            action: {enum: [review_dataset_changes]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [KB-05]}
+            action: {enum: [pause_share, dispose_dataset]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [AG-01]}
+            action: {enum: [sync_app]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [AG-02]}
+            action: {enum: [publish]}
+            payload: {$ref: "#/components/schemas/PublishPayload"}
+        - properties:
+            ticketType: {enum: [AG-03]}
+            action: {enum: [grant_app_access]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [AG-04]}
+            action: {enum: [republish]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [AG-05]}
+            action: {enum: [withdraw_app]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [KEY-01]}
+            action: {enum: [create_key]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [KEY-02]}
+            action: {enum: [rotate_key, revoke_key]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [TOL-01]}
+            action: {enum: [set_tool_approval]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [PLG-01]}
+            action: {enum: [publish_package]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [PLG-02]}
+            action: {enum: [revise_package]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [PLG-03]}
+            action: {enum: [upgrade, uninstall]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [PLG-03]}
+            action: {enum: [install]}
+            payload: {$ref: "#/components/schemas/InstallPayload"}
+        - properties:
+            ticketType: {enum: [PLG-04]}
+            action: {enum: [disable_plugin, restore_plugin]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [SKL-01]}
+            action: {enum: [publish_skill]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [SKL-02]}
+            action: {enum: [revise_skill]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [SKL-03]}
+            action: {enum: [download]}
+            payload: {$ref: "#/components/schemas/SkillPayload"}
+        - properties:
+            ticketType: {enum: [SKL-04]}
+            action: {enum: [withdraw_skill]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [MCP-01]}
+            action: {enum: [register_mcp]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [MCP-02]}
+            action: {enum: [bind]}
+            payload: {$ref: "#/components/schemas/BindPayload"}
+        - properties:
+            ticketType: {enum: [MCP-03]}
+            action: {enum: [unbind_mcp, isolate_mcp, withdraw_mcp]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [ACC-01]}
+            action: {enum: [apply_account_change]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+        - properties:
+            ticketType: {enum: [ACC-02]}
+            action: {enum: [rename_account]}
+            payload: {$ref: "#/components/schemas/DecisionPayload"}
+    DecisionPayload:
+      type: "object"
+      required: ["decisionRef"]
+      properties: {"decisionRef": {"type": "string"}}
+    InstallPayload:
+      type: "object"
+      required: ["version", "sha256", "workspaceId"]
+      properties: {"version": {"type": "string"}, "sha256": {"type": "string"}, "workspaceId": {"type": "string"}}
+    BindPayload:
+      type: "object"
+      required: ["workspaceId", "startsAt", "expiresAt", "expectedUrlFingerprint"]
+      properties: {"workspaceId": {"type": "string"}, "startsAt": {"type": "string"}, "expiresAt": {"type": "string"}, "expectedUrlFingerprint": {"type": "string"}, "targetAppId": {"type": "string"}}
+    PublishPayload:
+      type: "object"
+      required: ["snapshotId", "workspaceId", "publicationVersionId", "expectedRevision", "scope", "targetOrgs", "targetAccounts", "boundaryOrgs", "usages"]
+      properties: {"snapshotId": {"type": "string"}, "workspaceId": {"type": "string"}, "publicationVersionId": {"type": "string"}, "expectedRevision": {"type": "integer"}, "scope": {"type": "string"}, "targetOrgs": {"type": "array", "items": {"type": "string"}}, "targetAccounts": {"type": "array", "items": {"type": "string"}}, "boundaryOrgs": {"type": "array", "items": {"type": "string"}}, "usages": {"type": "array", "items": {"type": "string"}}}
+    SkillPayload:
+      type: object
+      required: [version, sha256]
+      properties:
+        version:
+          type: string
+        sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+    ExecutionState:
+      type: object
+      required: [executionId, ticketNo, status, updatedAt, delivery, result]
+      properties:
+        executionId:
+          type: string
+        ticketNo:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, awaiting_delivery, reconciling, succeeded, failed, cancelled]
+        updatedAt:
+          type: string
+          format: date-time
+        delivery:
+          $ref: '#/components/schemas/Delivery'
+        result:
+          $ref: '#/components/schemas/ExecutionResult'
+    Delivery:
+      nullable: true
+      type: object
+      required: [resultId, version, sha256, filename, contentType, sizeBytes]
+      properties:
+        resultId:
+          type: string
+        version:
+          type: string
+        sha256:
+          type: string
+        filename:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+    ExecutionResult:
+      nullable: true
+      type: object
+      required: [ok, failureCode, failureReason, retryable, resultId, version, sha256, details]
+      properties:
+        ok:
+          type: boolean
+        failureCode:
+          type: string
+        failureReason:
+          type: string
+        retryable:
+          type: boolean
+        resultId:
+          type: string
+        version:
+          type: string
+        sha256:
+          type: string
+        details:
+          type: object
+          properties:
+            deliveredAt:
+              type: string
+              format: date-time
+    CatalogPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        nextCursor:
+          nullable: true
+        items:
+          type: array
+          items:
+            type: object
+            required: [resourceId, name, status, actions, data]
+            properties:
+              resourceId:
+                type: string
+              name:
+                type: string
+              status:
+                type: string
+              actions:
+                type: array
+                items:
+                  type: string
+              data:
+                type: object
+                required: [version, sha256, sizeBytes]
+                properties:
+                  version:
+                    type: string
+                  sha256:
+                    type: string
+                  sizeBytes:
+                    type: integer
+    Receipt:
+      type: object
+      required: [sha256, bytesSent]
+      properties:
+        sha256:
+          type: string
+        bytesSent:
+          type: integer

@@ -1,0 +1,106 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "管理端冻结输入回调",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "/internal/v1"
+    }
+  ],
+  "security": [
+    {
+      "serviceToken": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "serviceToken": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "paths": {
+    "/approved-inputs/{executionId}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "按执行 ID 精确读取",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "decisionRef",
+                    "ticketNo",
+                    "ticketType",
+                    "ticketTypeVersion",
+                    "action",
+                    "resourceId",
+                    "account",
+                    "org",
+                    "fields",
+                    "preconditions"
+                  ],
+                  "properties": {
+                    "decisionRef": {
+                      "type": "string"
+                    },
+                    "ticketNo": {
+                      "type": "string"
+                    },
+                    "ticketType": {
+                      "type": "string"
+                    },
+                    "ticketTypeVersion": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "resourceId": {
+                      "type": "string"
+                    },
+                    "account": {
+                      "type": "string"
+                    },
+                    "org": {
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "object"
+                    },
+                    "preconditions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "服务身份无效"
+          },
+          "404": {
+            "description": "记录不可见"
+          }
+        }
+      }
+    }
+  }
+}
