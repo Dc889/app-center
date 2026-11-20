@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {listen, json, body} from '../../../../runtime/http.mjs'
-import {grantDifySameWorkspaceAccess, revokeDifyDatasetAccess, copyDifyDatasetCrossWorkspace} from '../adapters/dify-datasets.mjs'
+import {grantDifySameWorkspaceAccess, revokeDifyDatasetAccess, copyDifyDatasetCrossWorkspace, createDifyExternalBinding} from '../adapters/dify-datasets.mjs'
 
 async function setup(t) {
   let dataset = {id: 'ds-real', name: 'Keep name', description: 'Keep description', provider: 'vendor', permission: 'partial_members',
@@ -87,4 +87,90 @@ test('HTTP成功但产品未实际写入权限时失败，不登记虚假授权�
   const app = await setup(t); app.ignore()
   await assert.rejects(() => grantDifySameWorkspaceAccess(command), error => error.code === 'PERMISSION_READBACK_FAILED')
   assert.deepEqual(app.dataset.partial_member_list, ['member-existing'])
+})
+
+test('RAGFlow外部知识库绑定创建后读回校验、失败清理孤立API模板、拒绝伪造应用绑定并支持删除撤回读回', async t => {
+  const apis = new Map()
+  const datasets = new Map()
+  let failCreateDataset = false
+  const server = await listen(async (req, res, path) => {
+    if (req.method === 'POST' && path === '/console/api/datasets/external-knowledge-api') {
+      const payload = await body(req)
+      const id = `api-${apis.size + 1}`
+      apis.set(id, {id, ...payload})
+      return json(res, {id}, 201)
+    }
+    const apiMatch = /^\/console\/api\/datasets\/external-knowledge-api\/([\w-]+)$/.exec(path)
+    if (apiMatch && req.method === 'GET') {
+      const row = apis.get(apiMatch[1])
+      return row ? json(res, row) : json(res, {code: 'not_found'}, 404)
+    }
+    if (apiMatch && req.method === 'DELETE') {
+      apis.delete(apiMatch[1])
+      return json(res, {result: 'success'})
+    }
+    if (req.method === 'POST' && path === '/console/api/datasets/external') {
+      if (failCreateDataset) return json(res, {code: 'fail', message: 'boom'}, 500)
+      const payload = await body(req)
+      const id = `ext-ds-${datasets.size + 1}`
+      datasets.set(id, {
+        id,
+        provider: 'external',
+        external_knowledge_info: {
+          external_knowledge_api_id: payload.external_knowledge_api_id,
+          external_knowledge_id: payload.external_knowledge_id,
+        },
+      })
+      return json(res, {id}, 201)
+    }
+    const dsMatch = /^\/console\/api\/datasets\/([\w-]+)$/.exec(path)
+    if (dsMatch && req.method === 'GET') {
+      const row = datasets.get(dsMatch[1])
+      return row ? json(res, row) : json(res, {code: 'not_found'}, 404)
+    }
+    if (dsMatch && req.method === 'DELETE') {
+      datasets.delete(dsMatch[1])
+      return json(res, {result: 'success'})
+    }
+    return json(res, {code: 'not_found'}, 404)
+  })
+  const env = {
+    DIFY_API_BASE: server.url, DIFY_CONSOLE_TOKEN: 'dify-tok', DIFY_WORKSPACE_ID: 'ws-a',
+    RAGFLOW_API_BASE: server.url, RAGFLOW_API_KEY: 'rag-tok',
+  }
+  const prev = Object.fromEntries(Object.keys(env).map(k => [k, process.env[k]]))
+  Object.assign(process.env, env)
+  t.after(async () => {
+    await server.close()
+    for (const [k, v] of Object.entries(prev)) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
+  })
+
+  await assert.rejects(
+    () => createDifyExternalBinding({name: 'rag-kb', targetWorkspaceId: 'ws-a', endpoint: 'http://host/api/v1/dify', externalKnowledgeId: 'rag-1', targetAppId: 'app-1'}),
+    error => error.status === 501,
+  )
+
+  failCreateDataset = true
+  await assert.rejects(
+    () => createDifyExternalBinding({name: 'rag-kb', targetWorkspaceId: 'ws-a', endpoint: 'http://host/api/v1/dify', externalKnowledgeId: 'rag-1'}),
+    error => error.status === 502,
+  )
+  assert.equal(apis.size, 0)
+
+  failCreateDataset = false
+  const created = await createDifyExternalBinding({name: 'rag-kb', targetWorkspaceId: 'ws-a', endpoint: 'http://host/api/v1/dify', externalKnowledgeId: 'rag-1'})
+  assert.equal(datasets.size, 1)
+  assert.equal(apis.size, 1)
+
+  const revoked = await revokeDifyDatasetAccess({
+    datasetId: created.externalDatasetId,
+    workspaceId: 'ws-a',
+    grantRef: created,
+  })
+  assert.deepEqual(revoked, {revoked: true, changed: true})
+  assert.equal(datasets.size, 0)
+  assert.equal(apis.size, 0)
 })

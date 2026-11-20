@@ -71,9 +71,9 @@ export async function getDifyDatasetDetail(datasetId, workspaceId) {
   }
 }
 
-export async function createDifyExternalBinding({name, targetWorkspaceId, endpoint, externalKnowledgeId}) {
-  const cfg = getDifyConfig()
-  check(!cfg.workspaceId || cfg.workspaceId === targetWorkspaceId, 501, 'UPSTREAM_UNSUPPORTED', 'Dify 当前访问身份不属于目标工作区')
+export async function createDifyExternalBinding({name, targetWorkspaceId, endpoint, externalKnowledgeId, targetAppId}) {
+  requireWorkspace(targetWorkspaceId)
+  check(!targetAppId, 501, 'UPSTREAM_UNSUPPORTED', '指定应用编排配置尚未完成真实适配，不以外部知识库创建冒充应用绑定')
   const rag = getRagflowConfig()
   check(rag.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
   const apiRes = await difyFetch('/console/api/datasets/external-knowledge-api', {
@@ -85,17 +85,37 @@ export async function createDifyExternalBinding({name, targetWorkspaceId, endpoi
   })
   const apiId = String(apiRes?.id ?? apiRes?.data?.id ?? '')
   check(apiId, 502, 'UPSTREAM_ERROR', 'Dify 未返回外部知识库 API 标识')
-  const extRes = await difyFetch('/console/api/datasets/external', {
-    method: 'POST',
-    body: {
-      name: `${name}-${Date.now().toString(36)}`.slice(0, 40),
-      external_knowledge_api_id: apiId,
-      external_knowledge_id: externalKnowledgeId,
-      external_retrieval_model: {top_k: 2, score_threshold: 0.5, score_threshold_enabled: false},
-    },
-  })
+  let extRes
+  try {
+    extRes = await difyFetch('/console/api/datasets/external', {
+      method: 'POST',
+      body: {
+        name: `${name}-${Date.now().toString(36)}`.slice(0, 40),
+        external_knowledge_api_id: apiId,
+        external_knowledge_id: externalKnowledgeId,
+        external_retrieval_model: {top_k: 2, score_threshold: 0.5, score_threshold_enabled: false},
+      },
+    })
+  } catch (err) {
+    try {
+      await difyFetch(`/console/api/datasets/external-knowledge-api/${encodeURIComponent(apiId)}`, {method: 'DELETE'})
+    } catch {
+      // Best-effort cleanup of orphan external knowledge API template.
+    }
+    throw err
+  }
   const datasetId = extRes?.id ?? extRes?.data?.id
   check(typeof datasetId === 'string' && datasetId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 未返回外部知识库标识')
+  const after = await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}`)
+  check(
+    after?.id === datasetId &&
+      after?.provider === 'external' &&
+      after?.external_knowledge_info?.external_knowledge_api_id === apiId &&
+      after?.external_knowledge_info?.external_knowledge_id === externalKnowledgeId,
+    502,
+    'EXTERNAL_BINDING_READBACK_FAILED',
+    'Dify 外部知识库创建后读回不一致，需查证原执行',
+  )
   return {
     externalApiId: apiId,
     externalDatasetId: datasetId,
@@ -158,7 +178,52 @@ export async function disableDifyDocument({datasetId, documentId, workspaceId}) 
   })
 }
 
+function isDifyNotFound(err) {
+  return err?.status === 404 || (err?.status === 400 && /not found/i.test(String(err?.message ?? '')))
+}
+
+async function assertDifyDeleted(path, label) {
+  let exists = false
+  try {
+    await difyFetch(path)
+    exists = true
+  } catch (err) {
+    if (!isDifyNotFound(err)) throw err
+  }
+  check(!exists, 502, 'EXTERNAL_REVOKE_READBACK_FAILED', `${label}删除后仍可读回`)
+}
+
+export async function revokeDifyExternalBinding({externalDatasetId, externalApiId, workspaceId}) {
+  requireWorkspace(workspaceId)
+  check(
+    typeof externalDatasetId === 'string' && externalDatasetId && typeof externalApiId === 'string' && externalApiId,
+    501,
+    'UPSTREAM_UNSUPPORTED',
+    '缺少可核验的外部知识库及API标识，不能撤销外部绑定',
+  )
+  try {
+    await difyFetch(`/console/api/datasets/${encodeURIComponent(externalDatasetId)}`, {method: 'DELETE'})
+  } catch (err) {
+    if (!isDifyNotFound(err)) throw err
+  }
+  await assertDifyDeleted(`/console/api/datasets/${encodeURIComponent(externalDatasetId)}`, '外部知识库')
+  try {
+    await difyFetch(`/console/api/datasets/external-knowledge-api/${encodeURIComponent(externalApiId)}`, {method: 'DELETE'})
+  } catch (err) {
+    if (!isDifyNotFound(err)) throw err
+  }
+  await assertDifyDeleted(`/console/api/datasets/external-knowledge-api/${encodeURIComponent(externalApiId)}`, '外部知识库API')
+  return {revoked: true, changed: true}
+}
+
 export async function revokeDifyDatasetAccess({datasetId, workspaceId, grantRef}) {
+  if (grantRef?.externalDatasetId || grantRef?.externalApiId) {
+    return revokeDifyExternalBinding({
+      externalDatasetId: grantRef.externalDatasetId,
+      externalApiId: grantRef.externalApiId,
+      workspaceId,
+    })
+  }
   requireWorkspace(workspaceId)
   check(grantRef && typeof grantRef.granteeAccountId === 'string' && Array.isArray(grantRef.addedMemberIds) &&
     grantRef.addedMemberIds.every(id => id === grantRef.granteeAccountId), 501, 'UPSTREAM_UNSUPPORTED', '缺少可核验的原生授权增量，不能猜测撤权接口或扩大范围')

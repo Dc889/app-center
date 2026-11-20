@@ -63,6 +63,13 @@ test('KB-01~KB-05：双引擎同步发布、真实协议分支与未适配分支
       calls.externalDataset += 1
       return json(res, {id: 'ext-ds-1'}, 201)
     }
+    if (req.method === 'GET' && path === '/console/api/datasets/ext-ds-1') {
+      return json(res, {
+        id: 'ext-ds-1',
+        provider: 'external',
+        external_knowledge_info: {external_knowledge_api_id: 'ext-api-1', external_knowledge_id: 'rag-ds-1'},
+      })
+    }
     if (req.method === 'PATCH' && path === '/console/api/datasets/dify-ds-1') {
       calls.sameWsGrant += 1
       return json(res, {id: 'dify-ds-1'})
@@ -121,11 +128,13 @@ test('KB-01~KB-05：双引擎同步发布、真实协议分支与未适配分支
   const prevEnv = {
     DIFY_API_BASE: process.env.DIFY_API_BASE,
     DIFY_CONSOLE_TOKEN: process.env.DIFY_CONSOLE_TOKEN,
+    DIFY_WORKSPACE_ID: process.env.DIFY_WORKSPACE_ID,
     RAGFLOW_API_BASE: process.env.RAGFLOW_API_BASE,
     RAGFLOW_API_KEY: process.env.RAGFLOW_API_KEY,
   }
   process.env.DIFY_API_BASE = difyServer.url
   process.env.DIFY_CONSOLE_TOKEN = 'dify-tok'
+  process.env.DIFY_WORKSPACE_ID = 'ws-a'
   process.env.RAGFLOW_API_BASE = ragServer.url
   process.env.RAGFLOW_API_KEY = 'rag-tok'
 
@@ -290,7 +299,6 @@ test('KB-01~KB-05：双引擎同步发布、真实协议分支与未适配分支
       实现方式: 'RAGFlow外部知识库',
       申请权限: '检索使用',
       获批使用者账户名: 'chen.yu',
-      目标智能体ID: 'app-1',
       外部知识库API地址: ctxRagBind.fields['外部知识库API地址'],
     },
     preconditions: ctxRagBind.preconditions,
