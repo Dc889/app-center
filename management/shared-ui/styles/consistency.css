@@ -272,3 +272,18 @@ td {
 .detail-list dd {
   font-size: 12px;
 }
+
+.role-tag {
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.manual-form,
+.form-title {
+  scroll-margin-top: 80px;
+}
+
+.form-title {
+  padding: 14px 23px;
+}

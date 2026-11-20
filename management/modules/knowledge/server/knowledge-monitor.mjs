@@ -269,11 +269,14 @@ export async function knowledgeMonitorReport({
     })
   }
 
-  // 9. 嵌入模型核对与失败分类
-  const embeddingModels = [
-    { modelName: 'bge-large-zh', sourceSystem: 'RAGFlow', status: '正常', datasetsCount: ragflowCount || 1 },
-    { modelName: 'text-embedding-v3', sourceSystem: 'Dify', status: '正常', datasetsCount: difyCount || 1 },
-  ]
+  // 9. 嵌入模型核对与失败分类（严格联调模式下不输出静态虚构模型）
+  const strictUpstream = process.env.CAPABILITY_STRICT_UPSTREAM === '1'
+  const embeddingModels = strictUpstream
+    ? []
+    : [
+        { modelName: 'bge-large-zh', sourceSystem: 'RAGFlow', status: '正常', datasetsCount: ragflowCount || 1 },
+        { modelName: 'text-embedding-v3', sourceSystem: 'Dify', status: '正常', datasetsCount: difyCount || 1 },
+      ]
 
   const failureCategories = [
     { category: '解析失败', code: 'parse_error', count: allTasks.filter(t => t.status === '进度停滞').length },

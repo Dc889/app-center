@@ -266,15 +266,16 @@ export async function agentMonitorReport({
     }
   }
 
-  // 2. 根据组织范围过滤开发者账户
-  const visibleAccounts = DIFY_ACCOUNTS.filter(acc => !effectiveOrg || acc.org === effectiveOrg)
+  const strictUpstream = process.env.CAPABILITY_STRICT_UPSTREAM === '1'
+  // 2. 根据组织范围过滤开发者账户（严格联调模式下不注入静态演示账户与日志）
+  const visibleAccounts = strictUpstream ? [] : DIFY_ACCOUNTS.filter(acc => !effectiveOrg || acc.org === effectiveOrg)
 
   // 3. 构建全量调用日志
   let seqCounter = 1
   const allLogs = []
   const useCountByApp = new Map()
 
-  for (const draft of INVOCATION_DRAFTS) {
+  for (const draft of strictUpstream ? [] : INVOCATION_DRAFTS) {
     const owner = DIFY_ACCOUNTS.find(a => a.account === draft.account)
     if (!owner) continue
     if (effectiveOrg && owner.org !== effectiveOrg) continue
