@@ -1,18 +1,15 @@
 import {randomUUID} from 'node:crypto'
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig, resolveProductOwner} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, resolveProductOwner, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 
 export async function listDifyApps({workspaceId, openLedger} = {}) {
-  const {base, token, isReal, workspaceId: configuredWorkspace} = getDifyConfig()
+  const {isReal, workspaceId: configuredWorkspace} = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 应用连接')
   const scope = workspaceId || configuredWorkspace
   const map = new Map()
   let page = 1
   for (;;) {
-    const response = await fetch(`${base}/console/api/apps?page=${page}&limit=100`, {
-      headers: {Authorization: `Bearer ${token}`},
-      signal: AbortSignal.timeout(15000),
-    })
+    const response = await difyConsoleFetch(`/console/api/apps?page=${page}&limit=100`)
     check(response.ok, 503, 'UPSTREAM_ERROR', `Dify 应用列表读取失败: HTTP ${response.status}`)
     const data = await response.json()
     check(Array.isArray(data?.data), 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用列表响应格式错误')
@@ -43,12 +40,9 @@ export async function listDifyApps({workspaceId, openLedger} = {}) {
 }
 
 export async function readDifyApp(appId, workspaceId) {
-  const {base, token, isReal, workspaceId: configuredWorkspace} = getDifyConfig()
+  const {isReal, workspaceId: configuredWorkspace} = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 应用连接')
-  const response = await fetch(`${base}/console/api/apps/${encodeURIComponent(appId)}`, {
-    headers: {Authorization: `Bearer ${token}`},
-    signal: AbortSignal.timeout(15000),
-  })
+  const response = await difyConsoleFetch(`/console/api/apps/${encodeURIComponent(appId)}`)
   check(response.ok, response.status === 404 ? 404 : 503, 'UPSTREAM_ERROR', `Dify 应用详情读取失败: HTTP ${response.status}`)
   const app = await response.json()
   check(app?.id === appId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用详情标识不一致')

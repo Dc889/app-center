@@ -1,4 +1,4 @@
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
 
 export const RESOURCE_KEYS = ['agents', 'datasets', 'tools', 'plugins', 'skills', 'mcp', 'keys']
@@ -58,10 +58,18 @@ export async function collectResourceInventory({clients, openLedger, now = Date.
 
   // Dify tools / datasets / keys & RAGFlow datasets if configured
   if (dify.isReal) {
+    const fetchDifySafe = async path => {
+      try {
+        const res = await difyConsoleFetch(path, {timeoutMs: 8000})
+        return res.ok ? await res.json() : null
+      } catch {
+        return null
+      }
+    }
     const [difyDs, difyTools, difyKeys] = await Promise.all([
-      fetchJsonSafe(`${dify.base}/console/api/datasets?limit=100`, dify.token),
-      fetchJsonSafe(`${dify.base}/console/api/workspaces/current/tools/api`, dify.token),
-      fetchJsonSafe(`${dify.base}/console/api/apps/api-keys/summary`, dify.token),
+      fetchDifySafe('/console/api/datasets?limit=100'),
+      fetchDifySafe('/console/api/workspaces/current/tools/api'),
+      fetchDifySafe('/console/api/apps/api-keys/summary'),
     ])
     let datasetCount = Array.isArray(difyDs?.data) ? difyDs.data.length : null
     if (ragflow.isReal) {

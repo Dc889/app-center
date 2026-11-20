@@ -1,14 +1,11 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig, resolveProductOwner} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, resolveProductOwner, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 
 export async function fetchDifyAppForKey(appId, workspaceId) {
-  const {base, token, isReal} = getDifyConfig()
+  const {base, isReal} = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置已核验的 Dify 访问身份')
 
-  const response = await fetch(`${base}/console/api/apps/${encodeURIComponent(appId)}`, {
-    headers: {Authorization: `Bearer ${token}`},
-    signal: AbortSignal.timeout(15000),
-  })
+  const response = await difyConsoleFetch(`/console/api/apps/${encodeURIComponent(appId)}`)
   check(response.status !== 404, 404, 'NOT_FOUND', 'Dify 应用不存在')
   check(response.ok, 503, 'UPSTREAM_ERROR', `Dify 应用读取失败: HTTP ${response.status}`)
 

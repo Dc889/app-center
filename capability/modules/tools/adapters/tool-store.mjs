@@ -1,5 +1,5 @@
 import {check, digest} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 
 
 export function computeToolFingerprint(tool) {
@@ -26,14 +26,11 @@ function pickText(value, fallback) {
 }
 
 export async function listWorkspaceTools({workspaceId, openLedger}) {
-  const {base, token, isReal} = getDifyConfig()
+  const {isReal} = getDifyConfig()
   const map = new Map()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 工具来源')
   {
-    const response = await fetch(`${base}/console/api/workspaces/current/tools/api`, {
-      headers: {Authorization: `Bearer ${token}`},
-      signal: AbortSignal.timeout(15000),
-    })
+    const response = await difyConsoleFetch('/console/api/workspaces/current/tools/api')
     check(response.ok, 503, 'UPSTREAM_ERROR', `Dify 工具列表读取失败: HTTP ${response.status}`)
     const rows = await response.json()
     const providers = Array.isArray(rows) ? rows : rows?.data

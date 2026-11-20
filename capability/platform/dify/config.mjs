@@ -47,6 +47,27 @@ export async function refreshDifyConsoleToken() {
   return refreshInFlight
 }
 
+export async function difyConsoleFetch(path, {method = 'GET', headers = {}, body, timeoutMs = 15000} = {}) {
+  const {base, token, isReal} = getDifyConfig()
+  if (!isReal) throw Object.assign(new Error('未配置真实 Dify 连接凭证'), {status: 501, code: 'UPSTREAM_UNSUPPORTED'})
+  const url = path.startsWith('http://') || path.startsWith('https://') ? path : `${base}${path}`
+  const buildInit = currentToken => ({
+    method,
+    headers: {
+      Authorization: `Bearer ${currentToken}`,
+      ...headers,
+    },
+    ...(body !== undefined ? {body} : {}),
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  let res = await fetch(url, buildInit(token))
+  if (res.status === 401) {
+    const refreshed = await refreshDifyConsoleToken()
+    if (refreshed) res = await fetch(url, buildInit(refreshed))
+  }
+  return res
+}
+
 // 部署级所有者映射：真实 Dify/RAGFlow 只有 created_by(UUID/邮箱)，需显式映射到平台账号名。
 // DIFY_OWNER_ACCOUNT_MAP='{"<created_by或邮箱>":"chen.yu"}'；未映射时保留产品原始身份，不假定平台所有者。
 export function resolveProductOwner(candidates, {product = 'DIFY'} = {}) {

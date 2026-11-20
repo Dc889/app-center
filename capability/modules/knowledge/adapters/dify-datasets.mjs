@@ -1,20 +1,16 @@
 import {isDeepStrictEqual} from 'node:util'
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig, resolveProductOwner} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, resolveProductOwner, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
 import {computeManifest} from './knowledge-store.mjs'
 
 async function difyFetch(path, {method = 'GET', body} = {}) {
   const cfg = getDifyConfig()
   check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 连接凭证')
-  const res = await fetch(`${cfg.base}${path}`, {
+  const res = await difyConsoleFetch(path, {
     method,
-    headers: {
-      authorization: `Bearer ${cfg.token}`,
-      ...(body !== undefined ? {'content-type': 'application/json'} : {}),
-    },
+    headers: body !== undefined ? {'content-type': 'application/json'} : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(15000),
   })
   const text = await res.text()
   let data = null

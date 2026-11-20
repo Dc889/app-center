@@ -1,18 +1,14 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 export async function createDifyApiKey(command) {
-  const { base, token, isReal } = getDifyConfig()
+  const { base, isReal } = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '无法自动执行：未配置已核验的 Dify 访问身份')
 
   const appId = command.resourceId || command.payload?.appId
   check(typeof appId === 'string' && appId.trim(), 400, 'INVALID_APP_ID', '缺少实际 Dify 应用标识')
-  const response = await fetch(`${base}/console/api/apps/${encodeURIComponent(appId)}/api-keys`, {
+  const response = await difyConsoleFetch(`/console/api/apps/${encodeURIComponent(appId)}/api-keys`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    signal: AbortSignal.timeout(15000),
+    headers: {'Content-Type': 'application/json'},
   })
 
   if (!response.ok) {

@@ -1,12 +1,14 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 
 export async function pluginConsole(path, {method = 'GET', body} = {}) {
-  const {base, token, isReal} = getDifyConfig()
+  const {isReal} = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 插件连接')
-  const res = await fetch(`${base}/console/api/workspaces/current${path}`, {method,
-    headers: {authorization: `Bearer ${token}`, ...(body && !(body instanceof FormData) ? {'content-type': 'application/json'} : {})},
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000)})
+  const res = await difyConsoleFetch(`/console/api/workspaces/current${path}`, {
+    method,
+    headers: body && !(body instanceof FormData) ? {'content-type': 'application/json'} : {},
+    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+  })
   check(res.ok, res.status >= 500 ? 502 : res.status, 'UPSTREAM_ERROR', `Dify 插件接口 HTTP ${res.status}`)
   const data = await res.json().catch(() => null)
   check(data && typeof data === 'object', 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 插件响应无法解析')

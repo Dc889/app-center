@@ -1,25 +1,13 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig, refreshDifyConsoleToken} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 
 
 export async function listDifyWorkspaces({cursor = '', limit = 50} = {}) {
-  const {base, token, isReal} = getDifyConfig()
+  const {isReal} = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置已核验的 Dify 工作区连接')
   let rows
   {
-    let response = await fetch(`${base}/console/api/workspaces`, {
-      headers: {Authorization: `Bearer ${token}`},
-      signal: AbortSignal.timeout(15000),
-    })
-    if (response.status === 401) {
-      const refreshed = await refreshDifyConsoleToken()
-      if (refreshed) {
-        response = await fetch(`${base}/console/api/workspaces`, {
-          headers: {Authorization: `Bearer ${refreshed}`},
-          signal: AbortSignal.timeout(15000),
-        })
-      }
-    }
+    const response = await difyConsoleFetch('/console/api/workspaces')
     check(response.ok, 503, 'UPSTREAM_ERROR', `Dify 工作区查询失败: HTTP ${response.status}`)
     const data = await response.json()
     const raw = Array.isArray(data.workspaces) ? data.workspaces : Array.isArray(data.data) ? data.data : null

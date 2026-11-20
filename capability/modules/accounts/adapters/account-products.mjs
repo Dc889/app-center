@@ -1,5 +1,5 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
 
 const DIFY_TO_ROLE = {
@@ -45,15 +45,21 @@ export function requireDualAccountUpstreams() {
 }
 
 async function fetchJson(url, {method = 'GET', token, body, product} = {}) {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      authorization: `Bearer ${token}`,
-      ...(body !== undefined ? {'content-type': 'application/json'} : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(15000),
-  })
+  const res = product === 'ragflow'
+    ? await fetch(url, {
+        method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          ...(body !== undefined ? {'content-type': 'application/json'} : {}),
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(15000),
+      })
+    : await difyConsoleFetch(url, {
+        method,
+        headers: body !== undefined ? {'content-type': 'application/json'} : {},
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      })
   const text = await res.text()
   let parsed = null
   if (text) {
