@@ -87,9 +87,10 @@ export function startAgent(options) {
         if (input.expectedRevision !== undefined && input.expectedRevision !== null) {
           check(item.revision === input.expectedRevision, 409, 'STALE_SNAPSHOT', '智能体目录修订已变化')
         }
+        check(typeof input?.publicationVersionId === 'string' && input.publicationVersionId.trim(), 400, 'MISSING_PUBLICATION_VERSION')
         const nextRev = item.revision + 1
         const ver = {
-          publicationVersionId: input.publicationVersionId || `pub-${item.resourceId}-r${nextRev}`,
+          publicationVersionId: input.publicationVersionId,
           version: input.version || `v${nextRev}.0.0`,
           workflowSnapshotId: input.workflowSnapshotId || item.workflowSnapshotId,
           status: 'active',

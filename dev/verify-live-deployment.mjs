@@ -1,4 +1,9 @@
-import {existsSync, readFileSync, writeFileSync} from 'node:fs'
+import {existsSync, readFileSync} from 'node:fs'
+import assert from 'node:assert/strict'
+import {DatabaseSync} from 'node:sqlite'
+import {capabilityModules} from '../capability/app/modules.mjs'
+import {createProofJournal, proofScope} from './live-verification/proofs.mjs'
+import {liveProducts, skillArchive} from './live-verification/products.mjs'
 import {mkdtemp, rm} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join, resolve} from 'node:path'
@@ -19,30 +24,78 @@ process.env.RAGFLOW_API_BASE = creds.ragflow.base
 process.env.RAGFLOW_API_KEY = creds.ragflow.apiKey
 process.env.RAGFLOW_TENANT_ID = creds.ragflow.tenantId
 process.env.CAPABILITY_STRICT_UPSTREAM = '1'
+delete process.env.CAPABILITY_EVIDENCE_FILE // Never inherit the evidence being checked.
+process.env.RAGFLOW_EXTERNAL_ENDPOINT ??= 'http://host.docker.internal:9380/api/v1/dify'
 
 const wsId = creds.dify.workspaceId
 const runDir = await mkdtemp(join(tmpdir(), 'app-center-live-verify-'))
 const stack = await localStack(runDir)
 
-const evidence = []
-const report = []
-
-function recordProof({ticketType, action, variant = null, workspaceIds = [null, wsId], ok, detail}) {
-  const checkedAt = new Date().toISOString()
-  report.push({ticketType, action, variant, ok, detail, checkedAt})
-  if (!ok) return
-  for (const wid of workspaceIds) {
-    evidence.push({
-      ticketType,
-      ticketTypeVersion: '1',
-      action,
-      variant,
-      workspaceId: wid,
-      state: 'verified',
-      reasonCode: 'VERIFIED_LIVE_DIFY_1_7_1_RAGFLOW_0_22_1',
-      checkedAt,
-    })
+const products = liveProducts({dir: dataDir, credentials: creds})
+const journal = createProofJournal({dir: dataDir, modules: capabilityModules, workspaceId: wsId, resourceRunId: products.runId})
+let fixtureApps = [], fixtureDifyDataset, fixtureRagDataset
+const witness = (source, resourceId, assertion, observed = {}) => ({source, resourceId, assertion, observed, passed: true})
+function records(module, name) {
+  const file = join(runDir, `mod_${module}_${name}.sqlite`)
+  if (!existsSync(file)) return []
+  const db = new DatabaseSync(file, {readOnly: true})
+  try {return db.prepare('SELECT body FROM records').all().map(row => JSON.parse(row.body))}
+  finally {db.close()}
+}
+async function repository(kind, resourceId, suffix = '') {
+  const res = await fetch(`${stack[kind]}/internal/v1/${kind === 'agent' ? 'agents' : kind === 'skill' ? 'skills' : 'plugins'}/${encodeURIComponent(resourceId)}${suffix}`, {headers: {authorization: `Bearer ${stack.token}`}})
+  assert.equal(res.status, 200)
+  return res.json()
+}
+async function readback(meta, before) {
+  const id = fixtureApps[0].id
+  if (meta.ticketType.startsWith('KEY-')) {
+    const after = (await products.api('dify', `/console/api/apps/${id}/api-keys`)).data.map(row => row.id)
+    if (meta.action === 'create_key') assert.equal(after.filter(key => !before.includes(key)).length, 1)
+    else if (meta.action === 'rotate_key') {
+      assert.equal(before.filter(key => !after.includes(key)).length, 1)
+      assert.equal(after.filter(key => !before.includes(key)).length, 1)
+    } else {assert.equal(before.filter(key => !after.includes(key)).length, 1); assert.equal(after.length, 0)}
+    return [witness('Dify API key list', id, `key set transition: ${meta.action}`, {beforeKeyIds: before, afterKeyIds: after})]
   }
+  if (meta.ticketType.startsWith('SKL-')) {
+    const row = await repository('skill', 'skl-live-verify')
+    assert.equal(row.status, meta.action === 'withdraw_skill' ? 'withdrawn' : 'available')
+    if (meta.action === 'revise_skill') assert.ok((await repository('skill', row.resourceId, '/versions')).versions.length >= 2)
+    // Download receipt is checked inside its scenario, including content digest and cancellation.
+    return [witness('Skill repository readback', row.resourceId, `${meta.action}: status and persisted version`, {status: row.status, version: row.version, sha256: row.sha256, sizeBytes: row.sizeBytes})]
+  }
+  if (meta.ticketType.startsWith('AG-')) {
+    const appId = meta.action === 'sync_app' ? fixtureApps[1].id : id
+    const source = await products.api('dify', `/console/api/apps/${appId}`)
+    assert.ok(source.workflow?.id)
+    if (meta.action === 'sync_app') assert.ok(records('agents', 'synced-apps').some(row => row.resourceId === appId))
+    else {
+      const row = await repository('agent', id)
+      assert.equal(row.status, meta.action === 'withdraw_app' ? 'withdrawn' : 'active')
+      assert.equal(row.publicationVersionId, source.workflow.id)
+      if (meta.action === 'republish') assert.ok(row.revision >= 2)
+      if (meta.action === 'grant_app_access') assert.ok(records('agents', 'grants').find(row => row.catalogResourceId === id)?.items.includes('chen.yu'))
+    }
+    return [witness('Dify app and capability ledger readback', appId, meta.action, {sourceWorkflowId: source.workflow.id, catalog: meta.action === 'sync_app' ? records('agents', 'synced-apps').find(row => row.resourceId === appId) : await repository('agent', id)})]
+  }
+  if (meta.action === 'set_tool_approval') {
+    const rows = records('tools', 'approvals')
+    assert.equal(rows.length, 1); assert.equal(rows[0].status, 'approved')
+    const providers = await products.api('dify', '/console/api/workspaces/current/tools/api')
+    assert.ok(providers.some(provider => provider.tools?.some(tool => (tool.id || tool.name) === rows[0].toolId)))
+    return [witness('Dify tool and approval ledger readback', rows[0].toolId, 'approved discovered real tool', {status: rows[0].status, fingerprint: rows[0].fingerprint, revision: rows[0].revision})]
+  }
+  if (meta.action === 'sync_dataset' || meta.action === 'publish_dataset') {
+    const row = records('knowledge', 'datasets').find(row => row.sourceResourceId === fixtureDifyDataset)
+    assert.ok(row)
+    if (meta.action === 'publish_dataset') {assert.equal(row.status, '已发布'); assert.ok(row.documents.length > 0)}
+    const docs = await products.api('dify', `/console/api/datasets/${fixtureDifyDataset}/documents`)
+    assert.ok(docs.data.length > 0)
+    return [witness('Dify documents and knowledge ledger readback', fixtureDifyDataset, meta.action, {catalogResourceId: row.resourceId, status: row.status, revision: row.revision, documentIds: docs.data.map(doc => doc.id), manifestSha256: row.manifestSha256})]
+  }
+  // Unimplemented postconditions cannot silently promote a successful HTTP response.
+  return []
 }
 
 const reqApi = (path, cookie = '', payload = undefined, method = undefined) =>
@@ -78,17 +131,35 @@ async function waitApp(ticketNo, cookie, view = 'query', timeoutMs = 6000) {
 }
 
 async function runCheck(meta, fn) {
+  meta = {...meta, workspaceId: proofScope(meta.ticketType, wsId)}
   try {
+    if (meta.ticketType.startsWith('MCP-')) throw Object.assign(new Error('缺少真实模型中心技术注册及连接核验'), {code: 'MODEL_CENTER_UNCONFIGURED'})
+    if (meta.ticketType.startsWith('PLG-')) throw Object.assign(new Error('缺少真实可安装 difypkg；不使用 JSON 改扩展名冒充安装包'), {code: 'REAL_PLUGIN_PACKAGE_REQUIRED'})
+    if (meta.ticketType === 'KB-03') throw Object.assign(new Error('授权范围和外部检索效果尚待独立读回核验'), {code: 'BINDING_EFFECT_NOT_VERIFIED'})
+    const before = meta.ticketType.startsWith('KEY-') ? (await products.api('dify', `/console/api/apps/${fixtureApps[0].id}/api-keys`)).data.map(row => row.id) : null
     const detail = await fn()
-    recordProof({...meta, ok: true, detail})
-    console.log(`[PASS] ${meta.ticketType}/${meta.action}${meta.variant ? `(${meta.variant})` : ''}: ${detail}`)
+    const witnesses = meta.ticketType === 'EVT-01' ? [] : await readback(meta, before)
+    journal.record(meta, {ok: true, detail, witnesses})
+    console.log(`[${witnesses.length || meta.ticketType === 'EVT-01' ? 'PASS' : 'UNVERIFIED'}] ${meta.ticketType}/${meta.action}`)
   } catch (err) {
-    recordProof({...meta, ok: false, detail: err.message})
-    console.log(`[FAIL] ${meta.ticketType}/${meta.action}${meta.variant ? `(${meta.variant})` : ''}: ${err.message}`)
+    journal.record(meta, {reasonCode: err.code === 'ERR_ASSERTION' ? 'STATE_READBACK_FAILED' : typeof err.code === 'string' ? err.code : 'CHECK_FAILED', detail: String(err.message).replace(/Bearer\s+[^\s"']+/gi, 'Bearer [redacted]').replace(/app-[A-Za-z0-9]{20,}/g, '[redacted key]')})
+    console.log(`[UNVERIFIED] ${meta.ticketType}/${meta.action}: ${err.code ?? 'CHECK_FAILED'}`)
   }
 }
 
 try {
+  fixtureApps = [await products.app(), await products.app()]
+  fixtureDifyDataset = await products.dataset('dify')
+  fixtureRagDataset = await products.dataset('ragflow')
+  const difyOwner = fixtureApps[0].created_by
+  const ragSource = await products.api('ragflow', `/api/v1/datasets?id=${fixtureRagDataset}`)
+  assert.ok(difyOwner && ragSource.data[0]?.created_by)
+  process.env.DIFY_OWNER_ACCOUNT_MAP = JSON.stringify({[difyOwner]: 'chen.yu'})
+  process.env.RAGFLOW_OWNER_ACCOUNT_MAP = JSON.stringify({[ragSource.data[0].created_by]: 'chen.yu'})
+  // Replace only the in-memory run selection; the saved product inventory is unchanged.
+  creds.dify.appIds = fixtureApps.map(app => ({id: app.id}))
+  creds.dify.datasets = [{id: fixtureDifyDataset}]
+  creds.ragflow.datasets = [{id: fixtureRagDataset}]
   const userCookie = await login('chen.yu')
   const opCookie = await login('zhou.min')
   const op2Cookie = await login('wang.ning')
@@ -98,7 +169,7 @@ try {
   let skillIntake1 = null
   await runCheck({ticketType: 'SKL-01', action: 'publish_skill'}, async () => {
     const form = new FormData()
-    form.append('file', new Blob(['# Live Skill v1\n'], {type: 'application/octet-stream'}), 'live-skill-v1.tar.gz')
+    form.append('file', new Blob([skillArchive('1')], {type: 'application/octet-stream'}), 'live-skill-v1.tar.gz')
     const up = await fetch(stack.management + '/api/intake/skill', {
       method: 'POST',
       headers: {cookie: userCookie, 'idempotency-key': 'live-skl-1'},
@@ -138,7 +209,7 @@ try {
 
   await runCheck({ticketType: 'SKL-02', action: 'revise_skill'}, async () => {
     const form = new FormData()
-    form.append('file', new Blob(['# Live Skill v2\n'], {type: 'application/octet-stream'}), 'live-skill-v2.tar.gz')
+    form.append('file', new Blob([skillArchive('2')], {type: 'application/octet-stream'}), 'live-skill-v2.tar.gz')
     const up = await fetch(stack.management + '/api/intake/skill', {
       method: 'POST',
       headers: {cookie: userCookie, 'idempotency-key': 'live-skl-2'},
@@ -184,7 +255,8 @@ try {
     if (t1.status !== 200) throw new Error(`ticket ${t1.status}: ${await t1.text()}`)
     const dl = await reqApi('/api/tickets/SKL-03-live-dl/file', userCookie)
     if (dl.status !== 200) throw new Error(`file ${dl.status}`)
-    await dl.arrayBuffer()
+    const delivered = Buffer.from(await dl.arrayBuffer())
+    assert.ok(delivered.equals(skillArchive('2')))
     const t2 = await reqApi('/api/tickets', userCookie, {
       ticketNo: 'SKL-03-live-cancel',
       ticketType: 'SKL-03',
@@ -669,17 +741,163 @@ try {
     return 'manual report -> assess -> dispose -> independent review closed'
   })
 
-  // 写入仅包含真机实测通过条目的 CAPABILITY_EVIDENCE_FILE（过滤 EVT-01 非执行项）
-  const execEvidence = evidence.filter(e => e.ticketType !== 'EVT-01')
-  const evidencePath = join(dataDir, 'capability-evidence.json')
-  writeFileSync(evidencePath, JSON.stringify(execEvidence, null, 2))
-  const reportPath = join(dataDir, 'live-verification-report.json')
-  writeFileSync(reportPath, JSON.stringify({generatedAt: new Date().toISOString(), workspaceId: wsId, report}, null, 2))
+  // --- 8. AG-01 / AG-04 (真实 Dify 应用纳管同步、再发布) ---
+  const agApp2 = creds.dify.appIds[1].id
+  await runCheck({ticketType: 'AG-01', action: 'sync_app'}, async () => {
+    const sub = await reqApi('/api/applications', userCookie, {
+      ticketNo: 'AG-01-live-1',
+      ticketType: 'AG-01',
+      resourceId: agApp2,
+      workspaceId: wsId,
+      fields: {},
+    })
+    if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
+    const done = await waitApp('AG-01-live-1', userCookie, 'mine')
+    if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution)}`)
+    return `synced real Dify 1.7.1 app ${agApp2}`
+  })
 
-  const passed = report.filter(r => r.ok).length
-  console.log(`\n=== 真机联调核验汇总：${passed} / ${report.length} 项通过 ===`)
-  console.log(`已写入真实部署核验证据：${evidencePath}（${execEvidence.length} 条记录）`)
+  await runCheck({ticketType: 'AG-04', action: 'republish'}, async () => {
+    const sub = await reqApi('/api/applications', userCookie, {
+      ticketNo: 'AG-04-live-1',
+      ticketType: 'AG-04',
+      resourceId: firstAppId,
+      workspaceId: wsId,
+      fields: {changeDescription: '真机再发布验证'},
+    })
+    if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
+    const app = await sub.json()
+    const ap = await reqApi('/api/applications/transition', opCookie, {
+      ticketNo: 'AG-04-live-1',
+      revision: app.revision,
+      action: '批准',
+      note: '批准再发布',
+      riskDecision: 'continue',
+    })
+    if (ap.status !== 200) throw new Error(`approve ${ap.status}: ${await ap.text()}`)
+    const done = await waitApp('AG-04-live-1', opCookie)
+    if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution)}`)
+    return `republished ${firstAppId}`
+  })
+
+  // --- 9. KB-01 ~ KB-05 (真实 Dify 1.7.1 + RAGFlow 0.22.1 知识库) ---
+  async function syncDataset(no, sourceSystem, resourceId, scopeId) {
+    const sub = await reqApi('/api/applications', userCookie, {
+      ticketNo: no,
+      ticketType: 'KB-01',
+      resourceId,
+      workspaceId: scopeId,
+      fields: {sourceSystem},
+    })
+    if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
+    const done = await waitApp(no, userCookie, 'mine')
+    if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution)}`)
+    return done.execution.result.resultId
+  }
+  let difyKbId = null
+  let ragKbId = null
+  await runCheck({ticketType: 'KB-01', action: 'sync_dataset'}, async () => {
+    difyKbId = await syncDataset('KB-01-live-dify', 'Dify', creds.dify.datasets[0].id, wsId)
+    ragKbId = await syncDataset('KB-01-live-rag', 'RAGFlow', creds.ragflow.datasets[0].id, creds.ragflow.tenantId)
+    return `synced Dify ${difyKbId} + RAGFlow ${ragKbId}`
+  })
+
+  await runCheck({ticketType: 'KB-02', action: 'publish_dataset'}, async () => {
+    if (!difyKbId) throw new Error('missing difyKbId')
+    const sub = await reqApi('/api/applications', userCookie, {
+      ticketNo: 'KB-02-live-1',
+      ticketType: 'KB-02',
+      resourceId: difyKbId,
+      workspaceId: wsId,
+      fields: {
+        sourceSystem: 'Dify',
+        shareMode: '共享目录',
+        purpose: '供业务检索使用',
+        name: '真机联调法规知识库',
+        description: '真机发布验证',
+        tags: ['真机'],
+        boundaryOrgs: ['业务一部'],
+        classification: '内部',
+        businessLine: '法制研判',
+      },
+    })
+    if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
+    const app = await sub.json()
+    const confirmations = (app.snapshot?.fields?.['文档审查明细'] ?? []).map(d => ({documentId: d.documentId, sha256: d.sha256, verdict: '通过'}))
+    const ap = await reqApi('/api/applications/transition', opCookie, {
+      ticketNo: 'KB-02-live-1',
+      revision: app.revision,
+      action: '批准',
+      note: '逐文档复核通过',
+      confirmations,
+    })
+    if (ap.status !== 200) throw new Error(`approve ${ap.status}: ${await ap.text()}`)
+    const done = await waitApp('KB-02-live-1', opCookie)
+    if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution)}`)
+    return `published ${difyKbId}`
+  })
+
+  await runCheck({ticketType: 'KB-03', action: 'bind_dataset', variant: 'Dify同workspace授权'}, async () => {
+    if (!difyKbId) throw new Error('missing difyKbId')
+    const sub = await reqApi('/api/applications', userCookie, {
+      ticketNo: 'KB-03-live-same',
+      ticketType: 'KB-03',
+      resourceId: difyKbId,
+      workspaceId: wsId,
+      fields: {
+        purpose: '同区绑定知识库',
+        permission: '检索使用',
+        startsAt: new Date(Date.now() - 1000).toISOString(),
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    })
+    if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
+    const app = await sub.json()
+    if (app.status === '待受理') {
+      const ap = await reqApi('/api/applications/transition', opCookie, {ticketNo: 'KB-03-live-same', revision: app.revision, action: '批准', note: '同意绑定'})
+      if (ap.status !== 200) throw new Error(`approve ${ap.status}: ${await ap.text()}`)
+    }
+    const done = await waitApp('KB-03-live-same', opCookie)
+    if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution)}`)
+    return `same-workspace bind ${difyKbId}`
+  })
+
+  await runCheck({ticketType: 'KB-03', action: 'bind_dataset', variant: 'RAGFlow外部知识库'}, async () => {
+    if (!ragKbId) throw new Error('missing ragKbId')
+    const sub = await reqApi('/api/applications', userCookie, {
+      ticketNo: 'KB-03-live-rag',
+      ticketType: 'KB-03',
+      resourceId: ragKbId,
+      workspaceId: wsId,
+      fields: {
+        purpose: '以外部知识库接入 RAGFlow',
+        permission: '检索使用',
+        startsAt: new Date(Date.now() - 1000).toISOString(),
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    })
+    if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
+    const app = await sub.json()
+    if (app.status === '待受理') {
+      const ap = await reqApi('/api/applications/transition', opCookie, {ticketNo: 'KB-03-live-rag', revision: app.revision, action: '批准', note: '同意接入'})
+      if (ap.status !== 200) throw new Error(`approve ${ap.status}: ${await ap.text()}`)
+    }
+    const done = await waitApp('KB-03-live-rag', opCookie)
+    if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution?.result)}`)
+    return `RAGFlow external bind ${ragKbId}`
+  })
+
+  const summary = journal.save()
+  console.log(`\n部署分支核验：${summary.verified}/${summary.total} verified；其余明确未核验。EVT 另计。`)
+  if (summary.verified !== summary.total) process.exitCode = 1
 } finally {
+  const cleaned = await products.close()
+  if (!cleaned) {
+    journal.invalidate('CLEANUP_FAILED')
+    console.error('测试资源清理未全部通过，请按 live-resources 日志查证。')
+    process.exitCode = 1
+  }
+  journal.save()
   await stack.close()
   await rm(runDir, {recursive: true, force: true})
 }

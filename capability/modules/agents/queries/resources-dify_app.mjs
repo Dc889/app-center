@@ -50,13 +50,11 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
     mode: app?.mode ?? null,
     ownerAccount: app?.ownerAccount ?? catalogEntry?.ownerAccount ?? '',
     webSiteEnabled: app?.webSiteEnabled ?? null,
-    publicationVersionId: catalogEntry?.publicationVersionId ?? app?.publicationVersionId ?? null,
-    workflowSnapshotId: catalogEntry?.workflowSnapshotId ?? app?.workflowSnapshotId ?? null,
+    publicationVersionId: app?.publicationVersionId ?? null,
+    workflowSnapshotId: app?.workflowSnapshotId ?? null,
     catalogRevision: catalogEntry?.revision ?? 0,
   }
   if (catalogResourceId) {
-    data.publicationVersionId = catalogEntry?.publicationVersionId ?? null
-    data.workflowSnapshotId = catalogEntry?.workflowSnapshotId ?? null
     data.catalogRevision = catalogEntry?.revision ?? 0
     data.agentImpact = buildAgentImpact({
       resourceId: catalogResourceId,

@@ -57,7 +57,7 @@ test('AG-01~05 全生命周期：纳管、目标应用、发布、授权、影�
       })
     }
     if (path === '/console/api/apps/dify-app-a') {
-      return json(res, {id: 'dify-app-a', name: '智能研判 A', mode: 'workflow'})
+      return json(res, {id: 'dify-app-a', name: '智能研判 A', mode: 'workflow', workflow: {id: 'actual-source-workflow-v2'}})
     }
     return json(res, {error: 'not found'}, 404)
   })
@@ -213,6 +213,8 @@ test('AG-01~05 全生命周期：纳管、目标应用、发布、授权、影�
 
   // 5. CAP-AGT-02: resources/dify_app/:id 带 catalogResourceId 返回真实 agentImpact（calls30d 未采集标 unavailable 不伪造 0）
   const appDetail = await (await call('/resources/dify_app/dify-app-a?workspaceId=ws-a&catalogResourceId=cat-a')).json()
+  assert.equal(appDetail.data.publicationVersionId, 'actual-source-workflow-v2')
+  assert.equal(appDetail.data.workflowSnapshotId, 'actual-source-workflow-v2')
   assert.equal(appDetail.data.agentImpact.grants.state, 'collected')
   assert.equal(appDetail.data.agentImpact.grants.count, 2)
   assert.equal(appDetail.data.agentImpact.grants.revision, 1)
@@ -321,4 +323,24 @@ test('AG-01~05 全生命周期：纳管、目标应用、发布、授权、影�
   assert.equal(okWd.result.details.status, '已下架')
   assert.equal(okWd.result.details.revokedGrants, 2)
   assert.equal(okWd.result.details.replacementResourceId, 'cat-b')
+})
+
+
+test('AG-04 使用管理端冻结的newPublicationVersionId/newWorkflowSnapshotId，缺少版本不能补造', async () => {
+  const action = capabilityModule.actions.find(item => item.action === 'republish')
+  const command = {executionId: 'canonical-04', ticketType: 'AG-04', action: 'republish', resourceId: 'catalog-1', payload: {decisionRef: 'decision-1'}}
+  let fields = {newPublicationVersionId: 'real-new-publication', newWorkflowSnapshotId: 'real-workflow-snapshot'}
+  const writes = []
+  const clients = {
+    management: async () => ({json: async () => ({...command, decisionRef: 'decision-1', fields, preconditions: [{kind: 'agent', id: 'catalog-1', revision: 2}]})}),
+    agent: async (path, method, payload) => {writes.push({path, method, payload}); return {json: async () => ({resourceId: 'catalog-1', status: 'active', publicationVersionId: payload.publicationVersionId, revision: 3})}},
+  }
+  const state = {}
+  await action.execute({command, clients, state})
+  assert.equal(writes[0].payload.publicationVersionId, 'real-new-publication')
+  assert.equal(writes[0].payload.workflowSnapshotId, 'real-workflow-snapshot')
+  assert.equal(state.result.version, 'real-new-publication')
+  fields = {}
+  await assert.rejects(() => action.execute({command, clients, state: {}}), error => error.code === 'MISSING_APPROVED_VERSION')
+  assert.equal(writes.length, 1)
 })

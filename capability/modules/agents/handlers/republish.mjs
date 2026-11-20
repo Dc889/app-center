@@ -7,12 +7,17 @@ export async function execute(context) {
   const fields = approved?.fields ?? {}
   const agentPre = approved?.preconditions?.find(p => p && p.kind === 'agent' && p.id === command.resourceId)
   const expectedRevision = agentPre?.revision
+  const publicationVersionId = fields.newPublicationVersionId || fields.publicationVersionId || fields['新发布版本ID']
+  const workflowSnapshotId = fields.newWorkflowSnapshotId || fields.workflowSnapshotId || fields['新工作流快照ID']
+  check(typeof publicationVersionId === 'string' && publicationVersionId.trim(), 409, 'MISSING_APPROVED_VERSION', '获准输入缺少真实新发布版本')
+  check(typeof workflowSnapshotId === 'string' && workflowSnapshotId.trim(), 409, 'MISSING_APPROVED_SNAPSHOT', '获准输入缺少真实新工作流快照')
+
 
   const updated = await (
     await clients.agent('/agents/' + encodeURIComponent(command.resourceId), 'PUT', {
       expectedRevision,
-      publicationVersionId: fields.publicationVersionId || fields['新发布版本ID'] || `pub-${command.resourceId}-r${(expectedRevision ?? 1) + 1}`,
-      workflowSnapshotId: fields.workflowSnapshotId || fields['新工作流快照ID'],
+      publicationVersionId,
+      workflowSnapshotId,
       policyRef: fields.policyRef,
     })
   ).json()
