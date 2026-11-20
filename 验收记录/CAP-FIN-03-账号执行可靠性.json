@@ -1,0 +1,89 @@
+{
+  "scope": "account execution reliability and read-only native protocol guards; no ACC execution acceptance",
+  "nativeProtocolGuards": {
+    "checkedAt": "2026-11-20T08:00:28.728Z",
+    "scope": "read-only account protocol guards; no account execution acceptance",
+    "versions": {
+      "dify": "1.7.1",
+      "ragflow": "0.22.1"
+    },
+    "checks": [
+      {
+        "name": "Dify native GET current workspace + complete member list",
+        "passed": true,
+        "count": 1
+      },
+      {
+        "name": "Wrong workspace rejected before treating members as target facts",
+        "passed": true
+      },
+      {
+        "name": "Display name/email not fabricated into canonical account or recovery baseline",
+        "passed": true
+      },
+      {
+        "name": "Stock RAGFlow global user-admin query is unavailable, never an empty success",
+        "passed": true,
+        "rejection": {
+          "code": "UPSTREAM_BUSINESS_ERROR",
+          "status": 502
+        }
+      }
+    ],
+    "sourceFiles": {
+      "dify": [
+        {
+          "file": "/app/api/controllers/console/workspace/members.py",
+          "sha256": "17250c58ed53a713f8ba3cd94c0a8d5e54b969f912c9a049c5ead08f48d10c46"
+        },
+        {
+          "file": "/app/api/controllers/console/workspace/account.py",
+          "sha256": "7ecfef8c6565525d3145a90d3e851d5d2f19580d2e190256cf38b9a8c1646406"
+        }
+      ],
+      "ragflow": [
+        {
+          "file": "/ragflow/api/apps/tenant_app.py",
+          "sha256": "7526869155c31b7b500c405fe730f4d45e88c23199a6b0a2475bc0e6c570fcfc"
+        },
+        {
+          "file": "/ragflow/api/apps/user_app.py",
+          "sha256": "cb02f4ce60cee6b963145e942e4f9f91d4c1213f3591d96088cbd733b7306f98"
+        }
+      ]
+    },
+    "accountWriteRequests": 0,
+    "deploymentActionsVerified": 0,
+    "limitations": [
+      "Canonical platform account name versus product login email is not yet defined.",
+      "Dify role changes use PUT update-role; invitations create pending members and send email, not active-account provisioning.",
+      "RAGFlow dataset API keys are not console user sessions; stock team membership and current-user settings are not global user CRUD.",
+      "Two ACC branches remain unverified."
+    ]
+  },
+  "tests": {
+    "accounts": 12,
+    "capability": 76,
+    "integration": 237,
+    "boundaries": "passed",
+    "lint": "passed",
+    "build": "passed"
+  },
+  "deployment": {
+    "verified": 23,
+    "total": 35,
+    "newAccountBranchesVerified": 0,
+    "fullTicketsAccepted": 0,
+    "fullTicketsTotal": 27
+  },
+  "atomicChecklist": {
+    "completed": 52,
+    "total": 59,
+    "revokedOverstatedCompletions": [
+      "CAP-ACC-01",
+      "CAP-ACC-02",
+      "CAP-ACC-03",
+      "CAP-PLG-06"
+    ]
+  }
+}

@@ -1,14 +1,16 @@
-import {check, id} from '../../../../runtime/http.mjs'
+import {check, id, same} from '../../../../runtime/http.mjs'
 import {
   requireDualAccountUpstreams,
   fetchApprovedAccountInputs,
-  commitManagementAccountChange,
   updateRagflowUser,
   updateDifyMember,
+  assertUniqueProductAccount,
 } from '../adapters/account-products.mjs'
+import {beginAccountTransaction, productStep, commitVerifiedAccount} from '../adapters/account-transaction.mjs'
 import {readLiveAccountFacts, extractPreconditionRevision, sealFailedAccountExecution} from '../adapters/compensation.mjs'
 
-export async function execute({command, state, clients, openLedger}) {
+export async function execute(context) {
+  const {command, state, clients, openLedger} = context
   requireDualAccountUpstreams()
   const approved = await fetchApprovedAccountInputs(clients, command)
   const fields = approved.fields ?? {}
@@ -27,17 +29,22 @@ export async function execute({command, state, clients, openLedger}) {
   const oldAccount = fields['原账户名'] ?? existing?.account ?? null
   const newAccount = fields['新账户名'] ?? null
   const workspaceId = fields['Dify workspace ID'] ?? existing?.workspaceId ?? null
-  check(typeof oldAccount === 'string' && oldAccount.length > 0 && typeof newAccount === 'string' && newAccount.length > 0 && oldAccount !== newAccount, 400, 'INVALID_NEW_ACCOUNT')
+  check(typeof oldAccount === 'string' && oldAccount.length > 0 && typeof newAccount === 'string' &&
+    /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$/.test(newAccount) && oldAccount !== newAccount, 400, 'INVALID_NEW_ACCOUNT')
 
   const baseline = await readLiveAccountFacts({
     subjectId,
-    ragflowAccountId: existing?.ragflowAccountId ?? null,
-    difyAccountId: existing?.difyAccountId ?? null,
+    ragflowAccountId: existing?.ragflowAccountId ?? approved.recoveryBaseline?.ragflow?.accountId ?? null,
+    difyAccountId: existing?.difyAccountId ?? approved.recoveryBaseline?.dify?.accountId ?? null,
     fallbackAccount: oldAccount,
     workspaceId,
   })
+  check(approved.recoveryBaseline, 501, 'RECOVERY_BASELINE_REQUIRED', '缺少审批时冻结的产品基线，禁止写入')
+  check(same(approved.recoveryBaseline, baseline), 409, 'STALE_ACCOUNT_BASELINE', '审批后的真实产品状态已变化，禁止用新读值覆盖冻结基线')
   check(baseline.ragflow.accountId && baseline.dify.accountId, 409, 'ACCOUNT_NOT_FOUND', '双端账号不存在，无法改名')
   check(baseline.ragflow.account === oldAccount && baseline.dify.account === oldAccount, 409, 'STALE_SNAPSHOT', '产品端当前账户名已漂移')
+  await assertUniqueProductAccount({account: newAccount, workspaceId,
+    ragflowAccountId: baseline.ragflow.accountId, difyAccountId: baseline.dify.accountId})
 
   const recoveryRecord = {
     executionId: command.executionId,
@@ -53,64 +60,28 @@ export async function execute({command, state, clients, openLedger}) {
     committed: false,
     updatedAt: new Date().toISOString(),
   }
-  recoveryLedger.put(command.executionId, recoveryRecord)
+  beginAccountTransaction(context, recoveryRecord)
+  const write = (product, fn) => productStep(recoveryLedger, recoveryRecord, product, 'rename', fn)
 
   let ragMutated = false
   let difyMutated = false
 
   try {
-    await updateRagflowUser({accountId: baseline.ragflow.accountId, account: newAccount})
+    await write('ragflow', () => updateRagflowUser({accountId: baseline.ragflow.accountId, account: newAccount}))
     ragMutated = true
 
-    await updateDifyMember({accountId: baseline.dify.accountId, workspaceId, account: newAccount})
+    await write('dify', () => updateDifyMember({accountId: baseline.dify.accountId, workspaceId, account: newAccount}))
     difyMutated = true
 
-    const commitRes = await commitManagementAccountChange(clients, command.executionId, {
-      subjectId,
-      ragflowAccountId: baseline.ragflow.accountId,
-      difyAccountId: baseline.dify.accountId,
-      workspaceId,
-    })
-
     const nextRevision = productMappingRevision + 1
-    mappingsLedger.put(subjectId, {
-      subjectId,
-      account: newAccount,
-      ragflowAccountId: baseline.ragflow.accountId,
-      difyAccountId: baseline.dify.accountId,
-      workspaceId,
-      active: baseline.ragflow.active,
-      ragflowPermission: baseline.ragflow.permission,
-      difyRole: baseline.dify.role,
-      revision: nextRevision,
-      updatedAt: new Date().toISOString(),
+    await commitVerifiedAccount(context, recoveryRecord, {
+      expected: {ragflow: {...baseline.ragflow, account: newAccount}, dify: {...baseline.dify, account: newAccount}},
+      mapping: {subjectId, account: newAccount, ragflowAccountId: baseline.ragflow.accountId, difyAccountId: baseline.dify.accountId,
+        workspaceId, active: baseline.ragflow.active, ragflowPermission: baseline.ragflow.permission, difyRole: baseline.dify.role,
+        revision: nextRevision, updatedAt: new Date().toISOString()},
+      details: {目标人员ID: subjectId, 原账户名: oldAccount, 新账户名: newAccount,
+        RAGFlow账户ID: baseline.ragflow.accountId, Dify账户ID: baseline.dify.accountId},
     })
-    recoveryLedger.put(command.executionId, {
-      ...recoveryRecord,
-      committed: true,
-      sealed: true,
-      sealedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-
-    state.status = 'succeeded'
-    state.result = {
-      ok: true,
-      failureCode: '',
-      failureReason: '',
-      retryable: false,
-      resultId: `${subjectId}:${nextRevision}`,
-      version: String(nextRevision),
-      sha256: '',
-      details: {
-        目标人员ID: subjectId,
-        原账户名: oldAccount,
-        新账户名: newAccount,
-        RAGFlow账户ID: baseline.ragflow.accountId,
-        Dify账户ID: baseline.dify.accountId,
-        本平台身份修订: commitRes?.revision ?? null,
-      },
-    }
   } catch (err) {
     const sealedInfo = await sealFailedAccountExecution({
       recoveryLedger,

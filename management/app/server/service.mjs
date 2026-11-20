@@ -416,6 +416,7 @@ export function managementApi(options) {
       }
       return json(res,{decisionRef:'dec-'+c.executionId,ticketNo:c.ticketNo,ticketType:c.ticketType,
         ticketTypeVersion:c.ticketTypeVersion,action:c.action,resourceId:c.resourceId,account:c.account,org:c.org,
+        ...(['ACC-01','ACC-02'].includes(c.ticketType)?{recoveryBaseline:row.recoveryBaseline ?? row.snapshot?.recoveryBaseline ?? null}:{}),
         fields:row.approvedFields ?? c.payload,preconditions:row.preconditions ?? (['AG-02','AG-03','AG-04','AG-05'].includes(c.ticketType) ? [{kind:'agent',id:c.resourceId,revision:(row.approvedFields ?? c.payload).expectedRevision}] : [{kind:c.ticketType==='SKL-03'?'skill':'plugin',id:c.resourceId,sha256:c.payload.sha256}])})
     }
     // The role selector is a local demo identity. Ticket URLs belong to a browser session.

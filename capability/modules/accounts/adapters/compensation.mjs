@@ -18,23 +18,26 @@ export async function readLiveAccountFacts({subjectId, ragflowAccountId, difyAcc
 }
 
 export function extractPreconditionRevision(preconditions, kind, subjectId) {
-  const found = (preconditions ?? []).find(p => p.kind === kind && p.id === subjectId)
-  return Number.isInteger(found?.revision) ? found.revision : null
+  const found = (preconditions ?? []).filter(p => p.kind === kind && p.id === subjectId)
+  return found.length === 1 && Number.isSafeInteger(found[0].revision) && found[0].revision >= 0 ? found[0].revision : null
 }
 
-export async function compensateProducts({baseline, createdRagId, createdDifyId, ragMutated, difyMutated}) {
+export async function compensateProducts({baseline, createdRagId, createdDifyId, ragMutated, difyMutated, steps = []}) {
   const errors = []
+  const changes = product => new Set(steps.filter(step => step.product === product && step.state === 'acknowledged').map(step => step.operation))
   if (difyMutated) {
     try {
       if (createdDifyId) {
         await deleteDifyMember({accountId: createdDifyId, workspaceId: baseline.dify.workspaceId})
       } else if (baseline.dify.accountId) {
+        const touched = changes('dify')
+        if (!touched.size) throw Object.assign(new Error('缺少本次写入范围，不能覆盖产品字段'), {code: 'MISSING_COMPENSATION_SCOPE'})
         await updateDifyMember({
           accountId: baseline.dify.accountId,
           workspaceId: baseline.dify.workspaceId,
-          account: baseline.dify.account,
-          role: baseline.dify.role,
-          active: baseline.dify.active,
+          ...(touched.has('rename') ? {account: baseline.dify.account} : {}),
+          ...(touched.has('role') ? {role: baseline.dify.role} : {}),
+          ...(touched.has('disable') ? {active: baseline.dify.active} : {}),
         })
       }
     } catch (err) {
@@ -46,11 +49,13 @@ export async function compensateProducts({baseline, createdRagId, createdDifyId,
       if (createdRagId) {
         await deleteRagflowUser({accountId: createdRagId})
       } else if (baseline.ragflow.accountId) {
+        const touched = changes('ragflow')
+        if (!touched.size) throw Object.assign(new Error('缺少本次写入范围，不能覆盖产品字段'), {code: 'MISSING_COMPENSATION_SCOPE'})
         await updateRagflowUser({
           accountId: baseline.ragflow.accountId,
-          account: baseline.ragflow.account,
-          permission: baseline.ragflow.permission,
-          active: baseline.ragflow.active,
+          ...(touched.has('rename') ? {account: baseline.ragflow.account} : {}),
+          ...(touched.has('role') ? {permission: baseline.ragflow.permission} : {}),
+          ...(touched.has('disable') ? {active: baseline.ragflow.active} : {}),
         })
       }
     } catch (err) {
@@ -70,7 +75,10 @@ export async function sealFailedAccountExecution({
   ragMutated,
   difyMutated,
 }) {
-  const compErrors = await compensateProducts({baseline, createdRagId, createdDifyId, ragMutated, difyMutated})
+  const uncertain = record.uncertainWrites || record.commitPhase === 'pending' ||
+    record.steps?.some(step => ['dispatching', 'unknown'].includes(step.state))
+  const compErrors = uncertain ? [{code: 'UNCONFIRMED_ACCOUNT_WRITE', message: '原请求可能继续生效，禁止自动回滚或封存解锁'}]
+    : await compensateProducts({baseline, createdRagId, createdDifyId, ragMutated, difyMutated, steps: record.steps})
   let liveProducts = null
   let restored = false
   try {
@@ -81,7 +89,7 @@ export async function sealFailedAccountExecution({
       fallbackAccount: baseline.ragflow.account,
       workspaceId: baseline.dify.workspaceId,
     })
-    restored = compErrors.length === 0 && same(liveProducts, baseline)
+    restored = !uncertain && compErrors.length === 0 && same(liveProducts, baseline)
   } catch {
     restored = false
   }

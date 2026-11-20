@@ -19,7 +19,7 @@ function isNameUnique(list, name, excludeAccountId) {
 }
 
 export async function accountContext(ctx, ticketType) {
-  const {query, res, openLedger} = ctx
+  const {query, res, openLedger, clients} = ctx
   requireDualAccountUpstreams()
   const expectedAction = ticketType === 'ACC-01' ? 'apply_account_change' : 'rename_account'
   const action = query.get('action') ?? expectedAction
@@ -28,27 +28,34 @@ export async function accountContext(ctx, ticketType) {
   check(typeof subjectId === 'string' && subjectId.trim() && subjectId.length <= 160, 400, 'INVALID_REQUEST')
   const workspaceIdParam = query.get('workspaceId') || null
   const newAccount = query.get('newAccount') || null
-  const hintAccount = query.get('account') || null
   if (ticketType === 'ACC-02') {
     check(typeof newAccount === 'string' && newAccount.trim() && newAccount.length <= 100, 400, 'INVALID_NEW_ACCOUNT')
   }
 
   const mapping = readMapping(openLedger, subjectId)
-  const effectiveWorkspaceId = workspaceIdParam ?? mapping?.workspaceId ?? null
+  check(clients?.management, 501, 'UPSTREAM_UNSUPPORTED', '缺少可信人员目录读取通道')
+  const profile = await (await clients.management('/subjects/' + encodeURIComponent(subjectId))).json()
+  check(profile.subjectId === subjectId && typeof profile.account === 'string' && profile.account &&
+    Number.isSafeInteger(profile.revision) && profile.revision >= 1, 502, 'INVALID_SUBJECT_IDENTITY')
+  const effectiveWorkspaceId = workspaceIdParam ?? mapping?.workspaceId ?? profile.workspaceId ?? null
+  for (const key of ['ragflowAccountId','difyAccountId']) check(!mapping?.[key] || !profile[key] || mapping[key] === profile[key],
+    409, 'ACCOUNT_IDENTITY_CHANGED', '平台人员目录与产品映射不一致')
 
   const [ragUsers, difyMembers] = await Promise.all([listRagflowUsers(), listDifyMembers(effectiveWorkspaceId)])
   const ragAccount = findMatchingAccount(ragUsers, {
-    accountId: mapping?.ragflowAccountId,
+    accountId: mapping?.ragflowAccountId ?? profile.ragflowAccountId,
     subjectId,
-    account: mapping?.account ?? hintAccount,
+    account: profile.account,
   })
   const difyAccount = findMatchingAccount(difyMembers, {
-    accountId: mapping?.difyAccountId,
+    accountId: mapping?.difyAccountId ?? profile.difyAccountId,
     subjectId,
-    account: mapping?.account ?? hintAccount,
+    account: profile.account,
   })
 
-  const currentAccount = ragAccount?.account ?? difyAccount?.account ?? mapping?.account ?? hintAccount ?? subjectId
+  const currentAccount = profile.account
+  check([ragAccount, difyAccount].every(row => !row || !row.account || row.account === currentAccount),
+    409, 'ACCOUNT_NAME_DRIFT', '产品账户名与可信人员目录不一致')
   const resolvedWorkspaceId = effectiveWorkspaceId ?? difyAccount?.workspaceId ?? null
 
   const candidateName = ticketType === 'ACC-02' ? newAccount : currentAccount

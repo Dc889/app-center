@@ -87,6 +87,84 @@
                       "items": {
                         "type": "object"
                       }
+                    },
+                    "recoveryBaseline": {
+                      "type": "object",
+                      "nullable": true,
+                      "description": "Frozen product facts for ACC executions. Retried attempts keep the original baseline. Required by the account executor before any product write; missing or stale facts prevent writes.",
+                      "required": [
+                        "ragflow",
+                        "dify"
+                      ],
+                      "properties": {
+                        "ragflow": {
+                          "type": "object",
+                          "required": [
+                            "accountId",
+                            "account",
+                            "active",
+                            "permission"
+                          ],
+                          "properties": {
+                            "accountId": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "account": {
+                              "type": "string"
+                            },
+                            "active": {
+                              "type": "boolean"
+                            },
+                            "permission": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "个人",
+                                "团队成员",
+                                "管理员",
+                                null
+                              ]
+                            }
+                          }
+                        },
+                        "dify": {
+                          "type": "object",
+                          "required": [
+                            "accountId",
+                            "account",
+                            "active",
+                            "workspaceId",
+                            "role"
+                          ],
+                          "properties": {
+                            "accountId": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "account": {
+                              "type": "string"
+                            },
+                            "active": {
+                              "type": "boolean"
+                            },
+                            "workspaceId": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "role": {
+                              "type": "string",
+                              "nullable": true,
+                              "enum": [
+                                "成员",
+                                "编辑",
+                                "管理员",
+                                null
+                              ]
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -657,6 +735,98 @@
           },
           "409": {
             "description": "Inactive execution, changed identity lock, wrong product IDs/workspace, or conflicting replay"
+          }
+        }
+      },
+      "get": {
+        "summary": "Read the original immutable account commit proof without changing identity",
+        "description": "Service authentication only. Return the original request mapping and committed response for this execution. No product writes, local commits, retries, revisions or history entries are created. A missing proof is not proof that a timed-out write cannot still commit.",
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing immutable commit proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "executionId",
+                    "request",
+                    "response"
+                  ],
+                  "properties": {
+                    "executionId": {
+                      "type": "string"
+                    },
+                    "request": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "subjectId",
+                        "ragflowAccountId",
+                        "difyAccountId",
+                        "workspaceId"
+                      ],
+                      "properties": {
+                        "subjectId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "ragflowAccountId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "difyAccountId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "workspaceId": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      }
+                    },
+                    "response": {
+                      "type": "object",
+                      "required": [
+                        "subjectId",
+                        "revision",
+                        "committedAt"
+                      ],
+                      "properties": {
+                        "subjectId": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "committedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid service identity"
+          },
+          "404": {
+            "description": "No commit proof currently recorded; preserve unresolved execution and target lock"
           }
         }
       }
@@ -1624,7 +1794,12 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["全部方式", "run", "embed", "api"]
+              "enum": [
+                "全部方式",
+                "run",
+                "embed",
+                "api"
+              ]
             }
           },
           {

@@ -21,6 +21,7 @@ export async function getAccountConsistency(ctx) {
   const recoveryLedger = openLedger('recovery')
   const record = recoveryLedger.get(executionId)
   check(record && record.baseline, 404, 'RECOVERY_RECORD_NOT_FOUND', '未找到审批前产品基线与查证封存记录')
+  check(!record.committed && record.commitPhase !== 'pending', 409, 'ACCOUNT_COMMIT_UNRESOLVED', '身份已提交或提交结果待查证，不能使用回滚解锁证明')
 
   const executionStatus = state.status === 'failed' ? 'failed' : 'reconciling'
   const checkedAt = new Date().toISOString()
@@ -45,23 +46,15 @@ export async function getAccountConsistency(ctx) {
         : Boolean(liveProducts.dify.role)
     if (!ragComplete || !difyComplete) {
       outcome = 'unknown'
+    } else if (record.uncertainWrites || record.steps?.some(step => ['dispatching','unknown'].includes(step.state))) {
+      outcome = 'unknown'
     } else if (same(liveProducts, record.baseline)) {
       outcome = 'restored'
     } else {
       outcome = 'partial'
     }
   } catch {
-    outcome = 'unknown'
-    liveProducts = {
-      ragflow: {accountId: null, account: record.baseline.ragflow.account, active: false, permission: null},
-      dify: {
-        accountId: null,
-        workspaceId: record.baseline.dify.workspaceId,
-        account: record.baseline.dify.account,
-        active: false,
-        role: null,
-      },
-    }
+    check(false, 503, 'ACCOUNT_FACTS_UNAVAILABLE', '真实产品状态无法查证，不能返回虚构的空账户或停用状态')
   }
 
   const sealed = Boolean(record.sealed) && executionStatus === 'failed' && outcome !== 'unknown'

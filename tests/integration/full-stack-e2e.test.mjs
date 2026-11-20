@@ -38,6 +38,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
   let nextId = 1
 
   const difyServer = await listen(async (req, res, path) => {
+    if (req.method === 'GET' && path === '/console/api/workspaces/current') return json(res, {id: 'ws-1'})
     if (req.method === 'GET' && path === '/health') return json(res, {status: 'ok', version: '1.14.0'})
     if (req.method === 'GET' && path === '/console/api/workspaces') {
       return json(res, {workspaces: [{id: 'ws-1', name: '法制研判区', status: 'normal'}]})
@@ -119,7 +120,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
     }
     const memberMatch = /^\/console\/api\/workspaces\/current\/members\/([\w-]+)$/.exec(path)
     if (memberMatch && req.method === 'PATCH') {
-      if (failDifyMemberPatch) return json(res, {code: 'DIFY_BUSY', message: 'Dify 改名失败'}, 500)
+      if (failDifyMemberPatch) return json(res, {code: 'DIFY_REJECTED', message: '明确拒绝改名，未产生写入'}, 409)
       const existing = difyMembers.get(memberMatch[1])
       if (!existing) return json(res, {code: 'NOT_FOUND'}, 404)
       const updated = {...existing, ...(await body(req))}
@@ -139,7 +140,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
       return json(res, {data: [{id: 'rag-ds-1', name: '研判库', tenant_id: 'tenant-1', owner_account: 'chen.yu'}]})
     }
     if (req.method === 'GET' && path === '/api/v1/system/users') {
-      return json(res, {data: [...ragUsers.values()]})
+      return json(res, {code: 0, data: [...ragUsers.values()]})
     }
     if (req.method === 'POST' && path === '/api/v1/system/users') {
       const payload = await body(req)
@@ -151,7 +152,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
         active: true,
       }
       ragUsers.set(user.id, user)
-      return json(res, {data: user}, 201)
+      return json(res, {code: 0, data: user}, 201)
     }
     const userMatch = /^\/api\/v1\/system\/users\/([\w-]+)$/.exec(path)
     if (userMatch && req.method === 'PUT') {
@@ -159,7 +160,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
       if (!existing) return json(res, {code: 'NOT_FOUND'}, 404)
       const updated = {...existing, ...(await body(req))}
       ragUsers.set(existing.id, updated)
-      return json(res, {data: updated})
+      return json(res, {code: 0, data: updated})
     }
     if (userMatch && req.method === 'DELETE') {
       ragUsers.delete(userMatch[1])
@@ -171,11 +172,13 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
   const prevEnv = {
     DIFY_API_BASE: process.env.DIFY_API_BASE,
     DIFY_CONSOLE_TOKEN: process.env.DIFY_CONSOLE_TOKEN,
+    DIFY_WORKSPACE_ID: process.env.DIFY_WORKSPACE_ID,
     RAGFLOW_API_BASE: process.env.RAGFLOW_API_BASE,
     RAGFLOW_API_KEY: process.env.RAGFLOW_API_KEY,
   }
   process.env.DIFY_API_BASE = difyServer.url
   process.env.DIFY_CONSOLE_TOKEN = 'dify-tok'
+  process.env.DIFY_WORKSPACE_ID = 'ws-1'
   process.env.RAGFLOW_API_BASE = ragServer.url
   process.env.RAGFLOW_API_KEY = 'rag-tok'
 

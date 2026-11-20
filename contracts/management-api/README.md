@@ -14,7 +14,7 @@ KB-02/04的冻结文档结论使用 /approved-inputs/{executionId}/documents 分
 
 PLG-04入口为 /plugin-alerts，服务端读取可信比例、实例与禁用周期后去重。恢复和观察通过同一工单生成独立执行节点；失败禁用记录紧急EVT-01。状态和请求见OpenAPI及能力组件分工文档，真实采集/定向适配未完成。
 
-ACC使用 /subjects/{subjectId} 读取非秘密身份映射；两产品核验后调用 PUT /account-changes/{executionId}/commit。回调只接受四个映射字段，本平台角色/组织等从同一活动执行的获准输入提交。相同内容重放返回原修订，旧执行、错对象、错工作区及改内容重放返回冲突。身份登记当前仍由可信启动数据初始化，登录仍是演示入口。
+ACC使用 /subjects/{subjectId} 读取非秘密身份映射；两产品核验后调用 PUT /account-changes/{executionId}/commit。回调只接受四个映射字段，本平台角色/组织等从同一活动执行的获准输入提交。相同内容重放返回原修订，旧执行、错对象、错工作区及改内容重放返回冲突。相同路径 GET 只读返回原始 `{executionId,request,response}` 提交证明，要求服务 token，不提交身份、不增加修订或审计；未找到返回404，不能据此自动回滚尚未确认的原请求。身份登记当前仍由可信启动数据初始化，登录仍是演示入口。
 
 ACC查证与安全解锁为管理端会话入口 `/api/account-applications/transition`，不对组件开放。管理员只能要求后端读取原执行或核验能力端封存证明；恢复证明从服务接口直接获取，不能由浏览器提交。完整请求、错误与跨服务字段见[账号恢复契约](../capability-api/account-recovery.md)，组件真实证明接口待实现。
 

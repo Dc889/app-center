@@ -183,7 +183,7 @@ export function accountWorkflows({directory,cap,types,headersFor,catalog,now=Dat
       const executionId=id(),command={...row.command,executionId,payload:{decisionRef:'dec-'+executionId}}
       store.put('person:'+p.subjectId,{...p,pendingChange:{...p.pendingChange,executionId}})
       const retried=put({...row,command,execution:null,executionKnown:false,deliveryBlocked:false,lastError:null,status:'执行中',revision:row.revision+1,
-        attempts:[...row.attempts,{command,approvedFields:row.approvedFields,preconditions:row.preconditions}],history:[...row.history,{at:at(),actor:identity.account,action:'重试执行',note:input.note}]})
+        attempts:[...row.attempts,{command,approvedFields:row.approvedFields,preconditions:row.preconditions,recoveryBaseline:row.snapshot.recoveryBaseline}],history:[...row.history,{at:at(),actor:identity.account,action:'重试执行',note:input.note}]})
       queueMicrotask(()=>void deliver(retried));return retried
     }))
     check(input.action==='批准' && previous.status==='待受理',409,'INVALID_TRANSITION')
@@ -207,13 +207,18 @@ export function accountWorkflows({directory,cap,types,headersFor,catalog,now=Dat
         '生效时间':f.effectiveAt,'失效时间':row.target.expiresAt,'申请依据':f.reason,'Dify workspace ID':current.fields['Dify workspace ID']}
       store.put('person:'+p.subjectId,{...p,pendingChange:{ticketNo:row.ticketNo,executionId,effectiveAt:f.effectiveAt}})
       return put({...row,status:'执行中',revision:row.revision+1,command,approvedFields,approvedBy:identity.account,
-        reservedName:row.target.account,attempts:[{command,approvedFields,preconditions:row.preconditions}],
+        reservedName:row.target.account,attempts:[{command,approvedFields,preconditions:row.preconditions,recoveryBaseline:row.snapshot.recoveryBaseline}],
         history:[...row.history,{at:at(),actor:identity.account,action:'批准',note:input.note}]})
     })
     void deliver(approved);return json(res,approved)
   }
   async function commit(req,res,executionId,token) {
-    check(req.method==='PUT' && req.headers.authorization==='Bearer '+token,403,'ACCESS_DENIED')
+    check(['GET','PUT'].includes(req.method) && req.headers.authorization==='Bearer '+token,403,'ACCESS_DENIED')
+    if(req.method==='GET') {
+      const saved=store.get('commit:'+executionId)
+      check(saved,404,'ACCOUNT_COMMIT_NOT_FOUND')
+      return json(res,{executionId,request:saved.request,response:saved.response})
+    }
     const input=await body(req)
     check(text(input.subjectId) && text(input.ragflowAccountId) && text(input.difyAccountId) &&
       (input.workspaceId===null || text(input.workspaceId)) &&

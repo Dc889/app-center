@@ -43,13 +43,15 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   const ragUsers = new Map()
   const difyMembers = new Map()
   let failDifyPatch = false
+  let ignoreDifyPatch = false, loseCommitResponse = false, productWrites = 0, commitWrites = 0
   let nextId = 1
 
   const ragServer = await listen(async (req, res, path) => {
     if (req.method === 'GET' && path === '/api/v1/system/users') {
-      return json(res, {data: [...ragUsers.values()]})
+      return json(res, {code: 0, data: [...ragUsers.values()]})
     }
     if (req.method === 'POST' && path === '/api/v1/system/users') {
+      productWrites++
       const payload = await body(req)
       const user = {
         id: `rag-u-${nextId++}`,
@@ -59,29 +61,32 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
         active: payload.active ?? true,
       }
       ragUsers.set(user.id, user)
-      return json(res, {data: user}, 201)
+      return json(res, {code: 0, data: user}, 201)
     }
     const itemMatch = /^\/api\/v1\/system\/users\/([\w-]+)$/.exec(path)
     if (itemMatch && req.method === 'PUT') {
+      productWrites++
       const existing = ragUsers.get(itemMatch[1])
       if (!existing) return json(res, {code: 'NOT_FOUND'}, 404)
       const patch = await body(req)
       const updated = {...existing, ...patch}
       ragUsers.set(existing.id, updated)
-      return json(res, {data: updated})
+      return json(res, {code: 0, data: updated})
     }
     if (itemMatch && req.method === 'DELETE') {
       ragUsers.delete(itemMatch[1])
-      return json(res, {deleted: true})
+      return json(res, {code: 0, deleted: true})
     }
     return json(res, {error: 'not found'}, 404)
   })
 
   const difyServer = await listen(async (req, res, path) => {
+    if (req.method === 'GET' && path === '/console/api/workspaces/current') return json(res, {id: 'ws-1'})
     if (req.method === 'GET' && path === '/console/api/workspaces/current/members') {
       return json(res, {accounts: [...difyMembers.values()]})
     }
     if (req.method === 'POST' && path === '/console/api/workspaces/current/members') {
+      productWrites++
       const payload = await body(req)
       const member = {
         id: `dify-u-${nextId++}`,
@@ -96,11 +101,12 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
     }
     const itemMatch = /^\/console\/api\/workspaces\/current\/members\/([\w-]+)$/.exec(path)
     if (itemMatch && req.method === 'PATCH') {
-      if (failDifyPatch) return json(res, {code: 'DIFY_BUSY', message: 'Dify 写入失败'}, 500)
+      productWrites++
+      if (failDifyPatch) return json(res, {code: 'DIFY_REJECTED', message: '明确拒绝本次写入'}, 409)
       const existing = difyMembers.get(itemMatch[1])
       if (!existing) return json(res, {code: 'NOT_FOUND'}, 404)
       const patch = await body(req)
-      const updated = {...existing, ...patch}
+      const updated = ignoreDifyPatch ? existing : {...existing, ...patch}
       difyMembers.set(existing.id, updated)
       return json(res, {account: updated})
     }
@@ -116,16 +122,23 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   let identityRevision = 1
   const mgmt = await listen(
     async (req, res, path) => {
+      if (path === '/internal/v1/subjects/person-chen') return json(res, {subjectId: 'person-chen', account: 'chen.yu', revision: identityRevision})
       const appMatch = /^\/internal\/v1\/approved-inputs\/([\w-]+)$/.exec(path)
       if (req.method === 'GET' && appMatch && approvedInputs.has(appMatch[1])) {
         return json(res, approvedInputs.get(appMatch[1]))
       }
       const commitMatch = /^\/internal\/v1\/account-changes\/([\w-]+)\/commit$/.exec(path)
+      if (req.method === 'GET' && commitMatch) {
+        const saved = commits.get(commitMatch[1])
+        return saved ? json(res, {executionId: commitMatch[1], request: saved.input, response: saved.response}) : json(res, {error: {code: 'NOT_FOUND'}}, 404)
+      }
       if (req.method === 'PUT' && commitMatch) {
+        commitWrites++
         const input = await body(req)
         identityRevision += 1
         const response = {subjectId: input.subjectId, revision: identityRevision, committedAt: new Date().toISOString()}
         commits.set(commitMatch[1], {input, response})
+        if (loseCommitResponse) return json(res, {error: {code: 'RESPONSE_LOST'}}, 503)
         return json(res, response)
       }
       return json(res, {error: {code: 'NOT_FOUND'}}, 404)
@@ -136,11 +149,13 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   const prevEnv = {
     DIFY_API_BASE: process.env.DIFY_API_BASE,
     DIFY_CONSOLE_TOKEN: process.env.DIFY_CONSOLE_TOKEN,
+    DIFY_WORKSPACE_ID: process.env.DIFY_WORKSPACE_ID,
     RAGFLOW_API_BASE: process.env.RAGFLOW_API_BASE,
     RAGFLOW_API_KEY: process.env.RAGFLOW_API_KEY,
   }
   process.env.DIFY_API_BASE = difyServer.url
   process.env.DIFY_CONSOLE_TOKEN = 'dify-tok'
+  process.env.DIFY_WORKSPACE_ID = 'ws-1'
   process.env.RAGFLOW_API_BASE = ragServer.url
   process.env.RAGFLOW_API_KEY = 'rag-tok'
 
@@ -183,6 +198,7 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
 
   // 2. ACC-01 开通执行 + 回调管理端 commit + 更新 account 目录
   approvedInputs.set('exec-acc-open', {
+    recoveryBaseline: ctxOpen.recoveryBaseline,
     decisionRef: 'dec-open',
     ticketType: 'ACC-01',
     action: 'apply_account_change',
@@ -239,6 +255,7 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   // 4. 模拟 ACC-02 部分失败（RAGFlow 改名成功、Dify 改名失败）-> 触发补偿与封存
   failDifyPatch = true
   approvedInputs.set('exec-acc-rename-fail', {
+    recoveryBaseline: ctxRename.recoveryBaseline,
     decisionRef: 'dec-rename-fail',
     ticketType: 'ACC-02',
     action: 'rename_account',
@@ -299,6 +316,7 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   // 6. 恢复 Dify 正常后再次执行 ACC-02 改名成功并回调管理端 commit
   failDifyPatch = false
   approvedInputs.set('exec-acc-rename-ok', {
+    recoveryBaseline: ctxRename.recoveryBaseline,
     decisionRef: 'dec-rename-ok',
     ticketType: 'ACC-02',
     action: 'rename_account',
@@ -335,4 +353,42 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   assert.ok(commits.has('exec-acc-rename-ok'))
   assert.equal([...ragUsers.values()][0].account, 'chen.yu2')
   assert.equal([...difyMembers.values()][0].account, 'chen.yu2')
+
+  // A successful HTTP acknowledgement without the requested effect cannot commit platform identity.
+  const change = executionId => ({executionId, ticketNo: 'ACC-01-' + executionId, ticketType: 'ACC-01', ticketTypeVersion: '1',
+    action: 'apply_account_change', resourceId: 'person-chen', account: 'admin-1', org: '系统管理组', payload: {decisionRef: 'dec-' + executionId}})
+  const approval = executionId => ({recoveryBaseline: {ragflow: {accountId: [...ragUsers.values()][0].id, account: 'chen.yu2', active: true, permission: '团队成员'}, dify: {accountId: [...difyMembers.values()][0].id, workspaceId: 'ws-1', account: 'chen.yu2', active: true, role: '编辑'}}, decisionRef: 'dec-' + executionId, ticketType: 'ACC-01', action: 'apply_account_change', resourceId: 'person-chen',
+    fields: {操作类型: '角色变更', 目标人员ID: 'person-chen', 唯一账户名: 'chen.yu2', RAGFlow目标权限: '管理员', 'Dify目标workspace角色': '管理员', 'Dify workspace ID': 'ws-1'},
+    preconditions: [{kind: 'product_account_mapping', id: 'person-chen', revision: 2}, {kind: 'identity_mapping', id: 'person-chen', revision: 3}]})
+  const stale = approval('stale-approved')
+  stale.recoveryBaseline.ragflow.permission = '个人'
+  approvedInputs.set('stale-approved', stale)
+  const beforeStaleWrites = productWrites
+  const staleResult = await (await call('/executions', {method: 'POST', payload: change('stale-approved')})).json()
+  assert.equal(staleResult.status, 'failed'); assert.equal(staleResult.result.failureCode, 'STALE_ACCOUNT_BASELINE')
+  assert.equal(productWrites, beforeStaleWrites); assert.equal(commits.has('stale-approved'), false)
+  ignoreDifyPatch = true
+  approvedInputs.set('readback-fail', approval('readback-fail'))
+  const mismatch = await (await call('/executions', {method: 'POST', payload: change('readback-fail')})).json()
+  assert.equal(mismatch.status, 'failed')
+  assert.equal(mismatch.result.failureCode, 'ACCOUNT_WRITE_READBACK_MISMATCH')
+  assert.equal(commits.has('readback-fail'), false)
+  assert.equal([...ragUsers.values()][0].permission, 'team')
+  assert.equal([...difyMembers.values()][0].role, 'editor')
+
+  // Commit happened but its reply was lost: restart, GET original proof, never repeat product or commit writes.
+  ignoreDifyPatch = false; loseCommitResponse = true
+  approvedInputs.set('commit-lost', approval('commit-lost'))
+  const pending = await (await call('/executions', {method: 'POST', payload: change('commit-lost')})).json()
+  assert.equal(pending.status, 'reconciling'); assert.equal(pending.result, null)
+  assert.ok(commits.has('commit-lost'))
+  const beforeProductWrites = productWrites, beforeCommitWrites = commitWrites
+  await server.close()
+  server = await startExecutionServer({dir, token: 'tok', management: mgmt.url}, makeRegistry())
+  const recovered = await (await call('/executions/commit-lost')).json()
+  assert.equal(recovered.status, 'succeeded')
+  assert.equal(recovered.result.details['本平台身份修订'], 4)
+  assert.equal(productWrites, beforeProductWrites); assert.equal(commitWrites, beforeCommitWrites)
+  const forbiddenRollback = await call('/executions/commit-lost/account-consistency')
+  assert.equal(forbiddenRollback.status, 409)
 })

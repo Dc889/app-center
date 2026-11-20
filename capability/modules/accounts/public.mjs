@@ -2,12 +2,13 @@ import {execute as apply_account_change} from './handlers/apply_account_change.m
 import {execute as rename_account} from './handlers/rename_account.mjs'
 import {acc01Context, acc02Context, accountCatalog} from './queries/execution-contexts.mjs'
 import {getAccountConsistency} from './queries/account-consistency.mjs'
+import {reconcileAccountCommit} from './adapters/account-transaction.mjs'
 
 export const capabilityModule = Object.freeze({
   id: 'accounts',
   actions: [
-    {ticketType: 'ACC-01', ticketTypeVersion: '1', action: 'apply_account_change', variants: [null], execute: apply_account_change},
-    {ticketType: 'ACC-02', ticketTypeVersion: '1', action: 'rename_account', variants: [null], execute: rename_account},
+    {ticketType: 'ACC-01', ticketTypeVersion: '1', action: 'apply_account_change', variants: [null], execute: apply_account_change, reconcile: reconcileAccountCommit},
+    {ticketType: 'ACC-02', ticketTypeVersion: '1', action: 'rename_account', variants: [null], execute: rename_account, reconcile: reconcileAccountCommit},
   ],
   resources: {},
   catalogs: {account: accountCatalog},
