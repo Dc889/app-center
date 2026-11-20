@@ -16,6 +16,37 @@ export function getDifyConfig() {
   return {base, token, workspaceId, isReal}
 }
 
+let refreshInFlight = null
+export async function refreshDifyConsoleToken() {
+  const base = process.env.DIFY_API_BASE ?? process.env.DIFY_API_URL
+  const email = process.env.DIFY_CONSOLE_EMAIL
+  const password = process.env.DIFY_CONSOLE_PASSWORD
+  if (!base || !email || !password) return null
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${base}/console/api/login`, {
+          method: 'POST',
+          headers: {'content-type': 'application/json'},
+          body: JSON.stringify({email, password, remember_me: true}),
+          signal: AbortSignal.timeout(10000),
+        })
+        const data = await res.json().catch(() => null)
+        if (res.ok && data?.result === 'success' && typeof data?.data?.access_token === 'string') {
+          process.env.DIFY_CONSOLE_TOKEN = data.data.access_token
+          return data.data.access_token
+        }
+      } catch {
+        // Ignore refresh error; caller will report original 401.
+      } finally {
+        refreshInFlight = null
+      }
+      return null
+    })()
+  }
+  return refreshInFlight
+}
+
 // 部署级所有者映射：真实 Dify/RAGFlow 只有 created_by(UUID/邮箱)，需显式映射到平台账号名。
 // DIFY_OWNER_ACCOUNT_MAP='{"<created_by或邮箱>":"chen.yu"}'；未映射时保留产品原始身份，不假定平台所有者。
 export function resolveProductOwner(candidates, {product = 'DIFY'} = {}) {

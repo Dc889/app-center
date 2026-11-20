@@ -51,6 +51,8 @@ const env = {
   ...process.env,
   DIFY_API_BASE: process.env.DIFY_API_BASE ?? creds.dify?.base ?? '',
   DIFY_CONSOLE_TOKEN: freshDifyToken,
+  ...(process.env.DIFY_CONSOLE_EMAIL || !creds.dify?.email ? {} : {DIFY_CONSOLE_EMAIL: creds.dify.email}),
+  ...(process.env.DIFY_CONSOLE_PASSWORD || !creds.dify?.password ? {} : {DIFY_CONSOLE_PASSWORD: creds.dify.password}),
   DIFY_WORKSPACE_ID: process.env.DIFY_WORKSPACE_ID ?? creds.dify?.workspaceId ?? '',
   DIFY_INSTALL_ACCOUNT: process.env.DIFY_INSTALL_ACCOUNT ?? creds.dify?.installAccount ?? '',
   DIFY_PLUGIN_DAEMON_BASE: process.env.DIFY_PLUGIN_DAEMON_BASE ?? creds.dify?.pluginDaemon?.base ?? '',

@@ -217,8 +217,9 @@ export async function accountMonitorReport({
   const page = Math.max(1, parseInt(query.get('page') || '1', 10) || 1)
   const pageSize = Math.min(100, Math.max(1, parseInt(query.get('pageSize') || '10', 10) || 10))
 
+  const strictUpstream = process.env.CAPABILITY_STRICT_UPSTREAM === '1'
   // 1. 能力侧目录与探针检查
-  let directorySource = 'collected'
+  let directorySource = strictUpstream ? 'not_collected' : 'collected'
   if (cap) {
     try {
       const res = await cap('/catalog?kind=account', 'GET', undefined, headers)
@@ -228,9 +229,9 @@ export async function accountMonitorReport({
     }
   }
 
-  // 2. 映射记录集合生成
+  // 2. 映射记录集合生成（严格联调模式下不注入静态演示基线）
   const allMappings = []
-  for (const m of BASE_MAPPINGS) {
+  for (const m of strictUpstream ? [] : BASE_MAPPINGS) {
     if (!effectiveOrg || m.org === effectiveOrg) {
       // 运维人员访问时，对敏感情报工单或跨角色凭证脱敏
       let ticketDisplay = m.ticketNo
@@ -292,8 +293,8 @@ export async function accountMonitorReport({
   ])
   const diffDistribution = Array.from(diffMap.entries()).map(([name, value]) => ({ name, value }))
 
-  // 5. 趋势时间桶生成
-  const bucketCount = (win.toMs - win.fromMs) / win.bucketMs
+  // 5. 趋势时间桶生成（严格联调模式下不生成虚构的三角函数趋势）
+  const bucketCount = strictUpstream ? 0 : (win.toMs - win.fromMs) / win.bucketMs
   const trendBuckets = []
   for (let i = 0; i < bucketCount; i++) {
     const t = win.fromMs + i * win.bucketMs
@@ -311,8 +312,8 @@ export async function accountMonitorReport({
     })
   }
 
-  // 6. 探针列表
-  const probes = [
+  // 6. 探针列表（严格联调模式下不输出虚构的 LDAP/SSO 探针或演示同步作业）
+  const probes = strictUpstream ? [] : [
     {
       name: 'RAGFlow User API',
       status: '健康',
@@ -337,7 +338,7 @@ export async function accountMonitorReport({
   ]
 
   // 7. 同步作业过滤与分页
-  const allSyncJobs = SYNC_JOBS.map(job => ({
+  const allSyncJobs = (strictUpstream ? [] : SYNC_JOBS).map(job => ({
     jobId: job.jobId,
     targetSystem: job.targetSystem,
     jobType: job.jobType,

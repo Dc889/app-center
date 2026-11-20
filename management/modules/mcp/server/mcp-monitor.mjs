@@ -228,9 +228,10 @@ export async function mcpMonitorReport({
     (admin || !effectiveOrg || a.org === effectiveOrg || a.applicantOrg === effectiveOrg)
   )
 
-  // 3. 构建绑定台账 (bindings)
+  const strictUpstream = process.env.CAPABILITY_STRICT_UPSTREAM === '1'
+  // 3. 构建绑定台账 (bindings)（严格联调模式下不注入静态演示基线）
   const allBindings = []
-  for (const b of BASELINE_BINDINGS) {
+  for (const b of strictUpstream ? [] : BASELINE_BINDINGS) {
     if (!effectiveOrg || b.org === effectiveOrg) {
       allBindings.push({
         bindingId: b.bindingId,
@@ -269,7 +270,7 @@ export async function mcpMonitorReport({
   }
 
   // 4. 构建告警与处置记录 (alerts)
-  const allAlerts = [
+  const allAlerts = strictUpstream ? [] : [
     {
       alertId: 'ALT-MCP-01',
       mcpName: '地图服务',
@@ -311,7 +312,7 @@ export async function mcpMonitorReport({
 
   // 5. 构建调用追踪台账 (calls)
   const allCalls = []
-  for (const c of BASELINE_CALLS) {
+  for (const c of strictUpstream ? [] : BASELINE_CALLS) {
     if (!effectiveOrg || c.org === effectiveOrg) {
       allCalls.push({
         callId: c.callId,
@@ -348,7 +349,7 @@ export async function mcpMonitorReport({
       calls: 0,
       success: 0,
       timeouts: 0,
-      latencyMs: 1200 + Math.floor(Math.sin(i / 4) * 300),
+      latencyMs: strictUpstream ? 0 : 1200 + Math.floor(Math.sin(i / 4) * 300),
     })
   }
 
@@ -380,7 +381,7 @@ export async function mcpMonitorReport({
     }))
     .sort((a, b) => b.value - a.value)
 
-  if (errorRanking.length === 0) {
+  if (!strictUpstream && errorRanking.length === 0) {
     errorRanking.push({ name: '地图服务', value: 2, reason: '调用超时' })
     errorRanking.push({ name: '企业查询服务', value: 1, reason: '响应异常' })
   }

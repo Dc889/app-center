@@ -54,8 +54,16 @@ export function Login({ onLogin }: { onLogin: (role: Role, account?: string) => 
             <div className="network-pill"><span /> 用户网络分区</div>
           </div>
           <p className="login-hint">三个身份分别展示对应的完整界面与数据范围。</p>
-          <label>运维演示账户<select value={operator} onChange={e=>setOperator(e.target.value)}><option value="zhou.min">周敏</option><option value="wang.ning">王宁</option></select></label>
-          <label>演示登录账户（留空使用所选身份）<input value={loginAccount} onChange={e=>setLoginAccount(e.target.value)}/></label>
+          <div className="login-demo-controls">
+            <label>
+              <span>运维演示账户</span>
+              <select value={operator} onChange={e=>setOperator(e.target.value)}><option value="zhou.min">周敏</option><option value="wang.ning">王宁</option></select>
+            </label>
+            <label>
+              <span>演示登录账户（留空使用所选身份）</span>
+              <input value={loginAccount} placeholder="例如 chen.yu" onChange={e=>setLoginAccount(e.target.value)}/>
+            </label>
+          </div>
           <div className="identity-list">
             {identities.map((identity, index) => {
               const Icon = identity.icon

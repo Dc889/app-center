@@ -1,0 +1,229 @@
+/* ==========================================================================
+   Unified Visual Consistency & Proportion Overrides
+   ========================================================================== */
+
+/* 1. Login panel & demo identity controls */
+.login-panel {
+  min-height: 0;
+  padding: 28px 30px 24px;
+}
+
+.login-hint {
+  margin: 8px 0 14px;
+  color: #667085;
+  font-size: 13px;
+}
+
+.login-demo-controls {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #e6e9f2;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.login-demo-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.login-demo-controls label > span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.login-demo-controls select,
+.login-demo-controls input {
+  width: 100%;
+  height: 36px;
+  padding: 6px 11px;
+  font-size: 13px;
+}
+
+.login-demo-controls select {
+  padding-right: 32px;
+}
+
+/* 2. Unified select & input geometry across dashboard, monitoring, and forms */
+.availability-controls select,
+.organization-filter select,
+.log-filter select,
+.event-monitor-filters select {
+  height: 34px;
+  min-height: 34px;
+  min-width: 124px;
+  padding: 0 32px 0 11px;
+  color: #1d2939;
+  font-size: 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.event-monitor-filters label {
+  display: grid;
+  gap: 6px;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.event-monitor-filters input {
+  height: 34px;
+  min-width: 150px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+.form-field > span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.form-field > span em {
+  padding: 2px 6px;
+  color: #667085;
+  font-size: 11px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea,
+.drawer-section textarea {
+  min-height: 36px;
+  padding: 7px 11px;
+  color: #1d2939;
+  font-size: 13px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+}
+
+.form-field select {
+  padding-right: 32px;
+}
+
+/* 3. Unified primary & secondary buttons across all pages */
+.primary-button,
+.secondary-button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.primary-button {
+  color: #ffffff;
+  border: 1px solid #4338ca;
+  background: #4f46e5;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.22);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.secondary-button {
+  color: #344054;
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.secondary-button:hover:not(:disabled) {
+  color: #1d2939;
+  border-color: #98a2b3;
+  background: #f9fafb;
+}
+
+.secondary-button.compact {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+/* 4. Time-filter nowrap & readable dashboard/table typography */
+.time-filter {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.time-filter button {
+  height: 30px;
+  padding: 0 12px;
+  color: #667085;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.metric-card {
+  padding: 15px 16px;
+}
+
+.metric-card > span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.metric-card > strong {
+  margin-top: 8px;
+  font-size: 24px;
+}
+
+.metric-card > small {
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.panel-title h3 {
+  font-size: 14px;
+}
+
+.panel-title p {
+  font-size: 12px;
+}
+
+th {
+  color: #667085;
+  font-size: 12px;
+}
+
+td {
+  color: #344054;
+  font-size: 12px;
+}
+
+.status {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-tabs button {
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.row-action {
+  font-size: 12px;
+}
+
+.detail-list dt {
+  font-size: 11px;
+}
+
+.detail-list dd {
+  font-size: 12px;
+}

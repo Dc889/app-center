@@ -1,1 +1,1 @@
-export {getDifyConfig, getDifyPluginDaemonConfig, resolveProductOwner} from './config.mjs'
+export {getDifyConfig, getDifyPluginDaemonConfig, resolveProductOwner, refreshDifyConsoleToken} from './config.mjs'

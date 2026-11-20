@@ -169,7 +169,7 @@
 .stepper span.active { color: #5861d5; font-weight: 600; }
 .stepper span.active b { color: #fff; border-color: #626ae5; background: #626ae5; }
 .stepper i { width: 54px; height: 1px; margin: 0 12px; background: #dfe2e9; }
-.form-section { max-width: 860px; padding: 20px 25px 16px; }
+.form-section { max-width: 720px; padding: 20px 24px 16px; }
 
 /* ==========================================================================
    Modernized Form System, Fieldsets & Input Architecture
@@ -213,7 +213,7 @@ fieldset label {
   gap: 6px;
   margin-bottom: 12px;
   color: #475467;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   min-width: 0;
   line-height: 1.4;
@@ -228,16 +228,21 @@ fieldset select,
 fieldset textarea {
   display: block;
   width: 100%;
-  min-height: 38px;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 7px 11px;
   color: #1d2939;
-  font-size: 12px;
+  font-size: 13px;
   border: 1px solid #d0d5dd;
   border-radius: 8px;
-  background: #ffffff;
   box-sizing: border-box;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.form-section select,
+fieldset select {
+  display: inline-block;
+  height: 36px;
+  padding: 0 32px 0 11px;
 }
 
 .form-section input:focus,
