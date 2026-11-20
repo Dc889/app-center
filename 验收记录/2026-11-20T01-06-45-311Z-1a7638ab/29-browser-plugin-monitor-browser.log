@@ -1,0 +1,3 @@
+(node:17420) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS Edge: 插件监控真实数据、六卡指标、内存趋势、错误排行、自动禁用台账与多角色权限已闭环通过

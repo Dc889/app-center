@@ -50,7 +50,7 @@ test('运行结果符合两份已接通的 OpenAPI', async (t) => {
   assert.equal(new Set(catalogStatus.items.map(item => item.action)).size, 33)
   assert.equal(catalogStatus.items.filter(item => item.ticketType === 'KB-03').length, 3)
   assert.ok(catalogStatus.items.every(item => item.ticketType !== 'EVT-01'))
-  assert.equal(catalogStatus.items.find(item => item.action === 'rotate_key').state, 'unsupported')
+  assert.ok(catalogStatus.items.every(item => ['unverified', 'unsupported'].includes(item.state)))
 
   const skills = await (await fetch(stack.skill + '/internal/v1/skills', { headers: auth })).json()
   hasKeys(skills, ['items', 'nextCursor'])

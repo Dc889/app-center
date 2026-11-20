@@ -36,3 +36,27 @@
 # 能力组件（非管理系统范围，由能力组独立维护）
 /capability/                        @team-capability
 /repositories/                      @team-capability
+
+# 能力组件细分归属：以下账号均为待替换的维护角色占位值。
+/capability/app/                       @capability-core
+/capability/platform/                  @capability-core
+/capability/executor/                  @capability-core
+/capability/adapters/                  @capability-core
+/capability/repositories/catalog.mjs    @capability-core
+/capability/modules/agents/             @capability-agents
+/capability/modules/keys/               @capability-keys
+/capability/modules/plugins/            @capability-plugins
+/capability/modules/skills/             @capability-skills
+/capability/modules/knowledge/          @capability-knowledge
+/capability/modules/mcp/                @capability-mcp
+/capability/modules/accounts/           @capability-accounts
+/capability/modules/tools/              @capability-tools
+/capability/modules/events/             @capability-events
+/capability/modules/integrations/       @capability-integrations
+/capability/modules/observability/      @capability-observability
+/capability/repositories/agent/         @capability-agents
+/capability/repositories/plugin/        @capability-plugins
+/capability/repositories/skill/         @capability-skills
+/capability/repositories/mcp/           @capability-mcp
+/dev/check-capability-boundaries.mjs    @capability-core
+/dev/test-capability.mjs               @capability-core

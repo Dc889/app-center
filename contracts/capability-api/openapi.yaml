@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: 能力组件接口
   version: 0.1.0
-  description: 管理系统调用。动作与 actions.json 对齐。SKL-03 已接通，插件安装按部署配置核验，其余登记动作返回 UPSTREAM_UNSUPPORTED。稳定人员交付映射及回执结算扩展需单独核验，现有执行器仍按原账户/组织匹配，不能据此宣称已支持改名交付。
+  description: 能力登记来自模块公开描述符，执行分发使用同一注册索引；部署核验独立按版本/分支/工作区匹配。ready=false的处理草稿返回unsupported和IMPLEMENTATION_INCOMPLETE，不能被证据提升。内部规则见module-registry.md。管理系统调用。动作与 actions.json 对齐。SKL-03 已接通，插件安装按部署配置核验，其余登记动作返回 UPSTREAM_UNSUPPORTED。稳定人员交付映射及回执结算扩展需单独核验，现有执行器仍按原账户/组织匹配，不能据此宣称已支持改名交付。
 servers:
   - url: /internal/v1
 paths:

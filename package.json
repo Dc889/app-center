@@ -12,8 +12,11 @@
     "preview": "vite preview",
     "test:module": "node dev/test-modules.mjs module",
     "test:browser": "node dev/test-modules.mjs browser",
-    "check:boundaries": "node dev/check-boundaries.mjs",
-    "check": "npm run check:boundaries && npm run lint && npm run build && npm run test:integration"
+    "check:boundaries": "node dev/check-boundaries.mjs && node dev/check-capability-boundaries.mjs",
+    "check": "npm run check:boundaries && npm run lint && npm run build && npm run test:integration",
+    "check:capability-boundaries": "node dev/check-capability-boundaries.mjs",
+    "test:capability": "node dev/test-capability.mjs",
+    "accept:work-orders": "node dev/run-acceptance.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.73.0",

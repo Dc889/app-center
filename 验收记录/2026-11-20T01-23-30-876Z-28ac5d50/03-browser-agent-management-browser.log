@@ -1,0 +1,101 @@
+(node:25340) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:24:20 [vite] (client) [optimizer] scanning dependencies...
+09:24:22 [vite] (client) [optimizer] bundling dependencies...
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+ExpectError: expect(locator).toHaveValue(expected) failed
+
+Locator: getByLabel('近30天调用数', { exact: true })
+Expected: "33"
+Timeout: 5000ms
+Error: element(s) not found
+
+Call log:
+  - Expect "toHaveValue" getByLabel('近30天调用数', { exact: true }) with timeout 5000ms
+  - waiting for getByLabel('近30天调用数', { exact: true })
+    - locator resolved to <input readonly value="7" aria-label="近30天调用数"/>
+    - unexpected value "7"
+
+    at captureRawStack (C:\Users\dc948\Project\11-AIAPPCENTER\app-center\node_modules\playwright-core\lib\coreBundle.js:9551:17)
+    at callMatcherAsStep (C:\Users\dc948\Project\11-AIAPPCENTER\app-center\node_modules\playwright\lib\matchers\expect.js:13342:57)
+    at Object.toHaveValue (C:\Users\dc948\Project\11-AIAPPCENTER\app-center\node_modules\playwright\lib\matchers\expect.js:13334:23)
+    at C:\Users\dc948\Project\11-AIAPPCENTER\app-center\management\modules\agents\tests\browser\agent-management-browser.mjs:52:323 {
+  matcherResult: {
+    name: 'toHaveValue',
+    expected: '33',
+    message: 'expect(locator).toHaveValue(expected) failed\n' +
+      '\n' +
+      "Locator: getByLabel('近30天调用数', { exact: true })\n" +
+      'Expected: "33"\n' +
+      'Timeout: 5000ms\n' +
+      'Error: element(s) not found\n' +
+      '\n' +
+      'Call log:\n' +
+      `  - Expect "toHaveValue" getByLabel('近30天调用数', { exact: true }) with timeout 5000ms\n` +
+      "  - waiting for getByLabel('近30天调用数', { exact: true })\n" +
+      '    - locator resolved to <input readonly value="7" aria-label="近30天调用数"/>\n' +
+      '    - unexpected value "7"\n',
+    pass: false,
+    actual: undefined,
+    log: [
+      `  - Expect "toHaveValue" getByLabel('近30天调用数', { exact: true }) with timeout 5000ms`,
+      "  - waiting for getByLabel('近30天调用数', { exact: true })",
+      '    - locator resolved to <input readonly value="7" aria-label="近30天调用数"/>',
+      '    - unexpected value "7"'
+    ],
+    timeout: 5000,
+    ariaSnapshot: '- complementary:\n' +
+      '  - strong: 应用中心\n' +
+      '  - text: AI 运营管理平台\n' +
+      '  - button "折叠侧边栏"\n' +
+      '  - navigation:\n' +
+      '    - text: 仓库\n' +
+      '    - button "智能体仓库"\n' +
+      '    - button "插件仓库"\n' +
+      '    - button "MCP仓库"\n' +
+      '    - button "Skill仓库"\n' +
+      '    - text: 监控\n' +
+      '    - button "统一概览"\n' +
+      '    - button "知识库"\n' +
+      '    - button "智能体监控"\n' +
+      '    - button "插件监控"\n' +
+      '    - button "MCP监控"\n' +
+      '    - button "Skill监控"\n' +
+      '    - button "安全事件"\n' +
+      '    - button "账号与集成"\n' +
+      '    - button "审计追踪"\n' +
+      '    - text: 工单\n' +
+      '    - button "对话申请"\n' +
+      '    - button "手工申请"\n' +
+      '    - button "我的申请"\n' +
+      '    - button "我的待办"\n' +
+      '    - button "工单查询"\n' +
+      '  - strong: 服务健康\n' +
+      '  - text: 采集状态见运行总览\n' +
+      '- banner:\n' +
+      '  - text: 用户网络分区 固定\n' +
+      '  - button "事件中心"\n' +
+      '  - button "运维待办"\n' +
+      '  - button "消息"\n' +
+      '  - button "帮助"\n' +
+      '  - button "周 周敏 平台运营组":\n' +
+      '    - text: 周\n' +
+      '    - strong: 周敏\n' +
+      '    - text: 平台运营组\n' +
+      '- main:\n' +
+      '  - text: 待处理事项\n' +
+      '  - heading "我的待办" [level=1]\n' +
+      '  - paragraph: 办理分派给你的工单与系统事件。\n' +
+      '  - heading "事件工单" [level=3]\n' +
+      '  - button "刷新事件"\n' +
+      '  - heading "业务审批申请" [level=3]\n' +
+      '  - button "刷新发布申请"\n' +
+      '  - heading "Skill文件执行待办" [level=3]\n' +
+      '  - button "刷新文件待办"'
+  }
+}
+
+Node.js v22.23.4

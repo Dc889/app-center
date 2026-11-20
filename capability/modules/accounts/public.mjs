@@ -1,0 +1,1 @@
+export const capabilityModule=Object.freeze({id:'accounts',actions:[{ticketType:'ACC-01',ticketTypeVersion:'1',action:'apply_account_change',variants:[null]},{ticketType:'ACC-02',ticketTypeVersion:'1',action:'rename_account',variants:[null]}],resources:{},catalogs:{},routes:[]})

@@ -1,0 +1,7 @@
+(node:27264) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:17:08 [vite] (client) [optimizer] scanning dependencies...
+09:17:10 [vite] (client) [optimizer] bundling dependencies...
+PASS draft upload SKL-01
+PASS draft upload PLG-01
+PASS Edge: Skill与插件只恢复待审ID，不重传文件；扫描变更为拒绝时阻止提交，重新通过后才放行

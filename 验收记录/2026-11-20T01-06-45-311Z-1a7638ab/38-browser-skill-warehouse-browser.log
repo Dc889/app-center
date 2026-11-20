@@ -1,0 +1,11 @@
+(node:28204) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:13:39 [vite] (client) [optimizer] scanning dependencies...
+09:13:40 [vite] (client) [optimizer] bundling dependencies...
+09:13:42 [vite] (client) [console.error] Each child in a list should have a unique "key" prop.
+
+Check the render method of `select`. It was passed a child from SkillVersions. See https://react.dev/link/warning-keys for more information.
+09:13:45 [vite] (client) [console.error] Each child in a list should have a unique "key" prop.
+
+Check the render method of `select`. It was passed a child from SkillVersions. See https://react.dev/link/warning-keys for more information.
+PASS skill warehouse: 用户只见可下载项，运维可见下架且不能下载

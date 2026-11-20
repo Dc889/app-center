@@ -1,0 +1,3 @@
+(node:28308) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS mcp warehouse: 先选工作区，普通用户不展示 URL 与 provider

@@ -1,0 +1,4 @@
+(node:4424) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:29:15 [vite] (client) [optimizer] bundling dependencies...
+PASS Edge: 智能体仓库（目标 34）角色隔离、可用排行、状态筛选、三种方式及 AG-04/05 工单联动已通过 Edge 页面验收

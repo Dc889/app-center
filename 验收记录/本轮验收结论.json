@@ -1,0 +1,45 @@
+{
+  "firstBatch": "2026-11-20T01-06-45-311Z-1a7638ab",
+  "retestBatch": "2026-11-20T01-27-42-752Z-1b5646dd",
+  "intermediateBatch": "2026-11-20T01-17-58-409Z-955ae0c8",
+  "additionalIntermediateBatch": "2026-11-20T01-23-30-876Z-28ac5d50",
+  "firstBrowserPassed": 48,
+  "firstBrowserFailed": 2,
+  "retestBrowserPassed": 7,
+  "integrationTests": 180,
+  "fullAcceptanceCount": 0,
+  "fullAcceptanceTotal": 27,
+  "closedDefects": [
+    "ACCPT-001",
+    "ACCPT-002",
+    "ACCPT-003-script-alignment",
+    "ACCPT-004-query-lifecycle"
+  ],
+  "sourceChanges": [
+    "dev/run-acceptance.mjs",
+    "management/modules/agents/tests/browser/agent-management-browser.mjs",
+    "management/modules/agents/web/AgentAccessForm.tsx",
+    "management/modules/agents/web/AgentWithdrawForm.tsx",
+    "tests/access-selection-browser.mjs"
+  ],
+  "sourceStableAtReview": true,
+  "formalProductDeploymentTested": false,
+  "retestBatches": [
+    {
+      "id": "2026-11-20T01-17-58-409Z-955ae0c8",
+      "browserPassed": 8,
+      "browserTotal": 9
+    },
+    {
+      "id": "2026-11-20T01-23-30-876Z-28ac5d50",
+      "browserPassed": 7,
+      "browserTotal": 8
+    },
+    {
+      "id": "2026-11-20T01-27-42-752Z-1b5646dd",
+      "browserPassed": 7,
+      "browserTotal": 7
+    }
+  ],
+  "postVerificationEdits": "Progress/handoff and acceptance summaries, plus .gitignore retention rule for acceptance logs; tested application and test code unchanged."
+}

@@ -1,0 +1,260 @@
+(node:27084) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:14:34 [vite] (client) [optimizer] scanning dependencies...
+09:14:37 [vite] (client) [optimizer] bundling dependencies...
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+ExpectError: expect(locator).toBeDisabled() failed
+
+Locator: getByLabel('访问 API', { exact: true })
+Expected: disabled
+Timeout: 5000ms
+Error: element(s) not found
+
+Call log:
+  - Expect "toBeDisabled" getByLabel('访问 API', { exact: true }) with timeout 5000ms
+  - waiting for getByLabel('访问 API', { exact: true })
+
+    at captureRawStack (C:\Users\dc948\Project\11-AIAPPCENTER\app-center\node_modules\playwright-core\lib\coreBundle.js:9551:17)
+    at callMatcherAsStep (C:\Users\dc948\Project\11-AIAPPCENTER\app-center\node_modules\playwright\lib\matchers\expect.js:13342:57)
+    at Object.toBeDisabled (C:\Users\dc948\Project\11-AIAPPCENTER\app-center\node_modules\playwright\lib\matchers\expect.js:13334:23)
+    at C:\Users\dc948\Project\11-AIAPPCENTER\app-center\tests\access-selection-browser.mjs:48:56 {
+  matcherResult: {
+    message: 'expect(locator).toBeDisabled() failed\n' +
+      '\n' +
+      "Locator: getByLabel('访问 API', { exact: true })\n" +
+      'Expected: disabled\n' +
+      'Timeout: 5000ms\n' +
+      'Error: element(s) not found\n' +
+      '\n' +
+      'Call log:\n' +
+      `  - Expect "toBeDisabled" getByLabel('访问 API', { exact: true }) with timeout 5000ms\n` +
+      "  - waiting for getByLabel('访问 API', { exact: true })\n",
+    pass: false,
+    actual: undefined,
+    name: 'toBeDisabled',
+    expected: 'disabled',
+    log: [
+      `  - Expect "toBeDisabled" getByLabel('访问 API', { exact: true }) with timeout 5000ms`,
+      "  - waiting for getByLabel('访问 API', { exact: true })"
+    ],
+    timeout: 5000,
+    ariaSnapshot: '- complementary:\n' +
+      '  - strong: 应用中心\n' +
+      '  - text: AI 运营管理平台\n' +
+      '  - button "折叠侧边栏"\n' +
+      '  - navigation:\n' +
+      '    - text: 仓库\n' +
+      '    - button "智能体仓库"\n' +
+      '    - button "插件仓库"\n' +
+      '    - button "MCP仓库"\n' +
+      '    - button "Skill仓库"\n' +
+      '    - text: 工单\n' +
+      '    - button "对话申请"\n' +
+      '    - button "手工申请"\n' +
+      '    - button "我的申请"\n' +
+      '  - strong: 服务健康\n' +
+      '  - text: 采集状态见运行总览\n' +
+      '- banner:\n' +
+      '  - text: 用户网络分区 固定\n' +
+      '  - button "消息"\n' +
+      '  - button "帮助"\n' +
+      '  - button "陈 陈宇 业务一部":\n' +
+      '    - text: 陈\n' +
+      '    - strong: 陈宇\n' +
+      '    - text: 业务一部\n' +
+      '- main:\n' +
+      '  - text: 工单目录\n' +
+      '  - heading "手工申请" [level=1]\n' +
+      '  - paragraph: 按业务对象选择工单类型，逐项填写并检查。\n' +
+      '  - complementary:\n' +
+      '    - textbox "搜索类型、编码或场景"\n' +
+      '    - button "全部"\n' +
+      '    - button "知识库"\n' +
+      '    - button "智能体"\n' +
+      '    - button "插件"\n' +
+      '    - button "MCP"\n' +
+      '    - button "Skill"\n' +
+      '    - button "凭证"\n' +
+      '    - button "工具"\n' +
+      '    - button "告警"\n' +
+      '    - button "KB-01 个人知识库纳管同步 把个人库同步到本平台目录 即办":\n' +
+      '      - text: KB-01\n' +
+      '      - strong: 个人知识库纳管同步\n' +
+      '      - text: 把个人库同步到本平台目录\n' +
+      '      - emphasis: 即办\n' +
+      '    - button "KB-02 知识库发布 / 分享申请 对外分享或随应用发布 人工审批":\n' +
+      '      - text: KB-02\n' +
+      '      - strong: 知识库发布 / 分享申请\n' +
+      '      - text: 对外分享或随应用发布\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "KB-03 知识库使用 / 绑定申请 范围内使用即办，不另开审批 即办":\n' +
+      '      - text: KB-03\n' +
+      '      - strong: 知识库使用 / 绑定申请\n' +
+      '      - text: 范围内使用即办，不另开审批\n' +
+      '      - emphasis: 即办\n' +
+      '    - button "KB-05 知识库下架 / 违规处置 下架、暂停分享或处置文档 人工审批":\n' +
+      '      - text: KB-05\n' +
+      '      - strong: 知识库下架 / 违规处置\n' +
+      '      - text: 下架、暂停分享或处置文档\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "AG-01 个人智能体纳管同步 同步个人应用，不对外分享 即办":\n' +
+      '      - text: AG-01\n' +
+      '      - strong: 个人智能体纳管同步\n' +
+      '      - text: 同步个人应用，不对外分享\n' +
+      '      - emphasis: 即办\n' +
+      '    - button "AG-02 智能体发布 / 分享申请 审批通过后一次性上架 人工审批":\n' +
+      '      - text: AG-02\n' +
+      '      - strong: 智能体发布 / 分享申请\n' +
+      '      - text: 审批通过后一次性上架\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "AG-03 智能体受限使用授权 公开应用即办，受限应用由运维审批 按条件":\n' +
+      '      - text: AG-03\n' +
+      '      - strong: 智能体受限使用授权\n' +
+      '      - text: 公开应用即办，受限应用由运维审批\n' +
+      '      - emphasis: 按条件\n' +
+      '    - button "AG-04 智能体变更再发布 校验新版本的插件、工具与 MCP 人工审批":\n' +
+      '      - text: AG-04\n' +
+      '      - strong: 智能体变更再发布\n' +
+      '      - text: 校验新版本的插件、工具与 MCP\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "AG-05 智能体下架 从仓库下架，并撤销相关授权 人工审批":\n' +
+      '      - text: AG-05\n' +
+      '      - strong: 智能体下架\n' +
+      '      - text: 从仓库下架，并撤销相关授权\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "KEY-01 Dify API 密钥创建登记 本人调试即办，其他用途审批 按条件":\n' +
+      '      - text: KEY-01\n' +
+      '      - strong: Dify API 密钥创建登记\n' +
+      '      - text: 本人调试即办，其他用途审批\n' +
+      '      - emphasis: 按条件\n' +
+      '    - button "KEY-02 Dify API 密钥轮换 / 撤销 轮换或撤销已登记密钥 人工审批":\n' +
+      '      - text: KEY-02\n' +
+      '      - strong: Dify API 密钥轮换 / 撤销\n' +
+      '      - text: 轮换或撤销已登记密钥\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "TOL-01 Dify 工具对外使用审批 工具批准状态的唯一来源 人工审批":\n' +
+      '      - text: TOL-01\n' +
+      '      - strong: Dify 工具对外使用审批\n' +
+      '      - text: 工具批准状态的唯一来源\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "PLG-01 插件上架申请 上传包扫描通过后进行权限审核和上架审批 人工审批":\n' +
+      '      - text: PLG-01\n' +
+      '      - strong: 插件上架申请\n' +
+      '      - text: 上传包扫描通过后进行权限审核和上架审批\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "PLG-02 插件版本变更再审 版本指纹或权限变化后再审 人工审批":\n' +
+      '      - text: PLG-02\n' +
+      '      - strong: 插件版本变更再审\n' +
+      '      - text: 版本指纹或权限变化后再审\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "PLG-03 插件安装 / 卸载 公开安装即办，受限安装审批 按条件":\n' +
+      '      - text: PLG-03\n' +
+      '      - strong: 插件安装 / 卸载\n' +
+      '      - text: 公开安装即办，受限安装审批\n' +
+      '      - emphasis: 按条件\n' +
+      '    - button "SKL-01 Skill 上架申请 上传并完成扫描后提交上架审批 人工审批":\n' +
+      '      - text: SKL-01\n' +
+      '      - strong: Skill 上架申请\n' +
+      '      - text: 上传并完成扫描后提交上架审批\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "SKL-02 Skill 版本变更再审 新文件版本重新审核 人工审批":\n' +
+      '      - text: SKL-02\n' +
+      '      - strong: Skill 版本变更再审\n' +
+      '      - text: 新文件版本重新审核\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "SKL-03 Skill 下载 核对权限并记录下载流水 即办":\n' +
+      '      - text: SKL-03\n' +
+      '      - strong: Skill 下载\n' +
+      '      - text: 核对权限并记录下载流水\n' +
+      '      - emphasis: 即办\n' +
+      '    - button "SKL-04 Skill 下架 保留审计副本并禁止下载 人工审批":\n' +
+      '      - text: SKL-04\n' +
+      '      - strong: Skill 下架\n' +
+      '      - text: 保留审计副本并禁止下载\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "MCP-01 MCP 上架登记 技术注册完成后提交安全复核与登记 人工审批":\n' +
+      '      - text: MCP-01\n' +
+      '      - strong: MCP 上架登记\n' +
+      '      - text: 技术注册完成后提交安全复核与登记\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "MCP-02 MCP 使用 / 绑定 范围内绑定即办，地址来自内网目录 即办":\n' +
+      '      - text: MCP-02\n' +
+      '      - strong: MCP 使用 / 绑定\n' +
+      '      - text: 范围内绑定即办，地址来自内网目录\n' +
+      '      - emphasis: 即办\n' +
+      '    - button "MCP-03 MCP 解绑 / 隔离 解绑、隔离或目录下架 人工审批":\n' +
+      '      - text: MCP-03\n' +
+      '      - strong: MCP 解绑 / 隔离\n' +
+      '      - text: 解绑、隔离或目录下架\n' +
+      '      - emphasis: 人工审批\n' +
+      '    - button "EVT-01 告警研判与处置 人工报告安全与运行事件 人工审批":\n' +
+      '      - text: EVT-01\n' +
+      '      - strong: 告警研判与处置\n' +
+      '      - text: 人工报告安全与运行事件\n' +
+      '      - emphasis: 人工审批\n' +
+      '  - text: AG-03\n' +
+      '  - heading "智能体受限使用授权" [level=3]\n' +
+      '  - paragraph: 公开应用即办，受限应用由运维审批\n' +
+      '  - text: 按条件 1 申请对象 2 业务信息 3 检查提交 01\n' +
+      '  - heading "基本信息" [level=4]\n' +
+      '  - paragraph: 标题由系统生成。这张单即办，不收集申请说明。\n' +
+      '  - text: 工单标题\n' +
+      '  - emphasis: 本平台\n' +
+      '  - textbox "工单标题 本平台": 智能体受限使用授权 · 未选择资源\n' +
+      '  - text: 申请人\n' +
+      '  - emphasis: 本平台\n' +
+      '  - textbox "申请人 本平台": 陈宇 · chen.yu\n' +
+      '  - text: 申请组织\n' +
+      '  - emphasis: 本平台\n' +
+      '  - textbox "申请组织 本平台": 业务一部\n' +
+      '  - text: 密级\n' +
+      '  - emphasis: 本平台\n' +
+      '  - textbox "密级 本平台": 未登记\n' +
+      '  - text: 业务线\n' +
+      '  - emphasis: 本平台\n' +
+      '  - textbox "业务线 本平台": 刑侦\n' +
+      '  - group "智能体使用授权申请 (AG-03)":\n' +
+      '    - text: 智能体使用授权申请 (AG-03)\n' +
+      '    - group "选择已发布智能体":\n' +
+      '      - text: 选择已发布智能体 资源搜索\n' +
+      '      - textbox "资源搜索"\n' +
+      '      - button "读取可选资源"\n' +
+      '      - text: 仓库应用 ID\n' +
+      '      - combobox "仓库应用 ID":\n' +
+      '        - option "请选择"\n' +
+      '        - option "共享智能体 · agent" [selected]\n' +
+      '      - status: 请选择资源；提交时将再次核验权限与快照\n' +
+      '    - text: 来源工作区\n' +
+      '    - textbox "来源工作区": source-ws\n' +
+      '    - text: Dify应用 ID\n' +
+      '    - textbox "Dify应用 ID": app\n' +
+      '    - text: 使用目的\n' +
+      '    - textbox "使用目的":\n' +
+      '      - /placeholder: 说明调用用途或接入业务\n' +
+      '    - text: 使用开始时间\n' +
+      '    - textbox "使用开始时间"\n' +
+      '    - text: 使用截止时间\n' +
+      '    - textbox "使用截止时间"\n' +
+      '    - group "申请使用方式":\n' +
+      '      - text: 申请使用方式\n' +
+      '      - checkbox "运行" [checked]\n' +
+      '      - text: 运行\n' +
+      '      - checkbox "嵌入网站 (未开通)" [disabled]\n' +
+      '      - text: 嵌入网站 (未开通)\n' +
+      '      - checkbox "访问 API (未开通)" [disabled]\n' +
+      '      - text: 访问 API (未开通)\n' +
+      '    - button "提交使用授权"\n' +
+      '    - button "检查"\n' +
+      '    - heading "申请草稿" [level=4]\n' +
+      '    - button "保存申请草稿"\n' +
+      '    - button "新建申请草稿"\n' +
+      '    - button "刷新申请草稿"\n' +
+      '    - status\n' +
+      '    - status'
+  }
+}
+
+Node.js v22.23.4

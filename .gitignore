@@ -29,3 +29,6 @@ test-results
 *.njsproj
 *.sln
 *.sw?
+
+# Isolated acceptance evidence is a review deliverable, including failed-run logs.
+!验收记录/**/*.log

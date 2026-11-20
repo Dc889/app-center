@@ -1,0 +1,3 @@
+(node:28440) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS Edge: 总览真实台账、角色隔离、未采集与零、日差、独立健康缺采集、探测依据、趋势窗口、不完整趋势和过期标记

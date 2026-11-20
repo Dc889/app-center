@@ -1,6 +1,6 @@
 # AI 运营管理平台
 
-管理组在 `management/web` 开发页面，在 `management/api` 维护工单、冻结输入和结果回写。能力组在 `capability/executor` 负责执行，在 `capability/adapters` 对接产品，在 `capability/repositories/{skill,plugin,mcp,agent}` 分别维护四个仓库。服务间使用 HTTP。[共享契约](contracts/README.md)按提供方归档。
+管理系统按功能位于 `management/modules/`，公共装配与基础位于 `management/app/`、`management/platform/`。能力组件按功能位于 `capability/modules/`，公共执行框架位于 `capability/platform/`，启动位于 `capability/app/`；四个独立仓库位于 `capability/repositories/{skill,plugin,mcp,agent}/`。服务之间使用HTTP。[共享契约](contracts/README.md)按提供方归档，[能力分工与结构](分工文档/能力组件结构与分工.md)说明目录归属与测试命令。
 
 ## 本机联调
 

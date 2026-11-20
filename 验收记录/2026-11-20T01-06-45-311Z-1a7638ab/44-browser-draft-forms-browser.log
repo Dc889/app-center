@@ -1,0 +1,28 @@
+(node:10788) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS draft form AG-01
+PASS draft form AG-02
+PASS draft form AG-03
+PASS draft form AG-04
+PASS draft form AG-05
+PASS draft form KB-01
+PASS draft form KB-02
+PASS draft form KB-03
+PASS draft form KB-05
+PASS draft form MCP-01
+PASS draft form MCP-02
+PASS draft form MCP-03
+PASS draft form SKL-01
+PASS draft form SKL-02
+PASS draft form SKL-03
+PASS draft form SKL-04
+PASS draft form PLG-01
+PASS draft form PLG-02
+PASS draft form PLG-03
+PASS draft form KEY-01
+PASS draft form KEY-02
+PASS draft form TOL-01
+PASS draft form ACC-01
+PASS draft form ACC-02
+PASS draft form EVT-01
+PASS Edge: 全部25种人工类型恢复并保存，零执行下发；产品快照不进入草稿

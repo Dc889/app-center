@@ -1,0 +1,176 @@
+{
+  "id": "2026-11-20T01-23-30-876Z-28ac5d50",
+  "startedAt": "2026-11-20T01:23:31.134Z",
+  "status": "regression_failed_full_acceptance_pending",
+  "scope": "isolated_local; production not accessed",
+  "commit": "581e6cec6cdc679a7494d0a37ff69d4cc63c68ca",
+  "dirty": true,
+  "sourceDigest": "ecec5294f6959c8b8116c6e0198670b65139430c9578bcc1800deaa216bc37bc",
+  "sourceFileCount": 502,
+  "environment": {
+    "node": "v22.23.4",
+    "platform": "win32",
+    "credentials": "product/service environment variables removed from child processes; no credential values retained"
+  },
+  "steps": [
+    {
+      "name": "baseline-checks",
+      "kind": "integration",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node_modules\\npm\\bin\\npm-cli.js",
+        "run",
+        "check"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:23:31.343Z",
+      "log": "01-baseline-checks.log",
+      "finishedAt": "2026-11-20T01:24:16.764Z",
+      "durationMs": 45414,
+      "exitCode": 0,
+      "signal": null,
+      "tests": 180,
+      "passed": 180,
+      "failed": 0
+    },
+    {
+      "name": "live-skill-and-event",
+      "kind": "live-local",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "dev/acceptance-live.mjs",
+        "C:\\Users\\dc948\\Project\\11-AIAPPCENTER\\app-center\\验收记录\\2026-11-20T01-23-30-876Z-28ac5d50"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:24:16.768Z",
+      "log": "02-live-skill-and-event.log",
+      "finishedAt": "2026-11-20T01:24:18.008Z",
+      "durationMs": 1237,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-management-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-management-browser.mjs"
+      ],
+      "status": "failed",
+      "startedAt": "2026-11-20T01:24:18.023Z",
+      "log": "03-browser-agent-management-browser.log",
+      "finishedAt": "2026-11-20T01:24:38.099Z",
+      "durationMs": 20074,
+      "exitCode": 1,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:24:38.101Z",
+      "log": "04-browser-agent-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:24:49.926Z",
+      "durationMs": 11823,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-sync-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-sync-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:24:49.932Z",
+      "log": "05-browser-agent-sync-browser.log",
+      "finishedAt": "2026-11-20T01:25:01.148Z",
+      "durationMs": 11213,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-warehouse-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-warehouse-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:25:01.152Z",
+      "log": "06-browser-agent-warehouse-browser.log",
+      "finishedAt": "2026-11-20T01:25:15.287Z",
+      "durationMs": 14133,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-application-targets-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\application-targets-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:25:15.293Z",
+      "log": "07-browser-application-targets-browser.log",
+      "finishedAt": "2026-11-20T01:25:37.283Z",
+      "durationMs": 21986,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-access-selection-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\access-selection-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:25:37.288Z",
+      "log": "08-browser-access-selection-browser.log",
+      "finishedAt": "2026-11-20T01:25:57.104Z",
+      "durationMs": 19815,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-draft-forms-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\draft-forms-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:25:57.108Z",
+      "log": "09-browser-draft-forms-browser.log",
+      "finishedAt": "2026-11-20T01:26:29.199Z",
+      "durationMs": 32089,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-form-check-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\form-check-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:26:29.206Z",
+      "log": "10-browser-form-check-browser.log",
+      "finishedAt": "2026-11-20T01:26:43.675Z",
+      "durationMs": 14466,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "retestOf": "2026-11-20T01-17-58-409Z-955ae0c8",
+  "browserScope": "Failed scenarios, all agents module browser scenarios, draft forms and form checks; full baseline and local live chain repeated",
+  "finishedAt": "2026-11-20T01:26:43.678Z"
+}

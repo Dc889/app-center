@@ -173,6 +173,7 @@ export function AgentAccessForm() {
               <label key={code}>
                 <input
                   type="checkbox"
+                  aria-label={name}
                   disabled={!available}
                   checked={usages.includes(code)}
                   onChange={(e) =>

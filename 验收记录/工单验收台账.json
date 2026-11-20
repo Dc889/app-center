@@ -1,0 +1,1096 @@
+{
+  "firstBatch": "2026-11-20T01-06-45-311Z-1a7638ab",
+  "retestBatch": "2026-11-20T01-27-42-752Z-1b5646dd",
+  "intermediateBatch": "2026-11-20T01-17-58-409Z-955ae0c8",
+  "additionalIntermediateBatch": "2026-11-20T01-23-30-876Z-28ac5d50",
+  "sourceChanges": [
+    "dev/run-acceptance.mjs",
+    "management/modules/agents/tests/browser/agent-management-browser.mjs",
+    "management/modules/agents/web/AgentAccessForm.tsx",
+    "management/modules/agents/web/AgentWithdrawForm.tsx",
+    "tests/access-selection-browser.mjs"
+  ],
+  "retestSourcesStableAtReview": true,
+  "accepted": 0,
+  "total": 27,
+  "workOrders": [
+    {
+      "ticketType": "KB-01",
+      "name": "知识库同步",
+      "requiredReviewIndex": "RAGFlow/Dify本人纳管、所有者/来源与工作区、即办结果、失败恢复",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "dataset-sync-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "21-browser-dataset-sync-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "KB-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "KB-02",
+      "name": "知识库分享审查",
+      "requiredReviewIndex": "范围与期限、逐文档审查、模型核对、关联应用独立工作区/修订、目录生效",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "dataset-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "22-browser-dataset-workflow-browser.log"
+        },
+        {
+          "scenario": "dataset-selection-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "20-browser-dataset-selection-browser.log"
+        },
+        {
+          "scenario": "publication-associations-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-17-58-409Z-955ae0c8",
+          "log": "11-browser-publication-associations-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "KB-02",
+          "ticketTypeVersion": "1",
+          "action": "publish_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "KB-03",
+      "name": "知识库使用绑定",
+      "requiredReviewIndex": "本人/共享资格、检索/编排、RAG外部/Dify同区/Dify跨区三实现、复制丢响应查证",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "dataset-binding-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "17-browser-dataset-binding-browser.log"
+        },
+        {
+          "scenario": "application-targets-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-27-42-752Z-1b5646dd",
+          "log": "07-browser-application-targets-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "RAGFlow外部知识库",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify同workspace授权",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify跨workspace复制",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "KB-04",
+      "name": "内容变更再审",
+      "requiredReviewIndex": "可信变更来源、文档快照、所有者补正、正反复核、暂停/处置关联、未知结果",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "dataset-changes-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "18-browser-dataset-changes-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "KB-04",
+          "ticketTypeVersion": "1",
+          "action": "review_dataset_changes",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "KB-05",
+      "name": "知识库安全处置",
+      "requiredReviewIndex": "人工/告警、先暂停后处置、整库/指定文档、证据授权、复核/重复节点",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "dataset-disposition-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "19-browser-dataset-disposition-browser.log"
+        },
+        {
+          "scenario": "event-attachment-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "12-browser-event-attachment-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "pause_share",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "dispose_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "AG-01",
+      "name": "智能体同步纳管",
+      "requiredReviewIndex": "本人/工作区、站点关闭、草稿版本、真实同步、目录与监控区分",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "agent-sync-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-27-42-752Z-1b5646dd",
+          "log": "05-browser-agent-sync-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "AG-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "AG-02",
+      "name": "智能体首次发布",
+      "requiredReviewIndex": "范围/方式/依赖、风险决定、快照修订、实际目录与入口、授权策略",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "publish-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "48-browser-publish-workflow-browser.log"
+        },
+        {
+          "scenario": "source-resources-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "50-browser-source-resources-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "AG-02",
+          "ticketTypeVersion": "1",
+          "action": "publish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "AG-03",
+      "name": "智能体受限使用",
+      "requiredReviewIndex": "已发布方式、来源工作区、授权期限/范围、恢复重选、审批与生效",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "access-selection-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-23-30-876Z-28ac5d50",
+          "log": "08-browser-access-selection-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "AG-03",
+          "ticketTypeVersion": "1",
+          "action": "grant_app_access",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "AG-04",
+      "name": "智能体变更再发布",
+      "requiredReviewIndex": "原/新版本工作流、完整依赖、风险/资格变化、影响复核与实际发布",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "agent-management-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-27-42-752Z-1b5646dd",
+          "log": "03-browser-agent-management-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "AG-04",
+          "ticketTypeVersion": "1",
+          "action": "republish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "AG-05",
+      "name": "智能体下架",
+      "requiredReviewIndex": "目录/授权/密钥分别处置、未来生效、替代资格、恢复重选或清除、分步失败",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "agent-management-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-27-42-752Z-1b5646dd",
+          "log": "03-browser-agent-management-browser.log"
+        },
+        {
+          "scenario": "publication-associations-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-17-58-409Z-955ae0c8",
+          "log": "11-browser-publication-associations-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "AG-05",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "KEY-01",
+      "name": "创建Dify密钥",
+      "requiredReviewIndex": "调试/已发布API/集成用途、来源CIDR/到期、登记与一次性领取、身份隔离",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "key-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "16-browser-key-workflow-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "KEY-01",
+          "ticketTypeVersion": "1",
+          "action": "create_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "KEY-02",
+      "name": "密钥轮换撤销",
+      "requiredReviewIndex": "原登记与修订、轮换/撤销、新钥与旧钥分别确认、丢响应沿原流水恢复",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "key-registration-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "15-browser-key-registration-browser.log"
+        },
+        {
+          "scenario": "key-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "16-browser-key-workflow-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "rotate_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "revoke_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "TOL-01",
+      "name": "工具批准",
+      "requiredReviewIndex": "首次批准/变更再审/撤销、技术定义来源、配置与批准双修订、调用资格",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "tool-selection-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "40-browser-tool-selection-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "TOL-01",
+          "ticketTypeVersion": "1",
+          "action": "set_tool_approval",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "PLG-01",
+      "name": "插件上架",
+      "requiredReviewIndex": "本地/GitHub/市场来源、扫描包身份、网络与可见范围、上架不安装",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "plugin-publication-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "30-browser-plugin-publication-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "PLG-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "PLG-02",
+      "name": "插件变更再审",
+      "requiredReviewIndex": "新包与原版本、配置/权限差异、外部许可、目录生效与旧安装隔离",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "plugin-publication-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "30-browser-plugin-publication-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "PLG-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "PLG-03",
+      "name": "插件安装升级卸载",
+      "requiredReviewIndex": "指定工作区/安装实例、三操作、包摘要、实际安装任务与版本、丢响应查证",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "plugin-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "33-browser-plugin-workflow-browser.log"
+        },
+        {
+          "scenario": "plugin-warehouse-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "32-browser-plugin-warehouse-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "install",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "upgrade",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "uninstall",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "PLG-04",
+      "name": "插件自动禁用恢复",
+      "requiredReviewIndex": "可信阈值样本、定向禁用、失败升级、恢复观察与失败再禁用、节点幂等",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "plugin-safety-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "31-browser-plugin-safety-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "disable_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "restore_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "SKL-01",
+      "name": "Skill上架",
+      "requiredReviewIndex": "暂存/扫描、指令与许可、可见范围、实际目录发布",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "skill-publication-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "37-browser-skill-publication-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "SKL-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "SKL-02",
+      "name": "Skill版本更新",
+      "requiredReviewIndex": "新旧版本及哈希、历史可下载/禁止新增分支、实际版本目录",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "skill-publication-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "37-browser-skill-publication-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "SKL-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "SKL-03",
+      "name": "Skill下载",
+      "requiredReviewIndex": "正常/越权/完整交付/摘要/重复领取/重启、本地发送证明、取消/关闭/未知及去重结算",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "skill-delivery-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "35-browser-skill-delivery-browser.log"
+        },
+        {
+          "scenario": "skill-cancellation-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "34-browser-skill-cancellation-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "SKL-03",
+          "ticketTypeVersion": "1",
+          "action": "download",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [
+        {
+          "id": "LIVE-SKL-03-ACCEPT",
+          "status": "passed",
+          "at": "2026-11-20T01:28:31.590Z",
+          "evidence": {
+            "ticketNo": "SKL-03-accept-b90ca61c-7bb0-49b7-a4b3-7ad18a3f4bb5",
+            "resultId": "DL-2c5b71a7-00cc-4970-b919-52a38fe3607c",
+            "status": "awaiting_delivery"
+          }
+        },
+        {
+          "id": "LIVE-SKL-03-ACCESS",
+          "status": "passed",
+          "at": "2026-11-20T01:28:31.603Z",
+          "evidence": {
+            "ticketNo": "SKL-03-accept-b90ca61c-7bb0-49b7-a4b3-7ad18a3f4bb5",
+            "anonymous": 404,
+            "foreign": 404
+          }
+        },
+        {
+          "id": "LIVE-SKL-03-DELIVERY-IDEMPOTENCY",
+          "status": "passed",
+          "at": "2026-11-20T01:28:31.752Z",
+          "evidence": {
+            "ticketNo": "SKL-03-accept-b90ca61c-7bb0-49b7-a4b3-7ad18a3f4bb5",
+            "resultId": "DL-2c5b71a7-00cc-4970-b919-52a38fe3607c",
+            "bytesPerTransfer": 99,
+            "sha256": "656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1",
+            "sameResultOnRepeatedRequest": true,
+            "finalStatus": "succeeded"
+          }
+        }
+      ],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "部分路径通过；完整分支/部署待验"
+    },
+    {
+      "ticketType": "SKL-04",
+      "name": "Skill下架",
+      "requiredReviewIndex": "下架资格、版本/下载统计、审批修订、历史副本与在途交付协调",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "skill-withdrawal-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "39-browser-skill-withdrawal-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "SKL-04",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "MCP-01",
+      "name": "MCP注册上架",
+      "requiredReviewIndex": "可信注册、传输/工具发现/指纹、可见范围、目录发布",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "mcp-registration-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "26-browser-mcp-registration-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "MCP-01",
+          "ticketTypeVersion": "1",
+          "action": "register_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "MCP-02",
+      "name": "MCP使用绑定",
+      "requiredReviewIndex": "目标工作区/应用资格、URL指纹、本人/审批分支、实际provider/工具发现",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "access-selection-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-23-30-876Z-28ac5d50",
+          "log": "08-browser-access-selection-browser.log"
+        },
+        {
+          "scenario": "application-targets-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-27-42-752Z-1b5646dd",
+          "log": "07-browser-application-targets-browser.log"
+        },
+        {
+          "scenario": "mcp-warehouse-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "27-browser-mcp-warehouse-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "MCP-02",
+          "ticketTypeVersion": "1",
+          "action": "bind",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "MCP-03",
+      "name": "MCP解绑隔离下架",
+      "requiredReviewIndex": "单用户解绑/目录隔离/下架、完整绑定范围、共享provider不误删、修订竞态",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "mcp-disposition-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "24-browser-mcp-disposition-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "unbind_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "isolate_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "ACC-01",
+      "name": "账号配置变更",
+      "requiredReviewIndex": "开通/停用/组织/角色、最后管理员保护、两端实际状态、失败查证与解锁",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "account-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "05-browser-account-workflow-browser.log"
+        },
+        {
+          "scenario": "account-recovery-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "04-browser-account-recovery-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "ACC-01",
+          "ticketTypeVersion": "1",
+          "action": "apply_account_change",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "ACC-02",
+      "name": "账号改名",
+      "requiredReviewIndex": "重名预约/互斥、两端部分成功、稳定身份/旧名、补偿封存与最终一致",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "account-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "05-browser-account-workflow-browser.log"
+        },
+        {
+          "scenario": "account-recovery-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "04-browser-account-recovery-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [
+        {
+          "ticketType": "ACC-02",
+          "ticketTypeVersion": "1",
+          "action": "rename_account",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "localLiveChecks": [],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "能力阻塞，未通过整单验收"
+    },
+    {
+      "ticketType": "EVT-01",
+      "name": "事件研判处置复核",
+      "requiredReviewIndex": "人工/系统告警、真故障/误报/重复、观察/重开、独立复核、附件及同对象实际处置关联",
+      "relatedBrowserScenarios": [
+        {
+          "scenario": "event-workflow-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "14-browser-event-workflow-browser.log"
+        },
+        {
+          "scenario": "event-attachment-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "12-browser-event-attachment-browser.log"
+        },
+        {
+          "scenario": "event-monitor-browser",
+          "status": "passed",
+          "batch": "2026-11-20T01-06-45-311Z-1a7638ab",
+          "log": "13-browser-event-monitor-browser.log"
+        }
+      ],
+      "relatedScenariosAllPassed": true,
+      "capabilitySnapshotScope": "first snapshot in retest live-evidence.json; isolated local, not production",
+      "capabilities": [],
+      "localLiveChecks": [
+        {
+          "id": "LIVE-EVT-01-MANUAL-CLOSE",
+          "status": "passed",
+          "at": "2026-11-20T01:28:31.822Z",
+          "evidence": {
+            "ticketNo": "EVT-01-accept-edb2284c-1a5a-4123-a7d7-49c82df06c2f",
+            "status": "已关闭",
+            "revision": 4,
+            "adminDenied": 403,
+            "selfReviewDenied": 403,
+            "executionCountBefore": 1,
+            "executionCountAfter": 1,
+            "newResourceExecutions": 0,
+            "timeline": [
+              {
+                "at": "2026-11-20T01:28:31.763Z",
+                "actor": "chen.yu",
+                "action": "人工报告",
+                "fromStatus": null,
+                "toStatus": "未研判"
+              },
+              {
+                "at": "2026-11-20T01:28:31.783Z",
+                "actor": "zhou.min",
+                "action": "开始处置",
+                "fromStatus": "未研判",
+                "toStatus": "处理中"
+              },
+              {
+                "at": "2026-11-20T01:28:31.790Z",
+                "actor": "zhou.min",
+                "action": "提交复核",
+                "fromStatus": "处理中",
+                "toStatus": "待复核"
+              },
+              {
+                "at": "2026-11-20T01:28:31.812Z",
+                "actor": "wang.ning",
+                "action": "确认关闭",
+                "fromStatus": "待复核",
+                "toStatus": "已关闭"
+              }
+            ]
+          }
+        }
+      ],
+      "businessBranchReview": "pending",
+      "deployedProductVerification": "not_tested",
+      "endToEndAccepted": false,
+      "conclusion": "部分路径通过；完整分支/部署待验"
+    }
+  ]
+}

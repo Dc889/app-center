@@ -1,0 +1,14 @@
+(node:23872) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+开始登录 运维人员
+登录响应 运维人员 200
+开始登录 系统管理员
+登录响应 系统管理员 200
+开始登录 用户
+登录响应 用户 200
+身份页面已打开，创建告警
+开始恢复申请 含附件
+恢复成功，进入观察
+开始恢复申请 无附件
+恢复成功，进入观察
+模拟能力服务的 PLG-04 禁用、附件恢复审核、观察失败再禁用及完整恢复页面流程通过

@@ -1,0 +1,4 @@
+(node:30092) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:07:37 [vite] (client) [optimizer] bundling dependencies...
+PASS Edge: 账号与集成监控、五卡指标、三Tab切换、探针台账、搜索过滤与角色权限隔离已闭环通过

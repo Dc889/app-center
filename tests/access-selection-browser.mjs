@@ -49,7 +49,7 @@ try {
   await page.getByRole('button',{name:'保存申请草稿',exact:true}).click();await page.getByText('申请草稿已保存',{exact:true}).waitFor()
   await page.getByRole('button',{name:'我的申请',exact:true}).click();await open('AG-03')
   await page.getByRole('button',{name:/恢复草稿 · agent/}).click();await page.getByText('已恢复草稿，资源与上传引用需重新核验',{exact:true}).waitFor()
-  await page.getByRole('button',{name:'提交使用授权',exact:true}).click();assert.equal(posts,0)
+  await expect(page.getByRole('button',{name:'提交使用授权',exact:true})).toBeDisabled();assert.equal(posts,0)
   badAgent=true;await select('agent');await page.getByText('智能体目录详情与所选资源、工作区或使用方式不匹配',{exact:true}).waitFor()
   badAgent=false;await select('agent');await expect(page.getByLabel('Dify应用 ID',{exact:true})).toHaveValue('app')
   const first=await submit();assert.equal(first.status(),201,await first.text());const ag=await first.json();assert.equal(ag.status,'待受理');assert.equal(commands.length,0)

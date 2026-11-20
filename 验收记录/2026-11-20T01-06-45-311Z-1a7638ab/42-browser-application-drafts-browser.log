@@ -1,0 +1,4 @@
+(node:24184) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:14:48 [vite] (client) [optimizer] scanning dependencies...
+PASS Edge: 跨页面恢复、UTC时间、并发冲突、显式恢复新版及提交归档，不恢复凭证或产品快照

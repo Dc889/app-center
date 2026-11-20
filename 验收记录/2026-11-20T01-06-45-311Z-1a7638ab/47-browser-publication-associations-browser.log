@@ -1,0 +1,22 @@
+(node:31460) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+09:15:47 [vite] (client) [optimizer] scanning dependencies...
+09:15:48 [vite] (client) [optimizer] bundling dependencies...
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+3 !== 2
+
+    at file:///C:/Users/dc948/Project/11-AIAPPCENTER/app-center/tests/publication-associations-browser.mjs:48:445 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 3,
+  expected: 2,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.4

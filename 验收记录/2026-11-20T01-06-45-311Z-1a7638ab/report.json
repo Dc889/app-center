@@ -1,0 +1,804 @@
+{
+  "id": "2026-11-20T01-06-45-311Z-1a7638ab",
+  "startedAt": "2026-11-20T01:06:45.421Z",
+  "status": "regression_failed_full_acceptance_pending",
+  "scope": "isolated_local; production not accessed",
+  "commit": "581e6cec6cdc679a7494d0a37ff69d4cc63c68ca",
+  "dirty": true,
+  "sourceDigest": "77e948a535154b164ae266a23713748e205c4c52f8e30e940fe988e693db535a",
+  "sourceFileCount": 502,
+  "environment": {
+    "node": "v22.23.4",
+    "platform": "win32",
+    "credentials": "product/service environment variables removed from child processes; no credential values retained"
+  },
+  "steps": [
+    {
+      "name": "baseline-checks",
+      "kind": "integration",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node_modules\\npm\\bin\\npm-cli.js",
+        "run",
+        "check"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:06:45.509Z",
+      "log": "01-baseline-checks.log",
+      "finishedAt": "2026-11-20T01:07:32.937Z",
+      "durationMs": 47426,
+      "exitCode": 0,
+      "signal": null,
+      "tests": 180,
+      "passed": 180,
+      "failed": 0
+    },
+    {
+      "name": "live-skill-and-event",
+      "kind": "live-local",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "dev/acceptance-live.mjs",
+        "C:\\Users\\dc948\\Project\\11-AIAPPCENTER\\app-center\\验收记录\\2026-11-20T01-06-45-311Z-1a7638ab"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:07:32.940Z",
+      "log": "02-live-skill-and-event.log",
+      "finishedAt": "2026-11-20T01:07:34.670Z",
+      "durationMs": 1728,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-account-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\accounts\\tests\\browser\\account-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:07:34.682Z",
+      "log": "03-browser-account-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:07:51.487Z",
+      "durationMs": 16803,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-account-recovery-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\accounts\\tests\\browser\\account-recovery-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:07:51.489Z",
+      "log": "04-browser-account-recovery-browser.log",
+      "finishedAt": "2026-11-20T01:08:03.862Z",
+      "durationMs": 12371,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-account-workflow-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\accounts\\tests\\browser\\account-workflow-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:08:03.868Z",
+      "log": "05-browser-account-workflow-browser.log",
+      "finishedAt": "2026-11-20T01:08:21.085Z",
+      "durationMs": 17214,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-management-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-management-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:08:21.087Z",
+      "log": "06-browser-agent-management-browser.log",
+      "finishedAt": "2026-11-20T01:08:38.514Z",
+      "durationMs": 17426,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:08:38.518Z",
+      "log": "07-browser-agent-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:08:51.875Z",
+      "durationMs": 13355,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-sync-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-sync-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:08:51.878Z",
+      "log": "08-browser-agent-sync-browser.log",
+      "finishedAt": "2026-11-20T01:09:02.404Z",
+      "durationMs": 10524,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-agent-warehouse-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\agent-warehouse-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:09:02.408Z",
+      "log": "09-browser-agent-warehouse-browser.log",
+      "finishedAt": "2026-11-20T01:09:15.608Z",
+      "durationMs": 13195,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-application-targets-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\agents\\tests\\browser\\application-targets-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:09:15.613Z",
+      "log": "10-browser-application-targets-browser.log",
+      "finishedAt": "2026-11-20T01:09:38.284Z",
+      "durationMs": 22668,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-audit-report-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\audit\\tests\\browser\\audit-report-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:09:38.289Z",
+      "log": "11-browser-audit-report-browser.log",
+      "finishedAt": "2026-11-20T01:09:55.095Z",
+      "durationMs": 16804,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-event-attachment-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\events\\tests\\browser\\event-attachment-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:09:55.100Z",
+      "log": "12-browser-event-attachment-browser.log",
+      "finishedAt": "2026-11-20T01:10:05.419Z",
+      "durationMs": 10316,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-event-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\events\\tests\\browser\\event-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:10:05.421Z",
+      "log": "13-browser-event-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:10:19.850Z",
+      "durationMs": 14428,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-event-workflow-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\events\\tests\\browser\\event-workflow-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:10:19.852Z",
+      "log": "14-browser-event-workflow-browser.log",
+      "finishedAt": "2026-11-20T01:10:27.451Z",
+      "durationMs": 7598,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-key-registration-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\keys\\tests\\browser\\key-registration-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:10:27.453Z",
+      "log": "15-browser-key-registration-browser.log",
+      "finishedAt": "2026-11-20T01:10:35.406Z",
+      "durationMs": 7952,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-key-workflow-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\keys\\tests\\browser\\key-workflow-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:10:35.408Z",
+      "log": "16-browser-key-workflow-browser.log",
+      "finishedAt": "2026-11-20T01:10:40.226Z",
+      "durationMs": 4817,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-dataset-binding-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\knowledge\\tests\\browser\\dataset-binding-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:10:40.228Z",
+      "log": "17-browser-dataset-binding-browser.log",
+      "finishedAt": "2026-11-20T01:10:49.808Z",
+      "durationMs": 9579,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-dataset-changes-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\knowledge\\tests\\browser\\dataset-changes-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:10:49.812Z",
+      "log": "18-browser-dataset-changes-browser.log",
+      "finishedAt": "2026-11-20T01:10:58.207Z",
+      "durationMs": 8387,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-dataset-disposition-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\knowledge\\tests\\browser\\dataset-disposition-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:10:58.211Z",
+      "log": "19-browser-dataset-disposition-browser.log",
+      "finishedAt": "2026-11-20T01:11:07.049Z",
+      "durationMs": 8835,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-dataset-selection-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\knowledge\\tests\\browser\\dataset-selection-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:07.051Z",
+      "log": "20-browser-dataset-selection-browser.log",
+      "finishedAt": "2026-11-20T01:11:14.739Z",
+      "durationMs": 7687,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-dataset-sync-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\knowledge\\tests\\browser\\dataset-sync-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:14.741Z",
+      "log": "21-browser-dataset-sync-browser.log",
+      "finishedAt": "2026-11-20T01:11:19.185Z",
+      "durationMs": 4443,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-dataset-workflow-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\knowledge\\tests\\browser\\dataset-workflow-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:19.187Z",
+      "log": "22-browser-dataset-workflow-browser.log",
+      "finishedAt": "2026-11-20T01:11:25.494Z",
+      "durationMs": 6306,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-knowledge-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\knowledge\\tests\\browser\\knowledge-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:25.497Z",
+      "log": "23-browser-knowledge-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:11:33.265Z",
+      "durationMs": 7767,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-mcp-disposition-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\mcp\\tests\\browser\\mcp-disposition-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:33.266Z",
+      "log": "24-browser-mcp-disposition-browser.log",
+      "finishedAt": "2026-11-20T01:11:41.624Z",
+      "durationMs": 8357,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-mcp-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\mcp\\tests\\browser\\mcp-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:41.627Z",
+      "log": "25-browser-mcp-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:11:48.889Z",
+      "durationMs": 7261,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-mcp-registration-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\mcp\\tests\\browser\\mcp-registration-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:48.890Z",
+      "log": "26-browser-mcp-registration-browser.log",
+      "finishedAt": "2026-11-20T01:11:53.477Z",
+      "durationMs": 4585,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-mcp-warehouse-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\mcp\\tests\\browser\\mcp-warehouse-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:53.479Z",
+      "log": "27-browser-mcp-warehouse-browser.log",
+      "finishedAt": "2026-11-20T01:11:58.382Z",
+      "durationMs": 4901,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-overview-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\overview\\tests\\browser\\overview-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:11:58.385Z",
+      "log": "28-browser-overview-browser.log",
+      "finishedAt": "2026-11-20T01:12:08.892Z",
+      "durationMs": 10506,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-plugin-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\plugins\\tests\\browser\\plugin-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:12:08.894Z",
+      "log": "29-browser-plugin-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:12:17.328Z",
+      "durationMs": 8432,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-plugin-publication-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\plugins\\tests\\browser\\plugin-publication-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:12:17.332Z",
+      "log": "30-browser-plugin-publication-browser.log",
+      "finishedAt": "2026-11-20T01:12:23.065Z",
+      "durationMs": 5731,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-plugin-safety-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\plugins\\tests\\browser\\plugin-safety-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:12:23.066Z",
+      "log": "31-browser-plugin-safety-browser.log",
+      "finishedAt": "2026-11-20T01:12:36.682Z",
+      "durationMs": 13614,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-plugin-warehouse-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\plugins\\tests\\browser\\plugin-warehouse-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:12:36.684Z",
+      "log": "32-browser-plugin-warehouse-browser.log",
+      "finishedAt": "2026-11-20T01:12:43.838Z",
+      "durationMs": 7153,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-plugin-workflow-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\plugins\\tests\\browser\\plugin-workflow-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:12:43.844Z",
+      "log": "33-browser-plugin-workflow-browser.log",
+      "finishedAt": "2026-11-20T01:12:59.615Z",
+      "durationMs": 15767,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-skill-cancellation-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\skills\\tests\\browser\\skill-cancellation-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:12:59.617Z",
+      "log": "34-browser-skill-cancellation-browser.log",
+      "finishedAt": "2026-11-20T01:13:06.348Z",
+      "durationMs": 6730,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-skill-delivery-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\skills\\tests\\browser\\skill-delivery-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:13:06.350Z",
+      "log": "35-browser-skill-delivery-browser.log",
+      "finishedAt": "2026-11-20T01:13:15.420Z",
+      "durationMs": 9069,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-skill-monitor-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\skills\\tests\\browser\\skill-monitor-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:13:15.422Z",
+      "log": "36-browser-skill-monitor-browser.log",
+      "finishedAt": "2026-11-20T01:13:26.910Z",
+      "durationMs": 11487,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-skill-publication-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\skills\\tests\\browser\\skill-publication-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:13:26.913Z",
+      "log": "37-browser-skill-publication-browser.log",
+      "finishedAt": "2026-11-20T01:13:36.868Z",
+      "durationMs": 9954,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-skill-warehouse-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\skills\\tests\\browser\\skill-warehouse-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:13:36.870Z",
+      "log": "38-browser-skill-warehouse-browser.log",
+      "finishedAt": "2026-11-20T01:13:46.213Z",
+      "durationMs": 9341,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-skill-withdrawal-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\skills\\tests\\browser\\skill-withdrawal-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:13:46.217Z",
+      "log": "39-browser-skill-withdrawal-browser.log",
+      "finishedAt": "2026-11-20T01:14:04.848Z",
+      "durationMs": 18628,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-tool-selection-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "management\\modules\\tools\\tests\\browser\\tool-selection-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:14:04.855Z",
+      "log": "40-browser-tool-selection-browser.log",
+      "finishedAt": "2026-11-20T01:14:32.075Z",
+      "durationMs": 27215,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-access-selection-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\access-selection-browser.mjs"
+      ],
+      "status": "failed",
+      "startedAt": "2026-11-20T01:14:32.080Z",
+      "log": "41-browser-access-selection-browser.log",
+      "finishedAt": "2026-11-20T01:14:46.561Z",
+      "durationMs": 14479,
+      "exitCode": 1,
+      "signal": null
+    },
+    {
+      "name": "browser-application-drafts-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\application-drafts-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:14:46.564Z",
+      "log": "42-browser-application-drafts-browser.log",
+      "finishedAt": "2026-11-20T01:14:54.315Z",
+      "durationMs": 7751,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-dialogue-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\dialogue-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:14:54.317Z",
+      "log": "43-browser-dialogue-browser.log",
+      "finishedAt": "2026-11-20T01:15:00.886Z",
+      "durationMs": 6568,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-draft-forms-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\draft-forms-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:15:00.893Z",
+      "log": "44-browser-draft-forms-browser.log",
+      "finishedAt": "2026-11-20T01:15:18.451Z",
+      "durationMs": 17556,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-evidence-draft-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\evidence-draft-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:15:18.453Z",
+      "log": "45-browser-evidence-draft-browser.log",
+      "finishedAt": "2026-11-20T01:15:27.226Z",
+      "durationMs": 8771,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-form-check-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\form-check-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:15:27.229Z",
+      "log": "46-browser-form-check-browser.log",
+      "finishedAt": "2026-11-20T01:15:44.936Z",
+      "durationMs": 17705,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-publication-associations-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\publication-associations-browser.mjs"
+      ],
+      "status": "failed",
+      "startedAt": "2026-11-20T01:15:44.941Z",
+      "log": "47-browser-publication-associations-browser.log",
+      "finishedAt": "2026-11-20T01:16:05.975Z",
+      "durationMs": 21033,
+      "exitCode": 1,
+      "signal": null
+    },
+    {
+      "name": "browser-publish-workflow-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\publish-workflow-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:16:05.980Z",
+      "log": "48-browser-publish-workflow-browser.log",
+      "finishedAt": "2026-11-20T01:16:22.749Z",
+      "durationMs": 16763,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-resource-picker-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\resource-picker-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:16:22.756Z",
+      "log": "49-browser-resource-picker-browser.log",
+      "finishedAt": "2026-11-20T01:16:38.103Z",
+      "durationMs": 15345,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-source-resources-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\source-resources-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:16:38.109Z",
+      "log": "50-browser-source-resources-browser.log",
+      "finishedAt": "2026-11-20T01:16:54.646Z",
+      "durationMs": 16534,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-type-registry-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\type-registry-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:16:54.650Z",
+      "log": "51-browser-type-registry-browser.log",
+      "finishedAt": "2026-11-20T01:17:06.122Z",
+      "durationMs": 11470,
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "name": "browser-upload-draft-browser",
+      "kind": "browser-scenario",
+      "command": [
+        "D:\\2-local\\_toolchain\\node-v22.23.4-win-x64\\node.exe",
+        "tests\\upload-draft-browser.mjs"
+      ],
+      "status": "passed",
+      "startedAt": "2026-11-20T01:17:06.126Z",
+      "log": "52-browser-upload-draft-browser.log",
+      "finishedAt": "2026-11-20T01:17:20.632Z",
+      "durationMs": 14504,
+      "exitCode": 0,
+      "signal": null
+    }
+  ],
+  "finishedAt": "2026-11-20T01:17:20.638Z"
+}

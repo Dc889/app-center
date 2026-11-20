@@ -1,0 +1,1385 @@
+{
+  "scope": "isolated_local_real_services",
+  "checks": [
+    {
+      "id": "LIVE-SKL-03-ACCEPT",
+      "status": "passed",
+      "at": "2026-11-20T01:07:33.982Z",
+      "evidence": {
+        "ticketNo": "SKL-03-accept-c9f9fa05-77c3-4155-b700-d3bc9593fb5c",
+        "resultId": "DL-204e56e8-24ea-4e34-a77c-81796e998992",
+        "status": "awaiting_delivery"
+      }
+    },
+    {
+      "id": "LIVE-SKL-03-ACCESS",
+      "status": "passed",
+      "at": "2026-11-20T01:07:33.999Z",
+      "evidence": {
+        "ticketNo": "SKL-03-accept-c9f9fa05-77c3-4155-b700-d3bc9593fb5c",
+        "anonymous": 404,
+        "foreign": 404
+      }
+    },
+    {
+      "id": "LIVE-SKL-03-DELIVERY-IDEMPOTENCY",
+      "status": "passed",
+      "at": "2026-11-20T01:07:34.165Z",
+      "evidence": {
+        "ticketNo": "SKL-03-accept-c9f9fa05-77c3-4155-b700-d3bc9593fb5c",
+        "resultId": "DL-204e56e8-24ea-4e34-a77c-81796e998992",
+        "bytesPerTransfer": 99,
+        "sha256": "656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1",
+        "sameResultOnRepeatedRequest": true,
+        "finalStatus": "succeeded"
+      }
+    },
+    {
+      "id": "LIVE-EVT-01-MANUAL-CLOSE",
+      "status": "passed",
+      "at": "2026-11-20T01:07:34.339Z",
+      "evidence": {
+        "ticketNo": "EVT-01-accept-6457ed16-158c-4338-8906-a0546e709eaa",
+        "status": "已关闭",
+        "revision": 4,
+        "adminDenied": 403,
+        "selfReviewDenied": 403,
+        "executionCountBefore": 1,
+        "executionCountAfter": 1,
+        "newResourceExecutions": 0,
+        "timeline": [
+          {
+            "at": "2026-11-20T01:07:34.205Z",
+            "actor": "chen.yu",
+            "action": "人工报告",
+            "fromStatus": null,
+            "toStatus": "未研判"
+          },
+          {
+            "at": "2026-11-20T01:07:34.251Z",
+            "actor": "zhou.min",
+            "action": "开始处置",
+            "fromStatus": "未研判",
+            "toStatus": "处理中"
+          },
+          {
+            "at": "2026-11-20T01:07:34.278Z",
+            "actor": "zhou.min",
+            "action": "提交复核",
+            "fromStatus": "处理中",
+            "toStatus": "待复核"
+          },
+          {
+            "at": "2026-11-20T01:07:34.310Z",
+            "actor": "wang.ning",
+            "action": "确认关闭",
+            "fromStatus": "待复核",
+            "toStatus": "已关闭"
+          }
+        ]
+      }
+    },
+    {
+      "id": "LIVE-RESTART-PERSISTENCE",
+      "status": "passed",
+      "at": "2026-11-20T01:07:34.489Z",
+      "evidence": {
+        "skillTicketNo": "SKL-03-accept-c9f9fa05-77c3-4155-b700-d3bc9593fb5c",
+        "eventTicketNo": "EVT-01-accept-6457ed16-158c-4338-8906-a0546e709eaa",
+        "skillStatus": "succeeded",
+        "eventStatus": "已关闭",
+        "sameResultId": true
+      }
+    }
+  ],
+  "snapshots": [
+    {
+      "workspaceId": null,
+      "environment": "isolated local demo scope, not a verified deployment",
+      "items": [
+        {
+          "ticketType": "AG-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-02",
+          "ticketTypeVersion": "1",
+          "action": "publish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-03",
+          "ticketTypeVersion": "1",
+          "action": "grant_app_access",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-04",
+          "ticketTypeVersion": "1",
+          "action": "republish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-05",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-01",
+          "ticketTypeVersion": "1",
+          "action": "create_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "rotate_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "revoke_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "install",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "upgrade",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "uninstall",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "disable_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "restore_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-03",
+          "ticketTypeVersion": "1",
+          "action": "download",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-04",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-02",
+          "ticketTypeVersion": "1",
+          "action": "publish_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "RAGFlow外部知识库",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify同workspace授权",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify跨workspace复制",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-04",
+          "ticketTypeVersion": "1",
+          "action": "review_dataset_changes",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "pause_share",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "dispose_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-01",
+          "ticketTypeVersion": "1",
+          "action": "register_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-02",
+          "ticketTypeVersion": "1",
+          "action": "bind",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "unbind_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "isolate_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-01",
+          "ticketTypeVersion": "1",
+          "action": "apply_account_change",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-02",
+          "ticketTypeVersion": "1",
+          "action": "rename_account",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "TOL-01",
+          "ticketTypeVersion": "1",
+          "action": "set_tool_approval",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "asOf": "2026-11-20T01:07:33.698Z"
+    },
+    {
+      "workspaceId": "ws-default",
+      "environment": "isolated local demo scope, not a verified deployment",
+      "items": [
+        {
+          "ticketType": "AG-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-02",
+          "ticketTypeVersion": "1",
+          "action": "publish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-03",
+          "ticketTypeVersion": "1",
+          "action": "grant_app_access",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-04",
+          "ticketTypeVersion": "1",
+          "action": "republish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-05",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-01",
+          "ticketTypeVersion": "1",
+          "action": "create_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "rotate_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "revoke_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "install",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "upgrade",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "uninstall",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "disable_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "restore_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-03",
+          "ticketTypeVersion": "1",
+          "action": "download",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-04",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-02",
+          "ticketTypeVersion": "1",
+          "action": "publish_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "RAGFlow外部知识库",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify同workspace授权",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify跨workspace复制",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-04",
+          "ticketTypeVersion": "1",
+          "action": "review_dataset_changes",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "pause_share",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "dispose_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-01",
+          "ticketTypeVersion": "1",
+          "action": "register_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-02",
+          "ticketTypeVersion": "1",
+          "action": "bind",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "unbind_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "isolate_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-01",
+          "ticketTypeVersion": "1",
+          "action": "apply_account_change",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-02",
+          "ticketTypeVersion": "1",
+          "action": "rename_account",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "TOL-01",
+          "ticketTypeVersion": "1",
+          "action": "set_tool_approval",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "asOf": "2026-11-20T01:07:33.735Z"
+    },
+    {
+      "workspaceId": "ws-ops",
+      "environment": "isolated local demo scope, not a verified deployment",
+      "items": [
+        {
+          "ticketType": "AG-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-02",
+          "ticketTypeVersion": "1",
+          "action": "publish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-03",
+          "ticketTypeVersion": "1",
+          "action": "grant_app_access",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-04",
+          "ticketTypeVersion": "1",
+          "action": "republish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-05",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-01",
+          "ticketTypeVersion": "1",
+          "action": "create_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "rotate_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "revoke_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "install",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "upgrade",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "uninstall",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "disable_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "restore_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-03",
+          "ticketTypeVersion": "1",
+          "action": "download",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-04",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-02",
+          "ticketTypeVersion": "1",
+          "action": "publish_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "RAGFlow外部知识库",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify同workspace授权",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify跨workspace复制",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-04",
+          "ticketTypeVersion": "1",
+          "action": "review_dataset_changes",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "pause_share",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "dispose_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-01",
+          "ticketTypeVersion": "1",
+          "action": "register_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-02",
+          "ticketTypeVersion": "1",
+          "action": "bind",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "unbind_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "isolate_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-01",
+          "ticketTypeVersion": "1",
+          "action": "apply_account_change",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-02",
+          "ticketTypeVersion": "1",
+          "action": "rename_account",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "TOL-01",
+          "ticketTypeVersion": "1",
+          "action": "set_tool_approval",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "asOf": "2026-11-20T01:07:33.748Z"
+    },
+    {
+      "workspaceId": "ws-dev",
+      "environment": "isolated local demo scope, not a verified deployment",
+      "items": [
+        {
+          "ticketType": "AG-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-02",
+          "ticketTypeVersion": "1",
+          "action": "publish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-03",
+          "ticketTypeVersion": "1",
+          "action": "grant_app_access",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-04",
+          "ticketTypeVersion": "1",
+          "action": "republish",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "AG-05",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_app",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-01",
+          "ticketTypeVersion": "1",
+          "action": "create_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "rotate_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KEY-02",
+          "ticketTypeVersion": "1",
+          "action": "revoke_key",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "IMPLEMENTATION_INCOMPLETE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_package",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "install",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "upgrade",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-03",
+          "ticketTypeVersion": "1",
+          "action": "uninstall",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "disable_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "PLG-04",
+          "ticketTypeVersion": "1",
+          "action": "restore_plugin",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-01",
+          "ticketTypeVersion": "1",
+          "action": "publish_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-02",
+          "ticketTypeVersion": "1",
+          "action": "revise_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-03",
+          "ticketTypeVersion": "1",
+          "action": "download",
+          "variant": null,
+          "state": "unverified",
+          "reasonCode": "NO_DEPLOYMENT_EVIDENCE",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "SKL-04",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_skill",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-01",
+          "ticketTypeVersion": "1",
+          "action": "sync_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-02",
+          "ticketTypeVersion": "1",
+          "action": "publish_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "RAGFlow外部知识库",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify同workspace授权",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-03",
+          "ticketTypeVersion": "1",
+          "action": "bind_dataset",
+          "variant": "Dify跨workspace复制",
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-04",
+          "ticketTypeVersion": "1",
+          "action": "review_dataset_changes",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "pause_share",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "KB-05",
+          "ticketTypeVersion": "1",
+          "action": "dispose_dataset",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-01",
+          "ticketTypeVersion": "1",
+          "action": "register_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-02",
+          "ticketTypeVersion": "1",
+          "action": "bind",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "unbind_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "isolate_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "MCP-03",
+          "ticketTypeVersion": "1",
+          "action": "withdraw_mcp",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-01",
+          "ticketTypeVersion": "1",
+          "action": "apply_account_change",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "ACC-02",
+          "ticketTypeVersion": "1",
+          "action": "rename_account",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        },
+        {
+          "ticketType": "TOL-01",
+          "ticketTypeVersion": "1",
+          "action": "set_tool_approval",
+          "variant": null,
+          "state": "unsupported",
+          "reasonCode": "NO_HANDLER",
+          "checkedAt": null
+        }
+      ],
+      "asOf": "2026-11-20T01:07:33.763Z"
+    }
+  ]
+}

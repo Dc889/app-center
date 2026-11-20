@@ -1,0 +1,1214 @@
+
+> app-center@0.0.0 check
+> npm run check:boundaries && npm run lint && npm run build && npm run test:integration
+
+
+> app-center@0.0.0 check:boundaries
+> node dev/check-boundaries.mjs && node dev/check-capability-boundaries.mjs
+
+PASS boundaries: 268 files, 11 modules; structure, manifests, public entry points, browser/server separation, dependency direction and module cycles
+PASS capability boundaries: 69 files, 11 modules
+
+> app-center@0.0.0 lint
+> oxlint
+
+
+> app-center@0.0.0 build
+> tsc -b && vite build
+
+vite v8.3.8 building client environment for production...
+(node:30944) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+transforming...
+✓ 2540 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             1.20 kB │ gzip:   0.63 kB
+dist/assets/index-DIZ1mODM.css             55.72 kB │ gzip:  12.73 kB
+dist/assets/rolldown-runtime-XKyaHtl9.js    0.72 kB │ gzip:   0.42 kB
+dist/assets/lucide-vendor-Dovp04o5.js      25.62 kB │ gzip:   9.31 kB
+dist/assets/react-vendor-FJ80_Qeg.js      214.01 kB │ gzip:  66.98 kB
+dist/assets/index-rBFtyo9u.js             364.25 kB │ gzip:  88.80 kB
+dist/assets/recharts-vendor-D-CmGpef.js   396.78 kB │ gzip: 112.07 kB
+
+✓ built in 628ms
+
+> app-center@0.0.0 test:integration
+> node dev/test-modules.mjs integration
+
+TAP version 13
+# (node:28528) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 模块动作经过公共引擎接单/查询/重启不重复执行，HTTP能力与处理器一致
+ok 1 - 模块动作经过公共引擎接单/查询/重启不重复执行，HTTP能力与处理器一致
+  ---
+  duration_ms: 281.3936
+  type: 'test'
+  ...
+# Subtest: 现有启动入口与模块资源/目录路由保持可用，不完整Dify动作返回明确失败
+ok 2 - 现有启动入口与模块资源/目录路由保持可用，不完整Dify动作返回明确失败
+  ---
+  duration_ms: 80.1697
+  type: 'test'
+  ...
+# (node:27148) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: agents 模块导出结构契约与动作登记
+ok 3 - agents 模块导出结构契约与动作登记
+  ---
+  duration_ms: 4.1627
+  type: 'test'
+  ...
+# Subtest: agents 资源候选读取
+ok 4 - agents 资源候选读取
+  ---
+  duration_ms: 1.0792
+  type: 'test'
+  ...
+# Subtest: agents 目录列表与详情读取
+ok 5 - agents 目录列表与详情读取
+  ---
+  duration_ms: 2.5707
+  type: 'test'
+  ...
+# Subtest: agents 未配置 Dify 环境时执行草稿抛出 501 UPSTREAM_UNSUPPORTED
+ok 6 - agents 未配置 Dify 环境时执行草稿抛出 501 UPSTREAM_UNSUPPORTED
+  ---
+  duration_ms: 1.3582
+  type: 'test'
+  ...
+# (node:25868) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: integrations 模块导出结构契约与工作区路由登记
+ok 7 - integrations 模块导出结构契约与工作区路由登记
+  ---
+  duration_ms: 2.9465
+  type: 'test'
+  ...
+# Subtest: integrations /internal/v1/workspaces 路由处理与参数校验
+ok 8 - integrations /internal/v1/workspaces 路由处理与参数校验
+  ---
+  duration_ms: 3.6542
+  type: 'test'
+  ...
+# Subtest: integrations 模型资源候选读取
+ok 9 - integrations 模型资源候选读取
+  ---
+  duration_ms: 0.458
+  type: 'test'
+  ...
+# (node:26844) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: keys 模块导出结构契约与动作登记
+ok 10 - keys 模块导出结构契约与动作登记
+  ---
+  duration_ms: 3.1159
+  type: 'test'
+  ...
+# Subtest: keys 未配置 Dify 环境时执行抛出 501 UPSTREAM_UNSUPPORTED
+ok 11 - keys 未配置 Dify 环境时执行抛出 501 UPSTREAM_UNSUPPORTED
+  ---
+  duration_ms: 2.6805
+  type: 'test'
+  ...
+# Subtest: keys 适配器通过真实/模拟 Dify OpenAPI 协议创建、轮换与撤销密钥
+ok 12 - keys 适配器通过真实/模拟 Dify OpenAPI 协议创建、轮换与撤销密钥
+  ---
+  duration_ms: 160.4141
+  type: 'test'
+  ...
+# (node:19340) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: mcp 模块导出结构契约与动作登记
+ok 13 - mcp 模块导出结构契约与动作登记
+  ---
+  duration_ms: 1.7899
+  type: 'test'
+  ...
+# Subtest: mcp 资源候选与技术注册读取
+ok 14 - mcp 资源候选与技术注册读取
+  ---
+  duration_ms: 0.9909
+  type: 'test'
+  ...
+# Subtest: mcp 目录列表与工作区过滤
+ok 15 - mcp 目录列表与工作区过滤
+  ---
+  duration_ms: 1.7099
+  type: 'test'
+  ...
+# Subtest: mcp 目录条目详情与动作筛选
+ok 16 - mcp 目录条目详情与动作筛选
+  ---
+  duration_ms: 2.1306
+  type: 'test'
+  ...
+# (node:31248) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: plugins 模块导出结构契约与动作登记
+ok 17 - plugins 模块导出结构契约与动作登记
+  ---
+  duration_ms: 4.0752
+  type: 'test'
+  ...
+# Subtest: plugins install 未配置 Dify 凭证时抛出 501 UPSTREAM_UNSUPPORTED
+ok 18 - plugins install 未配置 Dify 凭证时抛出 501 UPSTREAM_UNSUPPORTED
+  ---
+  duration_ms: 3.2927
+  type: 'test'
+  ...
+# Subtest: plugins install 与 reconcile 配合 Dify 对端完成安装闭环
+ok 19 - plugins install 与 reconcile 配合 Dify 对端完成安装闭环
+  ---
+  duration_ms: 163.1641
+  type: 'test'
+  ...
+# Subtest: plugins 资源候选与目录读取
+ok 20 - plugins 资源候选与目录读取
+  ---
+  duration_ms: 1.5732
+  type: 'test'
+  ...
+# (node:30920) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: skills 模块导出结构契约与动作登记
+ok 21 - skills 模块导出结构契约与动作登记
+  ---
+  duration_ms: 5.2067
+  type: 'test'
+  ...
+# Subtest: skills download 动作调用仓库建立交付预留
+ok 22 - skills download 动作调用仓库建立交付预留
+  ---
+  duration_ms: 1.9704
+  type: 'test'
+  ...
+# Subtest: skills 目录与候选资源读取
+ok 23 - skills 目录与候选资源读取
+  ---
+  duration_ms: 1.9965
+  type: 'test'
+  ...
+# (node:19244) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 同一登记驱动执行和能力查询，代码存在不冒充部署核验，工作区与版本严格匹配
+ok 24 - 同一登记驱动执行和能力查询，代码存在不冒充部署核验，工作区与版本严格匹配
+  ---
+  duration_ms: 2.5855
+  type: 'test'
+  ...
+# Subtest: 重复模块/处理器/提供方/路由、未登记动作和无人负责的契约在启动时拒绝
+ok 25 - 重复模块/处理器/提供方/路由、未登记动作和无人负责的契约在启动时拒绝
+  ---
+  duration_ms: 2.6759
+  type: 'test'
+  ...
+# Subtest: 部署证据冲突返回503；不完整实现和无处理器不能被证据提升为verified
+ok 26 - 部署证据冲突返回503；不完整实现和无处理器不能被证据提升为verified
+  ---
+  duration_ms: 1.0521
+  type: 'test'
+  ...
+# Subtest: 三种KB绑定分支独立核验，生产模块包含全部契约动作且EVT无执行动作
+ok 27 - 三种KB绑定分支独立核验，生产模块包含全部契约动作且EVT无执行动作
+  ---
+  duration_ms: 45.2051
+  type: 'test'
+  ...
+# (node:24532) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 账号与集成监控时间窗口切分与参数校验
+ok 28 - 账号与集成监控时间窗口切分与参数校验
+  ---
+  duration_ms: 6.6529
+  type: 'test'
+  ...
+# Subtest: 账号与集成监控五卡指标、趋势切桶、差异分布与同步作业
+ok 29 - 账号与集成监控五卡指标、趋势切桶、差异分布与同步作业
+  ---
+  duration_ms: 6.8936
+  type: 'test'
+  ...
+# Subtest: 账号与集成监控 HTTP 鉴权、组织隔离与敏感工单裁剪
+ok 30 - 账号与集成监控 HTTP 鉴权、组织隔离与敏感工单裁剪
+  ---
+  duration_ms: 298.1258
+  type: 'test'
+  ...
+# (node:27200) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: ACC-01 管理员专用，审批锁与最终提交原子，旧会话失效且角色来自获准输入
+ok 31 - ACC-01 管理员专用，审批锁与最终提交原子，旧会话失效且角色来自获准输入
+  ---
+  duration_ms: 2297.5078
+  type: 'test'
+  ...
+# Subtest: ACC-02 产品部分成功不提前改名，重启后受限，重试更新锁并拒绝旧执行提交
+ok 32 - ACC-02 产品部分成功不提前改名，重启后受限，重试更新锁并拒绝旧执行提交
+  ---
+  duration_ms: 3120.0418
+  type: 'test'
+  ...
+# Subtest: ACC 并发申请不能覆盖目标锁或新名预约，最后一个管理员不可停用
+ok 33 - ACC 并发申请不能覆盖目标锁或新名预约，最后一个管理员不可停用
+  ---
+  duration_ms: 818.2489
+  type: 'test'
+  ...
+# Subtest: ACC 未来生效可以取消且解除预约，产品依据变化阻止批准
+ok 34 - ACC 未来生效可以取消且解除预约，产品依据变化阻止批准
+  ---
+  duration_ms: 661.9857
+  type: 'test'
+  ...
+# Subtest: ACC-01 开通、组织变更和停用均在产品回调之后生效，非适用字段不可扩权
+ok 35 - ACC-01 开通、组织变更和停用均在产品回调之后生效，非适用字段不可扩权
+  ---
+  duration_ms: 1157.7941
+  type: 'test'
+  ...
+# Subtest: ACC 本地尚未收到最终提交时，上游成功不能提前完成工单
+ok 36 - ACC 本地尚未收到最终提交时，上游成功不能提前完成工单
+  ---
+  duration_ms: 2306.4534
+  type: 'test'
+  ...
+# Subtest: ACC 原执行丢失只能查询，重启不会重新下发或解除目标限制
+ok 37 - ACC 原执行丢失只能查询，重启不会重新下发或解除目标限制
+  ---
+  duration_ms: 2665.2038
+  type: 'test'
+  ...
+# Subtest: ACC 安全解锁只接收原执行的完整封存恢复证明，保留原失败且重启可审计
+ok 38 - ACC 安全解锁只接收原执行的完整封存恢复证明，保留原失败且重启可审计
+  ---
+  duration_ms: 617.7131
+  type: 'test'
+  ...
+# Subtest: ACC 缺失、过期、部分恢复及错对象证明均不释放锁，不信任浏览器提交的证明
+ok 39 - ACC 缺失、过期、部分恢复及错对象证明均不释放锁，不信任浏览器提交的证明
+  ---
+  duration_ms: 714.4254
+  type: 'test'
+  ...
+# Subtest: ACC 旧部署没有审批前产品基线时不能解锁，也不能对已提交身份反向恢复
+ok 40 - ACC 旧部署没有审批前产品基线时不能解锁，也不能对已提交身份反向恢复
+  ---
+  duration_ms: 416.0834
+  type: 'test'
+  ...
+# Subtest: ACC 查证期间互斥，等待产品证明时管理员身份失效不得解锁
+ok 41 - ACC 查证期间互斥，等待产品证明时管理员身份失效不得解锁
+  ---
+  duration_ms: 580.5466
+  type: 'test'
+  ...
+# Subtest: ACC 组织变更的只读产品权限来自可信产品现状，不用未核验的本地默认值覆盖
+ok 42 - ACC 组织变更的只读产品权限来自可信产品现状，不用未核验的本地默认值覆盖
+  ---
+  duration_ms: 341.1231
+  type: 'test'
+  ...
+# Subtest: ACC 多角色人员按当前登录身份鉴权，用户身份不会隐含管理员请求头
+ok 43 - ACC 多角色人员按当前登录身份鉴权，用户身份不会隐含管理员请求头
+  ---
+  duration_ms: 223.1321
+  type: 'test'
+  ...
+# Subtest: ACC严格拒绝缺失协议字段，不采纳错误终态且不重复下发
+ok 44 - ACC严格拒绝缺失协议字段，不采纳错误终态且不重复下发
+  ---
+  duration_ms: 553.9169
+  type: 'test'
+  ...
+# Subtest: ACC-02 改名不改变事件人员归属，也不能绕过另一人独立复核
+ok 45 - ACC-02 改名不改变事件人员归属，也不能绕过另一人独立复核
+  ---
+  duration_ms: 400.9843
+  type: 'test'
+  ...
+# Subtest: 审计保存操作时组织、角色及人员修订，调岗改名后不改写历史且按历史组织过滤
+ok 46 - 审计保存操作时组织、角色及人员修订，调岗改名后不改写历史且按历史组织过滤
+  ---
+  duration_ms: 581.9158
+  type: 'test'
+  ...
+# Subtest: 旧审计缺失组织时保持未采集，追加操作不补写旧事实，历史前缀不可修改
+ok 47 - 旧审计缺失组织时保持未采集，追加操作不补写旧事实，历史前缀不可修改
+  ---
+  duration_ms: 244.0274
+  type: 'test'
+  ...
+# Subtest: 并发不同登录身份的审计快照互不串用，客户端组织和角色字段无效
+ok 48 - 并发不同登录身份的审计快照互不串用，客户端组织和角色字段无效
+  ---
+  duration_ms: 460.1171
+  type: 'test'
+  ...
+# Subtest: 改名后上传件重试按稳定人员去重，扫描与证据沿用本人归属且不使用旧账户凭据
+ok 49 - 改名后上传件重试按稳定人员去重，扫描与证据沿用本人归属且不使用旧账户凭据
+  ---
+  duration_ms: 588.4394
+  type: 'test'
+  ...
+# Subtest: 改名后历史文件领取和回执使用当前身份，重复领取不重复计数
+ok 50 - 改名后历史文件领取和回执使用当前身份，重复领取不重复计数
+  ---
+  duration_ms: 595.6912
+  type: 'test'
+  ...
+# Subtest: 文件拉取期间身份变化则阻止发送，不产生交付回执；新身份重新核对后可领取
+ok 51 - 文件拉取期间身份变化则阻止发送，不产生交付回执；新身份重新核对后可领取
+  ---
+  duration_ms: 558.8072
+  type: 'test'
+  ...
+# Subtest: 历史执行丢失不能用旧身份重建，组织变化后旧文件仍须通过当前下载范围
+ok 52 - 历史执行丢失不能用旧身份重建，组织变化后旧文件仍须通过当前下载范围
+  ---
+  duration_ms: 785.8518
+  type: 'test'
+  ...
+# Subtest: 已经发送的文件在改名或停用后仍可按原流水恢复回执，只结算一次且不开放新读取
+ok 53 - 已经发送的文件在改名或停用后仍可按原流水恢复回执，只结算一次且不开放新读取
+  ---
+  duration_ms: 7117.7984
+  type: 'test'
+  ...
+# Subtest: 旧匿名交付在身份变化后须同时证明原浏览器会话与当前本人身份
+ok 54 - 旧匿名交付在身份变化后须同时证明原浏览器会话与当前本人身份
+  ---
+  duration_ms: 514.7197
+  type: 'test'
+  ...
+# (node:7948) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 影响依据拒绝伪零/过期/错范围，清单与依赖变更拒绝旧审批，调用增长不冒充范围变化
+ok 55 - 影响依据拒绝伪零/过期/错范围，清单与依赖变更拒绝旧审批，调用增长不冒充范围变化
+  ---
+  duration_ms: 1291.9958
+  type: 'test'
+  ...
+# (node:15284) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 智能体管理按动作资格受理与复核，允许已下架再发布，拒绝撤权和原版本变化后审批
+ok 56 - 智能体管理按动作资格受理与复核，允许已下架再发布，拒绝撤权和原版本变化后审批
+  ---
+  duration_ms: 1080.6208
+  type: 'test'
+  ...
+# (node:22008) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 智能体监控指标统计、开发账户树、过滤选项与调用记录
+ok 57 - 智能体监控指标统计、开发账户树、过滤选项与调用记录
+  ---
+  duration_ms: 23.821
+  type: 'test'
+  ...
+# Subtest: 智能体监控 HTTP 鉴权与组织隔离
+ok 58 - 智能体监控 HTTP 鉴权与组织隔离
+  ---
+  duration_ms: 767.671
+  type: 'test'
+  ...
+# (node:15576) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 智能体仓库角色隔离、组织可见性、工单号遮蔽与指标计算
+ok 59 - 智能体仓库角色隔离、组织可见性、工单号遮蔽与指标计算
+  ---
+  duration_ms: 22.2511
+  type: 'test'
+  ...
+# Subtest: 智能体仓库多维搜索、标签筛选、方式过滤与工单动态联动
+ok 60 - 智能体仓库多维搜索、标签筛选、方式过滤与工单动态联动
+  ---
+  duration_ms: 25.0684
+  type: 'test'
+  ...
+# Subtest: 智能体仓库 HTTP 服务端鉴权与端点测试
+ok 61 - 智能体仓库 HTTP 服务端鉴权与端点测试
+  ---
+  duration_ms: 752.9007
+  type: 'test'
+  ...
+# (node:22932) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 绑定目标应用按身份/用途/工作区过滤，提交审批重读并冻结修订，MCP下发包含目标
+ok 62 - 绑定目标应用按身份/用途/工作区过滤，提交审批重读并冻结修订，MCP下发包含目标
+  ---
+  duration_ms: 1368.3329
+  type: 'test'
+  ...
+# (node:26244) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 审计汇总区分来源、排除重复下载/轮询/双源运行，不从工单推算能力指标，并校验过期/损坏降级与非法查询
+ok 63 - 审计汇总区分来源、排除重复下载/轮询/双源运行，不从工单推算能力指标，并校验过期/损坏降级与非法查询
+  ---
+  duration_ms: 40.0221
+  type: 'test'
+  ...
+# Subtest: 审计追踪与导出先按角色/组织过滤再汇总分页，隔离ACC、拒绝普通用户、防会话变更越权且重启保留
+ok 64 - 审计追踪与导出先按角色/组织过滤再汇总分页，隔离ACC、拒绝普通用户、防会话变更越权且重启保留
+  ---
+  duration_ms: 1067.8717
+  type: 'test'
+  ...
+# (node:24104) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 事件统计按状态时间线计次、研判级别覆盖、处置均值P95与筛选分页同口径
+ok 65 - 事件统计按状态时间线计次、研判级别覆盖、处置均值P95与筛选分页同口径
+  ---
+  duration_ms: 23.7761
+  type: 'test'
+  ...
+# Subtest: 证据白名单、错事件/倒序指标拒绝，关联执行按当前结果去重且排除异对象/账号泄漏
+ok 66 - 证据白名单、错事件/倒序指标拒绝，关联执行按当前结果去重且排除异对象/账号泄漏
+  ---
+  duration_ms: 3.8144
+  type: 'test'
+  ...
+# Subtest: 监控只读权限、真实报告/研判/独立关闭后刷新，显式状态历史持久化，零能力调用
+ok 67 - 监控只读权限、真实报告/研判/独立关闭后刷新，显式状态历史持久化，零能力调用
+  ---
+  duration_ms: 702.1745
+  type: 'test'
+  ...
+# (node:29276) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 密钥登记候选按身份/动作裁剪，明文不返回或落单，拒绝撤权/错钥/修订变化
+ok 68 - 密钥登记候选按身份/动作裁剪，明文不返回或落单，拒绝撤权/错钥/修订变化
+  ---
+  duration_ms: 1010.9813
+  type: 'test'
+  ...
+# (node:24644) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 知识库绑定候选区分本人纳管与共享，范围/权限/清单/修订复核且凭证不落单
+ok 69 - 知识库绑定候选区分本人纳管与共享，范围/权限/清单/修订复核且凭证不落单
+  ---
+  duration_ms: 872.8982
+  type: 'test'
+  ...
+# (node:25992) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: KB-04 系统起草由所有者补正提交，逐文档复核与分页回调绑定冻结版本
+ok 70 - KB-04 系统起草由所有者补正提交，逐文档复核与分页回调绑定冻结版本
+  ---
+  duration_ms: 918.5933
+  type: 'test'
+  ...
+# Subtest: KB-04 自动不通过持久关联KB-05，重启补投且不能确认成通过
+ok 71 - KB-04 自动不通过持久关联KB-05，重启补投且不能确认成通过
+  ---
+  duration_ms: 3644.0205
+  type: 'test'
+  ...
+# Subtest: KB-04 管理员本人也能提交，快照变化阻止沿用旧复核，纯删除不继承已删除文档结论
+ok 72 - KB-04 管理员本人也能提交，快照变化阻止沿用旧复核，纯删除不继承已删除文档结论
+  ---
+  duration_ms: 525.1228
+  type: 'test'
+  ...
+# Subtest: KB-04 复核通过不会恢复原暂停目录，上游错误状态不得进入结果确认
+ok 73 - KB-04 复核通过不会恢复原暂停目录，上游错误状态不得进入结果确认
+  ---
+  duration_ms: 3534.9314
+  type: 'test'
+  ...
+# Subtest: KB-04 原执行查证与并发办理互斥，证明等待期间不重复查询或下发
+ok 74 - KB-04 原执行查证与并发办理互斥，证明等待期间不重复查询或下发
+  ---
+  duration_ms: 465.6002
+  type: 'test'
+  ...
+# Subtest: KB-04 关联暂停更新目录修订后，保持正文依据并冻结新前置条件复核
+ok 75 - KB-04 关联暂停更新目录修订后，保持正文依据并冻结新前置条件复核
+  ---
+  duration_ms: 2290.1512
+  type: 'test'
+  ...
+# Subtest: KB-04 人工新增否决文档另建处置，不改写自动处置的已冻结范围
+ok 76 - KB-04 人工新增否决文档另建处置，不改写自动处置的已冻结范围
+  ---
+  duration_ms: 2579.0185
+  type: 'test'
+  ...
+# (node:22884) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 处置候选/完整清单按身份核验，嵌套字段裁剪，拒绝歧义修订和不可执行文档
+ok 77 - 处置候选/完整清单按身份核验，嵌套字段裁剪，拒绝歧义修订和不可执行文档
+  ---
+  duration_ms: 945.9594
+  type: 'test'
+  ...
+# (node:26156) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: KB-05 人工处置按本人证据和文档清单冻结，过期修订及扩大对象范围被拒绝
+ok 78 - KB-05 人工处置按本人证据和文档清单冻结，过期修订及扩大对象范围被拒绝
+  ---
+  duration_ms: 1081.8794
+  type: 'test'
+  ...
+# Subtest: KB-05 告警暂停与人工处置分节点恢复，二次失败重试不重放已成功暂停
+ok 79 - KB-05 告警暂停与人工处置分节点恢复，二次失败重试不重放已成功暂停
+  ---
+  duration_ms: 1122.6834
+  type: 'test'
+  ...
+# (node:8540) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 知识库监控时间窗口切分与参数校验
+ok 80 - 知识库监控时间窗口切分与参数校验
+  ---
+  duration_ms: 5.1749
+  type: 'test'
+  ...
+# Subtest: 知识库监控指标计算、来源状态分布、逐文档审查与任务追踪
+ok 81 - 知识库监控指标计算、来源状态分布、逐文档审查与任务追踪
+  ---
+  duration_ms: 6.5635
+  type: 'test'
+  ...
+# Subtest: 知识库监控 HTTP 鉴权与组织隔离
+ok 82 - 知识库监控 HTTP 鉴权与组织隔离
+  ---
+  duration_ms: 513.88
+  type: 'test'
+  ...
+# (node:31472) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: MCP处置按动作资格发现范围，隐藏provider，拒绝不完整/歧义范围并只冻结所选账户工作区
+ok 83 - MCP处置按动作资格发现范围，隐藏provider，拒绝不完整/歧义范围并只冻结所选账户工作区
+  ---
+  duration_ms: 1474.4104
+  type: 'test'
+  ...
+# (node:10540) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: MCP 监控时间窗口切分与参数校验
+ok 84 - MCP 监控时间窗口切分与参数校验
+  ---
+  duration_ms: 4.7105
+  type: 'test'
+  ...
+# Subtest: MCP 监控指标计算、调用明细、绑定台账与异常排行
+ok 85 - MCP 监控指标计算、调用明细、绑定台账与异常排行
+  ---
+  duration_ms: 31.2236
+  type: 'test'
+  ...
+# Subtest: MCP 监控 HTTP 鉴权与组织隔离
+ok 86 - MCP 监控 HTTP 鉴权与组织隔离
+  ---
+  duration_ms: 784.988
+  type: 'test'
+  ...
+# (node:18712) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 观测汇总拒绝错范围、不完整时间桶及伪零，未知字段裁剪，过期保留时间
+ok 87 - 观测汇总拒绝错范围、不完整时间桶及伪零，未知字段裁剪，过期保留时间
+  ---
+  duration_ms: 10.4918
+  type: 'test'
+  ...
+# Subtest: 待办按工单去重、包含非标准进行态，运维不接触账号台账，告警按最高级别排序
+ok 88 - 待办按工单去重、包含非标准进行态，运维不接触账号台账，告警按最高级别排序
+  ---
+  duration_ms: 2.5735
+  type: 'test'
+  ...
+# Subtest: 总览接口可信身份/角色、缺下游仍返回真实台账、变更后刷新及重启保留
+ok 89 - 总览接口可信身份/角色、缺下游仍返回真实台账、变更后刷新及重启保留
+  ---
+  duration_ms: 1565.7275
+  type: 'test'
+  ...
+# (node:29336) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 插件监控时间窗口切分与参数校验
+ok 90 - 插件监控时间窗口切分与参数校验
+  ---
+  duration_ms: 4.9721
+  type: 'test'
+  ...
+# Subtest: 插件监控指标计算、自动禁用记录、安装实例与错误排行
+ok 91 - 插件监控指标计算、自动禁用记录、安装实例与错误排行
+  ---
+  duration_ms: 3.1381
+  type: 'test'
+  ...
+# Subtest: 插件监控 HTTP 鉴权与组织隔离
+ok 92 - 插件监控 HTTP 鉴权与组织隔离
+  ---
+  duration_ms: 642.4747
+  type: 'test'
+  ...
+# (node:13180) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: PLG-04 只按可信失败率或超时率触发，同周期多规则合单且禁止人工创建
+ok 93 - PLG-04 只按可信失败率或超时率触发，同周期多规则合单且禁止人工创建
+  ---
+  duration_ms: 1615.8718
+  type: 'test'
+  ...
+# Subtest: PLG-04 恢复审核后进入观察，缺失覆盖或期限未到不能算已恢复，重启保留观察
+ok 94 - PLG-04 恢复审核后进入观察，缺失覆盖或期限未到不能算已恢复，重启保留观察
+  ---
+  duration_ms: 976.9633
+  type: 'test'
+  ...
+# Subtest: PLG-04 观察失败同单新节点再次禁用，迟到重复告警不再执行
+ok 95 - PLG-04 观察失败同单新节点再次禁用，迟到重复告警不再执行
+  ---
+  duration_ms: 1081.5192
+  type: 'test'
+  ...
+# Subtest: PLG-04 缺少定向能力不发请求并升级紧急事件，API失败重试保留旧执行
+ok 96 - PLG-04 缺少定向能力不发请求并升级紧急事件，API失败重试保留旧执行
+  ---
+  duration_ms: 1084.0163
+  type: 'test'
+  ...
+# Subtest: PLG-04 紧急事件只接受当前成功禁用节点，恢复后不能沿用历史禁用关闭事件
+ok 97 - PLG-04 紧急事件只接受当前成功禁用节点，恢复后不能沿用历史禁用关闭事件
+  ---
+  duration_ms: 832.875
+  type: 'test'
+  ...
+# Subtest: PLG-04 返回成功但未查证为禁用时阻止恢复，升级紧急事件且不自动新开执行
+ok 98 - PLG-04 返回成功但未查证为禁用时阻止恢复，升级紧急事件且不自动新开执行
+  ---
+  duration_ms: 568.9411
+  type: 'test'
+  ...
+# (node:23748) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 插件动作候选与精确实例映射，卸载独立于目录，拒绝错实例/歧义修订/升级版本变化
+ok 99 - 插件动作候选与精确实例映射，卸载独立于目录，拒绝错实例/歧义修订/升级版本变化
+  ---
+  duration_ms: 1658.403
+  type: 'test'
+  ...
+# (node:14184) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 管理端下发、文件交付、回执与重启后的工单查询
+ok 100 - 管理端下发、文件交付、回执与重启后的工单查询
+  ---
+  duration_ms: 2102.2109
+  type: 'test'
+  ...
+# Subtest: 能力端校验动作、重复投递和交付边界
+ok 101 - 能力端校验动作、重复投递和交付边界
+  ---
+  duration_ms: 522.6808
+  type: 'test'
+  ...
+# Subtest: 切换演示账号后隔离申请、详情和文件，原账号重新登录可继续领取
+ok 102 - 切换演示账号后隔离申请、详情和文件，原账号重新登录可继续领取
+  ---
+  duration_ms: 1079.0531
+  type: 'test'
+  ...
+# (node:10280) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: Skill 监控时间窗口切分与参数校验
+ok 103 - Skill 监控时间窗口切分与参数校验
+  ---
+  duration_ms: 4.4902
+  type: 'test'
+  ...
+# Subtest: Skill 监控指标计算、状态统计、组织分布与去重
+ok 104 - Skill 监控指标计算、状态统计、组织分布与去重
+  ---
+  duration_ms: 201.3407
+  type: 'test'
+  ...
+# Subtest: Skill 监控 HTTP 权限控制、组织隔离与会话安全
+ok 105 - Skill 监控 HTTP 权限控制、组织隔离与会话安全
+  ---
+  duration_ms: 1276.3059
+  type: 'test'
+  ...
+# (node:23500) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: Skill下架不能借下载权受理，预检中撤权、版本变化与歧义修订失败，审批重新核验
+ok 106 - Skill下架不能借下载权受理，预检中撤权、版本变化与歧义修订失败，审批重新核验
+  ---
+  duration_ms: 1462.5173
+  type: 'test'
+  ...
+# (node:16012) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 工具候选按可信身份/操作/工作区裁剪，原生ID独立，审批资格与登记修订复核
+ok 107 - 工具候选按可信身份/操作/工作区裁剪，原生ID独立，审批资格与登记修订复核
+  ---
+  duration_ms: 1596.1172
+  type: 'test'
+  ...
+# (node:4172) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 草稿只存人工编辑白名单，系统转单/凭证/快照/无时区时间被拒绝且零能力调用
+ok 108 - 草稿只存人工编辑白名单，系统转单/凭证/快照/无时区时间被拒绝且零能力调用
+  ---
+  duration_ms: 874.0576
+  type: 'test'
+  ...
+# Subtest: 事件草稿提交持久绑定来源，归档不可编辑，精确重放只对应原工单
+ok 109 - 事件草稿提交持久绑定来源，归档不可编辑，精确重放只对应原工单
+  ---
+  duration_ms: 666.6749
+  type: 'test'
+  ...
+# Subtest: 未受理校验失败恢复为可编辑草稿，旧修订不能继续覆盖
+ok 110 - 未受理校验失败恢复为可编辑草稿，旧修订不能继续覆盖
+  ---
+  duration_ms: 370.8007
+  type: 'test'
+  ...
+# Subtest: 工单已落库但执行接单响应丢失时仍归档，重试不新增执行
+ok 111 - 工单已落库但执行接单响应丢失时仍归档，重试不新增执行
+  ---
+  duration_ms: 546.4217
+  type: 'test'
+  ...
+# Subtest: 跨服务实例并发提交同草稿只允许一条预检链路，崩溃窗口可按来源证据归档
+ok 112 - 跨服务实例并发提交同草稿只允许一条预检链路，崩溃窗口可按来源证据归档
+  ---
+  duration_ms: 783.9445
+  type: 'test'
+  ...
+# Subtest: 类型停用或版本变化阻止恢复旧草稿，其他人的草稿不可读取或提交
+ok 113 - 类型停用或版本变化阻止恢复旧草稿，其他人的草稿不可读取或提交
+  ---
+  duration_ms: 790.0285
+  type: 'test'
+  ...
+# Subtest: 已无活动处理且没有受理工单的提交草稿可恢复，已受理草稿不能借恢复重复创建
+ok 114 - 已无活动处理且没有受理工单的提交草稿可恢复，已受理草稿不能借恢复重复创建
+  ---
+  duration_ms: 502.7222
+  type: 'test'
+  ...
+# (node:22724) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 业务申请人改名后继续读取已接单原执行，不能用旧名重建未知执行
+ok 115 - 业务申请人改名后继续读取已接单原执行，不能用旧名重建未知执行
+  ---
+  duration_ms: 7191.7687
+  type: 'test'
+  ...
+# Subtest: KEY原执行查证沿用密钥结果脱敏，客户端提交结果不能替代可信服务
+ok 116 - KEY原执行查证沿用密钥结果脱敏，客户端提交结果不能替代可信服务
+  ---
+  duration_ms: 306.0768
+  type: 'test'
+  ...
+# Subtest: 业务自动查询与人工查证均严格拒绝缺失协议字段，错误结果不落入执行历史
+ok 117 - 业务自动查询与人工查证均严格拒绝缺失协议字段，错误结果不落入执行历史
+  ---
+  duration_ms: 491.8915
+  type: 'test'
+  ...
+# PASS boundaries: 268 files, 11 modules; structure, manifests, public entry points, browser/server separation, dependency direction and module cycles
+# PASS capability boundaries: 69 files, 11 modules
+# Subtest: 模块边界拒绝跨模块私有实现、反向依赖、浏览器服务端混入及管理能力越层
+ok 118 - 模块边界拒绝跨模块私有实现、反向依赖、浏览器服务端混入及管理能力越层
+  ---
+  duration_ms: 1092.6763
+  type: 'test'
+  ...
+# Subtest: 能力模块禁止跨域私有导入、平台反向依赖与管理实现穿透，仓库通过HTTP访问
+ok 119 - 能力模块禁止跨域私有导入、平台反向依赖与管理实现穿透，仓库通过HTTP访问
+  ---
+  duration_ms: 174.1275
+  type: 'test'
+  ...
+# Subtest: 服务端模块注册表与 management/modules 目录完全对齐且覆盖已登记扩展点
+ok 120 - 服务端模块注册表与 management/modules 目录完全对齐且覆盖已登记扩展点
+  ---
+  duration_ms: 2.7916
+  type: 'test'
+  ...
+# (node:25848) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:4728) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 能力核验按工作区隔离，冲突记录不能用于发布
+ok 121 - 能力核验按工作区隔离，冲突记录不能用于发布
+  ---
+  duration_ms: 1421.8382
+  type: 'test'
+  ...
+# Subtest: 运行结果符合两份已接通的 OpenAPI
+ok 122 - 运行结果符合两份已接通的 OpenAPI
+  ---
+  duration_ms: 471.4685
+  type: 'test'
+  ...
+# (node:26600) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 关闭检查仅服务身份可用，未发送原子封存并阻止重启后领取
+ok 123 - 关闭检查仅服务身份可用，未发送原子封存并阻止重启后领取
+  ---
+  duration_ms: 964.8045
+  type: 'test'
+  ...
+# Subtest: 在途关闭返回未知且封住新领取，另一实例不能抢占，已有发送和回执可完成
+ok 124 - 在途关闭返回未知且封住新领取，另一实例不能抢占，已有发送和回执可完成
+  ---
+  duration_ms: 3531.3162
+  type: 'test'
+  ...
+# Subtest: 发送证据不完整的历史记录不能按未发送关闭，重启也不推断安全
+ok 125 - 发送证据不完整的历史记录不能按未发送关闭，重启也不推断安全
+  ---
+  duration_ms: 438.7724
+  type: 'test'
+  ...
+# Subtest: 取文件期间客户端断开且尚未发出字节时，关闭可以证明未发送
+ok 126 - 取文件期间客户端断开且尚未发出字节时，关闭可以证明未发送
+  ---
+  duration_ms: 385.9382
+  type: 'test'
+  ...
+# Subtest: 取消仅运维办理，响应丢失后查询原执行，不重建也不重复取消
+ok 127 - 取消仅运维办理，响应丢失后查询原执行，不重建也不重复取消
+  ---
+  duration_ms: 429.4249
+  type: 'test'
+  ...
+# Subtest: 组件不支持取消时明确记录，不把工单伪造为已终止或重新执行
+ok 128 - 组件不支持取消时明确记录，不把工单伪造为已终止或重新执行
+  ---
+  duration_ms: 319.9868
+  type: 'test'
+  ...
+# Subtest: 错误回执结果不能清除待结算事实，关闭只报告已交付待回执
+ok 129 - 错误回执结果不能清除待结算事实，关闭只报告已交付待回执
+  ---
+  duration_ms: 3508.4353
+  type: 'test'
+  ...
+# Subtest: 来源IP仅取可信连接，成功后的重复领取不改首份回执或重复结算
+ok 130 - 来源IP仅取可信连接，成功后的重复领取不改首份回执或重复结算
+  ---
+  duration_ms: 418.9753
+  type: 'test'
+  ...
+# Subtest: 文件台账拒绝缺失执行身份、元数据变更和无本地交付证据的成功，原执行不重建
+ok 131 - 文件台账拒绝缺失执行身份、元数据变更和无本地交付证据的成功，原执行不重建
+  ---
+  duration_ms: 605.4469
+  type: 'test'
+  ...
+# (node:9500) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 执行响应全部必填字段按原值核验，缺失、空值与错误关联不自动补齐
+ok 132 - 执行响应全部必填字段按原值核验，缺失、空值与错误关联不自动补齐
+  ---
+  duration_ms: 13.0105
+  type: 'test'
+  ...
+# Subtest: 非终态不得携带结果，等待交付只属于原Skill版本与摘要且元数据完整
+ok 133 - 非终态不得携带结果，等待交付只属于原Skill版本与摘要且元数据完整
+  ---
+  duration_ms: 5.1552
+  type: 'test'
+  ...
+# Subtest: 终态结果区分成功、失败和取消，下载成功必须精确关联原流水
+ok 134 - 终态结果区分成功、失败和取消，下载成功必须精确关联原流水
+  ---
+  duration_ms: 2.3021
+  type: 'test'
+  ...
+# Subtest: 旧时间戳和已确认终态不能回退或改写
+ok 135 - 旧时间戳和已确认终态不能回退或改写
+  ---
+  duration_ms: 1.0369
+  type: 'test'
+  ...
+# Subtest: 非法JSON响应按协议错误拒绝，不转为网络重投或默认成功
+ok 136 - 非法JSON响应按协议错误拒绝，不转为网络重投或默认成功
+  ---
+  duration_ms: 8.9873
+  type: 'test'
+  ...
+# (node:3688) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 类型发布按工作区核验所有分支，已发布版本持久化且不可覆盖
+ok 137 - 类型发布按工作区核验所有分支，已发布版本持久化且不可覆盖
+  ---
+  duration_ms: 788.5851
+  type: 'test'
+  ...
+# Subtest: 类型复制保留配置但重新核验，组织范围仅限制新申请且重启后不回退旧版本
+ok 138 - 类型复制保留配置但重新核验，组织范围仅限制新申请且重启后不回退旧版本
+  ---
+  duration_ms: 550.2646
+  type: 'test'
+  ...
+# Subtest: 复制的新版本不能继承旧版本能力核验结果，停用源版本也可复制
+ok 139 - 复制的新版本不能继承旧版本能力核验结果，停用源版本也可复制
+  ---
+  duration_ms: 350.7789
+  type: 'test'
+  ...
+# Subtest: 人工事件冻结版本、幂等受理、双人复核且不下发能力命令
+ok 140 - 人工事件冻结版本、幂等受理、双人复核且不下发能力命令
+  ---
+  duration_ms: 499.8451
+  type: 'test'
+  ...
+# Subtest: 运行中工单在重启后由管理端主动查询终态
+ok 141 - 运行中工单在重启后由管理端主动查询终态
+  ---
+  duration_ms: 3370.1022
+  type: 'test'
+  ...
+# Subtest: 同一流水并发领取被拒绝，交付失败后可用原流水重试
+ok 142 - 同一流水并发领取被拒绝，交付失败后可用原流水重试
+  ---
+  duration_ms: 394.9507
+  type: 'test'
+  ...
+# Subtest: 客户端断开后不登记成功，新连接使用原流水领取
+ok 143 - 客户端断开后不登记成功，新连接使用原流水领取
+  ---
+  duration_ms: 416.5756
+  type: 'test'
+  ...
+# Subtest: 已发送文件的回执失败后在重启时补交，同流水不重复交付
+ok 144 - 已发送文件的回执失败后在重启时补交，同流水不重复交付
+  ---
+  duration_ms: 3464.2039
+  type: 'test'
+  ...
+# Subtest: 管理审计保留办理人和类型版本历史，普通用户不可查询
+ok 145 - 管理审计保留办理人和类型版本历史，普通用户不可查询
+  ---
+  duration_ms: 339.4598
+  type: 'test'
+  ...
+# Subtest: 申请草稿按本人隔离，支持重启恢复和版本冲突保护且不触发能力调用
+ok 146 - 申请草稿按本人隔离，支持重启恢复和版本冲突保护且不触发能力调用
+  ---
+  duration_ms: 284.8988
+  type: 'test'
+  ...
+# Subtest: 停用类型阻止新事件，既有事件保留版本并可继续办理
+ok 147 - 停用类型阻止新事件，既有事件保留版本并可继续办理
+  ---
+  duration_ms: 382.505
+  type: 'test'
+  ...
+# Subtest: 审批资源与快照从服务端会话传递身份，浏览器伪造身份不生效
+ok 148 - 审批资源与快照从服务端会话传递身份，浏览器伪造身份不生效
+  ---
+  duration_ms: 209.1032
+  type: 'test'
+  ...
+# Subtest: AG-02 受理冻结服务端快照，未批准和驳回均不下发执行
+ok 149 - AG-02 受理冻结服务端快照，未批准和驳回均不下发执行
+  ---
+  duration_ms: 305.8623
+  type: 'test'
+  ...
+# Subtest: AG-02 批准原子保存执行，重启沿用原ID补投并由申请人确认结果
+ok 150 - AG-02 批准原子保存执行，重启沿用原ID补投并由申请人确认结果
+  ---
+  duration_ms: 2506.366
+  type: 'test'
+  ...
+# Subtest: 失败重试保留原执行，终止不改写失败结果且与新尝试互斥
+ok 151 - 失败重试保留原执行，终止不改写失败结果且与新尝试互斥
+  ---
+  duration_ms: 417.6287
+  type: 'test'
+  ...
+# Subtest: AG-05 从目录解析源应用，冻结处置范围并在生效时间下发
+ok 152 - AG-05 从目录解析源应用，冻结处置范围并在生效时间下发
+  ---
+  duration_ms: 4207.16
+  type: 'test'
+  ...
+# Subtest: 历史 Skill 下载冻结所选版本，拒绝换版本重放及不可下载版本
+ok 153 - 历史 Skill 下载冻结所选版本，拒绝换版本重放及不可下载版本
+  ---
+  duration_ms: 252.5644
+  type: 'test'
+  ...
+# Subtest: 下载预检读取后续目录页，重复游标失败时不下发
+ok 154 - 下载预检读取后续目录页，重复游标失败时不下发
+  ---
+  duration_ms: 263.0531
+  type: 'test'
+  ...
+# Subtest: AG-01 只同步本人且站点关闭的应用，草稿发布版本可为空且即办不进待办
+ok 155 - AG-01 只同步本人且站点关闭的应用，草稿发布版本可为空且即办不进待办
+  ---
+  duration_ms: 392.9634
+  type: 'test'
+  ...
+# Subtest: AG-04 冻结原新版本与工作流，有依赖告警须明确风险决定
+ok 156 - AG-04 冻结原新版本与工作流，有依赖告警须明确风险决定
+  ---
+  duration_ms: 401.4956
+  type: 'test'
+  ...
+# Subtest: AG-03 公开即办、受限审批，使用方式和授权账户从可信范围冻结
+ok 157 - AG-03 公开即办、受限审批，使用方式和授权账户从可信范围冻结
+  ---
+  duration_ms: 383.2463
+  type: 'test'
+  ...
+# Subtest: 规则复核依据实时账号资料，停用、降密级、越界及错误资源被拒绝
+ok 158 - 规则复核依据实时账号资料，停用、降密级、越界及错误资源被拒绝
+  ---
+  duration_ms: 437.33
+  type: 'test'
+  ...
+# Subtest: 新发布替换规则、下架撤权和账号查询期间撤权均拒绝旧规则
+ok 159 - 新发布替换规则、下架撤权和账号查询期间撤权均拒绝旧规则
+  ---
+  duration_ms: 38.2984
+  type: 'test'
+  ...
+# Subtest: KB-01 按来源核对本人和tenant/workspace，冻结私有同步输入
+ok 160 - KB-01 按来源核对本人和tenant/workspace，冻结私有同步输入
+  ---
+  duration_ms: 370.7292
+  type: 'test'
+  ...
+# Subtest: 统一执行依据按动作登记及会话鉴权，拒绝错配快照和账号类越权
+ok 161 - 统一执行依据按动作登记及会话鉴权，拒绝错配快照和账号类越权
+  ---
+  duration_ms: 211.0547
+  type: 'test'
+  ...
+# Subtest: KB-02 逐文档指纹复核，审批期间清单变化与未确认不得发布
+ok 162 - KB-02 逐文档指纹复核，审批期间清单变化与未确认不得发布
+  ---
+  duration_ms: 319.6469
+  type: 'test'
+  ...
+# Subtest: KB-03 三种实现方式分别冻结，本人即办与他人审批隔离
+ok 163 - KB-03 三种实现方式分别冻结，本人即办与他人审批隔离
+  ---
+  duration_ms: 459.6398
+  type: 'test'
+  ...
+# Subtest: MCP-02 冻结可信URL指纹，审批前变更拒绝且普通页面隐藏指纹
+ok 164 - MCP-02 冻结可信URL指纹，审批前变更拒绝且普通页面隐藏指纹
+  ---
+  duration_ms: 365.0266
+  type: 'test'
+  ...
+# Subtest: SKL-04 下架保留审计副本，交付未核对前不下发
+ok 165 - SKL-04 下架保留审计副本，交付未核对前不下发
+  ---
+  duration_ms: 2282.2479
+  type: 'test'
+  ...
+# Subtest: MCP-03 三动作冻结绑定范围，单用户解绑不扩大为目录处置
+ok 166 - MCP-03 三动作冻结绑定范围，单用户解绑不扩大为目录处置
+  ---
+  duration_ms: 609.8753
+  type: 'test'
+  ...
+# Subtest: KEY-02 轮换撤销冻结登记修订，排除凭证明文并按原动作下发
+ok 167 - KEY-02 轮换撤销冻结登记修订，排除凭证明文并按原动作下发
+  ---
+  duration_ms: 507.6135
+  type: 'test'
+  ...
+# Subtest: TOL-01 安全意见必填，配置指纹变化使旧审批失效
+ok 168 - TOL-01 安全意见必填，配置指纹变化使旧审批失效
+  ---
+  duration_ms: 576.8266
+  type: 'test'
+  ...
+# Subtest: KEY-01 本人调试即办，对外关联发布审批，CIDR与所有者校验
+ok 169 - KEY-01 本人调试即办，对外关联发布审批，CIDR与所有者校验
+  ---
+  duration_ms: 459.1173
+  type: 'test'
+  ...
+# Subtest: 密钥一次性领取仅申请人可用，正文不进入持久记录
+ok 170 - 密钥一次性领取仅申请人可用，正文不进入持久记录
+  ---
+  duration_ms: 301.5762
+  type: 'test'
+  ...
+# Subtest: MCP-01 固定技术注册与新目录ID，URL变化阻止审批且不保存手填地址
+ok 171 - MCP-01 固定技术注册与新目录ID，URL变化阻止审批且不保存手填地址
+  ---
+  duration_ms: 344.1573
+  type: 'test'
+  ...
+# Subtest: 文件流式转发保持字节、上传键按账户隔离，扫描证据按权限裁剪
+ok 172 - 文件流式转发保持字节、上传键按账户隔离，扫描证据按权限裁剪
+  ---
+  duration_ms: 457.3972
+  type: 'test'
+  ...
+# Subtest: SKL-01 上架绑定ready上传件，扫描未完成及审批摘要变化均拒绝
+ok 173 - SKL-01 上架绑定ready上传件，扫描未完成及审批摘要变化均拒绝
+  ---
+  duration_ms: 344.9845
+  type: 'test'
+  ...
+# Subtest: PLG-01 使用扫描包身份而非手填身份，上架不安装且目录ID稳定
+ok 174 - PLG-01 使用扫描包身份而非手填身份，上架不安装且目录ID稳定
+  ---
+  duration_ms: 340.6055
+  type: 'test'
+  ...
+# Subtest: Skill和插件变更再审冻结旧新摘要，历史策略和升级策略分别生效
+ok 175 - Skill和插件变更再审冻结旧新摘要，历史策略和升级策略分别生效
+  ---
+  duration_ms: 463.4955
+  type: 'test'
+  ...
+# Subtest: PLG-03 安装升级卸载按可信工作区与实例冻结，禁用升级策略拒绝
+ok 176 - PLG-03 安装升级卸载按可信工作区与实例冻结，禁用升级策略拒绝
+  ---
+  duration_ms: 586.4094
+  type: 'test'
+  ...
+# (node:3540) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 随应用发布允许先审知识库，源租户与应用区分离，公开访问取两策略交集并随应用下架失效
+ok 177 - 随应用发布允许先审知识库，源租户与应用区分离，公开访问取两策略交集并随应用下架失效
+  ---
+  duration_ms: 1218.4439
+  type: 'test'
+  ...
+# Subtest: 替代目录拒绝自替代/同原生别名/越范围及预检撤权，冻结目录版本策略和修订
+ok 178 - 替代目录拒绝自替代/同原生别名/越范围及预检撤权，冻结目录版本策略和修订
+  ---
+  duration_ms: 623.894
+  type: 'test'
+  ...
+# (node:9376) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: 资源选择代理按服务端会话转发身份与分页，不转发凭证或伪造范围
+ok 179 - 资源选择代理按服务端会话转发身份与分页，不转发凭证或伪造范围
+  ---
+  duration_ms: 517.7658
+  type: 'test'
+  ...
+# Subtest: 工作区目录不完整时失败，不生成可选项或执行命令
+ok 180 - 工作区目录不完整时失败，不生成可选项或执行命令
+  ---
+  duration_ms: 320.2105
+  type: 'test'
+  ...
+1..180
+# tests 180
+# suites 0
+# pass 180
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 37759.9288

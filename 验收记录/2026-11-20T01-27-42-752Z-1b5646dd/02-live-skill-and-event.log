@@ -1,0 +1,3 @@
+(node:29664) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS live local acceptance: SKL-03-accept-b90ca61c-7bb0-49b7-a4b3-7ad18a3f4bb5 EVT-01-accept-edb2284c-1a5a-4123-a7d7-49c82df06c2f ; evidence live-evidence.json

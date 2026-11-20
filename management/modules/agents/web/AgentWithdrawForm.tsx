@@ -47,6 +47,8 @@ export function AgentWithdrawForm({ ticketType = 'AG-05' }: { ticketType?: 'AG-0
     ['原因说明', fields.explanation],
     ...(ticketType === 'AG-04' ? [] : [['生效时间', fields.effectiveAt]] as [string, string][]),
     ['完整影响依据', impact && impact.dependencies.state === 'collected' && (ticketType === 'AG-04' || (impact.grants.state === 'collected' && impact.keys.state === 'collected')) ? '已采集' : ''],
+    ...(ticketType === 'AG-05' && fields.replacementAppId && !replacementVerified
+      ? [['替代应用（请重新核验或明确清除）', '']] as [string, string][] : []),
   ])
 
   async function read(value: { resourceId: string; workspaceId: string }) {
