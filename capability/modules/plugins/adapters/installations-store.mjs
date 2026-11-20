@@ -1,17 +1,18 @@
 import {randomUUID} from 'node:crypto'
 import {check} from '../../../../runtime/http.mjs'
 
-export function upsertInstallation(db, {installationId, resourceId, pluginName, workspaceId, version, sha256, uniqueIdentifier, account, status = '已启用'}) {
+export function upsertInstallation(db, {installationId, productInstallationId, resourceId, pluginName, workspaceId, version, sha256, uniqueIdentifier, account, status = '已启用'}) {
   const id = installationId || `inst-${randomUUID().slice(0, 10)}`
   const existing = db.get(id)
   const record = {
     installationId: id,
+    productInstallationId: productInstallationId || existing?.productInstallationId || null,
     resourceId,
     pluginName: pluginName || existing?.pluginName || resourceId,
     workspaceId,
     version,
     sha256,
-    uniqueIdentifier: uniqueIdentifier || `${resourceId}:${version}`,
+    uniqueIdentifier: uniqueIdentifier || existing?.uniqueIdentifier || null,
     account: account || existing?.account || '',
     status, // '已启用' | '已禁用' | '已卸载'
     revision: existing ? existing.revision + 1 : 1,

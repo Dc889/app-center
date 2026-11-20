@@ -34,7 +34,8 @@ export function liveProducts({dir, credentials}) {
   }
   function own(product, kind, id) {
     assert.ok(typeof id === 'string' && id)
-    resources.push({product, kind, id}); save(); return id
+    if (!resources.some(item => item.product === product && item.kind === kind && item.id === id)) resources.push({product, kind, id})
+    save(); return id
   }
   async function app() {
     const created = await api('dify', '/console/api/apps', {method: 'POST', body: {name: `${prefix}-${resources.length}`, mode: 'workflow', icon_type: 'emoji', icon: '🧪', icon_background: '#E4FBCC'}})
@@ -85,6 +86,34 @@ export function liveProducts({dir, credentials}) {
     for (const item of [...resources].reverse()) {
       try {
         if (item.product === 'dify') {
+          if (item.kind === 'plugin') {
+            // Identity is a native unique identifier, registered before dispatch. Never delete another plugin.
+            const deadline = Date.now() + 300000
+            for (;;) {
+              assert.ok(Date.now() < deadline, 'Owned native plugin cleanup timed out')
+              const list = await api('dify', '/console/api/workspaces/current/plugin/list?page=1&page_size=100')
+              assert.ok(Array.isArray(list.plugins) && list.total <= 100, 'Cleanup requires complete inventory')
+              const installed = list.plugins.find(row => row.plugin_unique_identifier === item.id)
+              if (installed) {
+                const result = await api('dify', '/console/api/workspaces/current/plugin/uninstall', {method: 'POST', body: {plugin_installation_id: installed.id}})
+                assert.equal(result.success, true)
+                continue
+              }
+              const allTasks = []
+              for (let page = 1;;page++) {
+                const tasks = await api('dify', `/console/api/workspaces/current/plugin/tasks?page=${page}&page_size=100`)
+                assert.ok(Array.isArray(tasks.tasks) && page < 10000, 'Cleanup requires complete task inventory')
+                allTasks.push(...tasks.tasks)
+                if (tasks.tasks.length < 100) break
+              }
+              const pending = allTasks.some(task => !['success', 'failed', 'error'].includes(task.status) &&
+                task.plugins?.some(plugin => plugin.plugin_unique_identifier === item.id && !['success', 'failed', 'error'].includes(plugin.status)))
+              if (!pending) break
+              assert.ok(Date.now() < deadline, 'Owned native plugin task still pending')
+              await new Promise(done => setTimeout(done, 1000))
+            }
+            cleanup.push({...item, ok: true}); save(); continue
+          }
           if (item.kind === 'app') {
             const keys = await api('dify', `/console/api/apps/${item.id}/api-keys`)
             for (const key of keys.data) await api('dify', `/console/api/apps/${item.id}/api-keys/${key.id}`, {method: 'DELETE'})

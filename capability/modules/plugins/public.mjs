@@ -1,3 +1,4 @@
+import {recordNativeTaskFailure} from './handlers/task-failure.mjs'
 import {check} from '../../../runtime/http.mjs'
 import {execute as install} from './handlers/install.mjs'
 import {execute as publish_package} from './handlers/publish_package.mjs'
@@ -9,7 +10,7 @@ import {catalogItem, catalogVersions, listCatalog} from './queries/catalog.mjs'
 import {getPluginIntake, uploadPluginIntake} from './queries/intake.mjs'
 import {plg02Context, plg03Candidates, plg03Context, plg04Context} from './queries/execution-contexts.mjs'
 import {resources as plugin} from './queries/resources-plugin.mjs'
-import {installed} from './adapters/dify-install.mjs'
+import {findInstalledPlugin} from './adapters/dify-install.mjs'
 import {upsertInstallation} from './adapters/installations-store.mjs'
 
 function validateInstallPayload(payload) {
@@ -24,11 +25,18 @@ function validateInstallPayload(payload) {
 }
 
 async function reconcileInstall({row, store, stamp, openLedger}) {
-  if (!row.productTask) return
-  if (await installed(row.productTask)) {
-    let installationId = row.productTask.pluginUniqueIdentifier
+  if (!row.productTask || row.state.status !== 'reconciling') return
+  let product
+  try {product = await findInstalledPlugin(row.productTask)} catch (error) {
+    if (recordNativeTaskFailure({row, store, stamp}, error)) return
+    throw error
+  }
+  if (product) {
+    row.productTask.productInstallationId = product.id
+    let installationId = product.id
     if (openLedger) {
       const saved = upsertInstallation(openLedger('installations'), {
+        productInstallationId: product.id,
         resourceId: row.command.resourceId,
         workspaceId: row.productTask.workspaceId || row.command.payload.workspaceId,
         version: row.command.payload.version,

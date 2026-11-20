@@ -9,7 +9,7 @@ import {capabilityModule} from '../public.mjs'
 import {createRegistry} from '../../../platform/registry/public.mjs'
 import {startExecutionServer} from '../../../platform/execution/public.mjs'
 import {startPlugin} from '../../../repositories/plugin/public.mjs'
-import {listen, json} from '../../../../runtime/http.mjs'
+import {listen, json, body} from '../../../../runtime/http.mjs'
 
 test('plugins 模块导出结构契约与动作登记', () => {
   assert.equal(capabilityModule.id, 'plugins')
@@ -37,12 +37,13 @@ test('plugins install 未配置 Dify 凭证时抛出 501 UPSTREAM_UNSUPPORTED', 
 })
 
 test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async t => {
+  const nativeUid = 'document-parser:2.4.1@' + 'a'.repeat(64)
   const difyServer = await listen((req, res, path) => {
     if (path === '/console/api/workspaces/current') {
       return json(res, {id: 'ws-test'})
     }
     if (path === '/console/api/workspaces/current/plugin/upload/pkg') {
-      return json(res, {unique_identifier: 'document-parser:v2.4.1'})
+      return json(res, {unique_identifier: nativeUid})
     }
     if (path === '/console/api/workspaces/current/plugin/install/pkg') {
       return json(res, {task_id: 'task-101'})
@@ -50,7 +51,7 @@ test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async
     if (path === '/console/api/workspaces/current/plugin/list') {
       return json(res, {
         total: 1,
-        plugins: [{tenant_id: 'ws-test', plugin_unique_identifier: 'document-parser:v2.4.1'}],
+        plugins: [{id: 'native-document-parser', tenant_id: 'ws-test', plugin_unique_identifier: nativeUid}],
       })
     }
     return json(res, {error: 'not found'}, 404)
@@ -64,7 +65,7 @@ test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async
 
   t.after(async () => {
     await difyServer.close()
-    for (const k of ['DIFY_API_BASE', 'DIFY_CONSOLE_TOKEN', 'DIFY_WORKSPACE_ID', 'DIFY_INSTALL_ACCOUNT']) {
+    for (const k of ['DIFY_API_BASE', 'DIFY_CONSOLE_TOKEN', 'DIFY_WORKSPACE_ID', 'DIFY_INSTALL_ACCOUNT', 'DIFY_PLUGIN_DAEMON_BASE', 'DIFY_PLUGIN_DAEMON_KEY']) {
       if (prevEnv[k] === undefined) delete process.env[k]
       else process.env[k] = prevEnv[k]
     }
@@ -75,7 +76,7 @@ test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async
   const mockStore = {
     put(key, val) { saved.set(key, val) },
   }
-  const pkgBytes = Buffer.from('test-package-bytes')
+  const pkgBytes = testPluginArchive({uniqueIdentifier: 'document-parser', version: '2.4.1'})
   const {digest} = await import('../../../../runtime/http.mjs')
   const pkgSha256 = digest(pkgBytes)
 
@@ -89,7 +90,7 @@ test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async
     account: 'chen.yu',
     org: '业务一部',
     payload: {
-      version: 'v2.4.1',
+      version: '2.4.1',
       sha256: pkgSha256,
       workspaceId: 'ws-test',
     },
@@ -106,7 +107,7 @@ test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async
 
   assert.equal(row.state.status, 'reconciling')
   assert.ok(row.productTask)
-  assert.equal(row.productTask.pluginUniqueIdentifier, 'document-parser:v2.4.1')
+  assert.equal(row.productTask.pluginUniqueIdentifier, nativeUid)
 
   await capabilityModule.reconcile({
     row,
@@ -116,7 +117,7 @@ test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async
 
   assert.equal(row.state.status, 'succeeded')
   assert.equal(row.state.result.ok, true)
-  assert.equal(row.state.result.resultId, 'document-parser:v2.4.1')
+  assert.equal(row.state.result.resultId, nativeUid)
 })
 
 test('plugins 资源候选与目录读取', async () => {
@@ -180,26 +181,37 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     difyCalls.push({method: req.method, path})
     if (path === '/console/api/workspaces/current') return json(res, {id: 'ws-p'})
     if (path === '/console/api/workspaces/current/plugin/upload/pkg') {
-      const id = installedIds.size === 0 ? 'chart-gen:1.0.0' : 'chart-gen:2.0.0'
+      const id = installedIds.size === 0 ? 'chart-gen:1.0.0@' + 'a'.repeat(64) : 'chart-gen:2.0.0@' + 'b'.repeat(64)
       return json(res, {unique_identifier: id})
     }
     if (path === '/console/api/workspaces/current/plugin/install/pkg') {
-      const id = installedIds.size === 0 ? 'chart-gen:1.0.0' : 'chart-gen:2.0.0'
+      const id = installedIds.size === 0 ? 'chart-gen:1.0.0@' + 'a'.repeat(64) : 'chart-gen:2.0.0@' + 'b'.repeat(64)
       installedIds.add(id)
       return json(res, {task_id: 'task-' + installedIds.size})
     }
     if (path === '/console/api/workspaces/current/plugin/list') {
       return json(res, {
         total: installedIds.size,
-        plugins: [...installedIds].map(id => ({tenant_id: 'ws-p', plugin_unique_identifier: id})),
+        plugins: [...installedIds].map(id => ({id: id.includes(':2.0.0@') ? 'native-chart-2' : 'native-chart-1', tenant_id: 'ws-p', plugin_unique_identifier: id})),
       })
     }
     if (path === '/console/api/workspaces/current/plugin/disable' || path === '/console/api/workspaces/current/plugin/enable') {
-      return json(res, {result: 'ok'})
+      return json(res, {success: true})
+    }
+    if (path === '/plugin/ws-p/management/install/upgrade') {
+      assert.equal(req.headers['x-api-key'], 'daemon-test-key')
+      const payload = await body(req)
+      assert.equal(payload.source, 'package')
+      assert.ok(installedIds.has(payload.original_plugin_unique_identifier))
+      installedIds.delete(payload.original_plugin_unique_identifier)
+      installedIds.add(payload.new_plugin_unique_identifier)
+      return json(res, {code: 0, data: {task_id: 'native-upgrade-2'}})
     }
     if (path === '/console/api/workspaces/current/plugin/uninstall') {
+      const payload = await body(req)
+      assert.equal(payload.plugin_installation_id, 'native-chart-2')
       installedIds.clear()
-      return json(res, {result: 'ok'})
+      return json(res, {success: true})
     }
     return json(res, {error: 'not found'}, 404)
   })
@@ -219,6 +231,8 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
   process.env.DIFY_CONSOLE_TOKEN = 'dify-tok'
   process.env.DIFY_WORKSPACE_ID = 'ws-p'
   process.env.DIFY_INSTALL_ACCOUNT = 'chen.yu'
+  process.env.DIFY_PLUGIN_DAEMON_BASE = difyServer.url
+  process.env.DIFY_PLUGIN_DAEMON_KEY = 'daemon-test-key'
 
   const registry = createRegistry([capabilityModule], {
     actions: {
@@ -236,7 +250,7 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     await difyServer.close()
     await mgmt.close()
     await rm(dir, {recursive: true, force: true})
-    for (const k of ['DIFY_API_BASE', 'DIFY_CONSOLE_TOKEN', 'DIFY_WORKSPACE_ID', 'DIFY_INSTALL_ACCOUNT']) {
+    for (const k of ['DIFY_API_BASE', 'DIFY_CONSOLE_TOKEN', 'DIFY_WORKSPACE_ID', 'DIFY_INSTALL_ACCOUNT', 'DIFY_PLUGIN_DAEMON_BASE', 'DIFY_PLUGIN_DAEMON_KEY']) {
       if (prevEnv[k] === undefined) delete process.env[k]
       else process.env[k] = prevEnv[k]
     }
@@ -258,12 +272,17 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     'x-org': encodeURIComponent('平台运营组'),
     ...extra,
   })
-  const exec = cmd =>
-    fetch(server.url + '/internal/v1/executions', {
-      method: 'POST',
-      headers: hdr({'content-type': 'application/json'}),
-      body: JSON.stringify(cmd),
-    }).then(r => r.json())
+  const exec = async cmd => {
+    let value = await (await fetch(server.url + '/internal/v1/executions', {
+      method: 'POST', headers: hdr({'content-type': 'application/json'}), body: JSON.stringify(cmd),
+    })).json()
+    const deadline = Date.now() + 3000
+    while (['queued', 'running'].includes(value.status) && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 10))
+      value = await (await fetch(server.url + '/internal/v1/executions/' + cmd.executionId, {headers: hdr()})).json()
+    }
+    return value
+  }
 
   // 1. CAP-PLG-02: 上传插件包并解析 packageMetadata
   const pkg1 = multipart(
@@ -321,6 +340,8 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
   assert.equal(instDone.status, 'succeeded')
   const installationId = instDone.result.details.installationId
   assert.ok(installationId)
+  assert.notEqual(installationId, 'native-chart-1')
+  assert.equal(instDone.result.details.productInstallationId, 'native-chart-1')
 
   // 4. CAP-PLG-03: PLG-02 上下文与变更再审发布 v2.0.0
   const ctx02 = await (await fetch(server.url + '/internal/v1/execution-contexts/PLG-02?action=revise_package&resourceId=chart-gen', {headers: hdr()})).json()

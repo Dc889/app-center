@@ -1,7 +1,8 @@
 import {existsSync, readFileSync} from 'node:fs'
 import assert from 'node:assert/strict'
 import {createHash} from 'node:crypto'
-import {buildLivePlugin} from './live-verification/plugin-package.mjs'
+import {buildLivePlugin, loadLivePluginName} from './live-verification/plugin-package.mjs'
+import {startLocalDaemonProxy} from './live-verification/daemon-proxy.mjs'
 import {inspectPluginArchive} from '../capability/modules/plugins/adapters/package-archive.mjs'
 import {DatabaseSync} from 'node:sqlite'
 import {capabilityModules} from '../capability/app/modules.mjs'
@@ -11,6 +12,7 @@ import {mkdtemp, rm} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join, resolve} from 'node:path'
 import {localStack} from './services.mjs'
+import {ledger} from '../runtime/http.mjs'
 
 const dataDir = resolve(process.env.APP_DATA_DIR ?? '.local-data')
 const configFile = join(dataDir, 'local-products.json')
@@ -27,17 +29,27 @@ process.env.RAGFLOW_API_BASE = creds.ragflow.base
 process.env.RAGFLOW_API_KEY = creds.ragflow.apiKey
 process.env.RAGFLOW_TENANT_ID = creds.ragflow.tenantId
 process.env.CAPABILITY_STRICT_UPSTREAM = '1'
+process.env.DIFY_INSTALL_ACCOUNT = 'chen.yu' // Explicit identity mapping for this isolated acceptance stack only.
 delete process.env.CAPABILITY_EVIDENCE_FILE // Never inherit the evidence being checked.
 process.env.RAGFLOW_EXTERNAL_ENDPOINT ??= 'http://host.docker.internal:9380/api/v1/dify'
 
 const wsId = creds.dify.workspaceId
 const runDir = await mkdtemp(join(tmpdir(), 'app-center-live-verify-'))
+// Verification setup only: isolate policy configuration from the deployment evidence under test.
+// A live type cannot publish until all three branches pass; these branch tests therefore start with
+// an explicit policy fixture in this disposable directory. No production type or evidence is changed.
+const typeFixture = ledger(runDir, 'ticket-types')
+typeFixture.put('PLG-03/1', {code: 'PLG-03', version: '1', name: '插件操作真机验收配置', workspaceId: wsId,
+  status: 'published', revision: 1, branchFlows: {upgrade: 'approval', uninstall: 'approval'}, enabledOrgs: [],
+  verificationFixture: true})
+typeFixture.close()
 const stack = await localStack(runDir)
 
 const products = liveProducts({dir: dataDir, credentials: creds})
-const livePluginName = `capfin_${products.runId.slice(0, 8)}`
+const livePluginName = loadLivePluginName(dataDir)
 const journal = createProofJournal({dir: dataDir, modules: capabilityModules, workspaceId: wsId, resourceRunId: products.runId})
 let fixtureApps = [], fixtureDifyDataset, fixtureRagDataset, reviewTicket, alertTicket
+let daemonProxy, pluginInstallationId, installedPluginUid
 const witness = (source, resourceId, assertion, observed = {}) => ({source, resourceId, assertion, observed, passed: true})
 function records(module, name) {
   const file = join(runDir, `mod_${module}_${name}.sqlite`)
@@ -87,6 +99,24 @@ async function readback(meta, before) {
     assert.ok(validation.unique_identifier.startsWith(`${row.uniqueIdentifier}:${expectedVersion}@`))
     return [witness('Repository artifact bytes, ZIP manifest and Dify native package validation', row.resourceId, meta.action,
       {version: row.version, sha256: row.sha256, nativeUniqueIdentifier: validation.unique_identifier})]
+  }
+  if (meta.ticketType === 'PLG-03') {
+    const row = records('plugins', 'installations').find(item => item.installationId === pluginInstallationId)
+    assert.ok(row?.productInstallationId)
+    assert.notEqual(row.installationId, row.productInstallationId)
+    const list = await products.api('dify', '/console/api/workspaces/current/plugin/list?page=1&page_size=100')
+    assert.ok(list.total <= 100)
+    const product = list.plugins.find(item => item.plugin_unique_identifier === row.uniqueIdentifier)
+    if (meta.action === 'uninstall') {assert.equal(row.status, '已卸载'); assert.ok(!product)}
+    else {
+      assert.equal(row.status, '已启用'); assert.equal(product?.id, row.productInstallationId)
+      assert.equal(product?.tenant_id, wsId); assert.equal(row.version, meta.action === 'install' ? '1.0.0' : '1.1.0')
+      if (meta.action === 'upgrade') assert.ok(!list.plugins.some(item => item.plugin_unique_identifier === installedPluginUid))
+      installedPluginUid = row.uniqueIdentifier
+    }
+    return [witness('Dify native installation inventory and capability ledger', row.installationId, meta.action,
+      {installationId: row.installationId, productInstallationId: row.productInstallationId, uniqueIdentifier: row.uniqueIdentifier,
+        version: row.version, status: row.status, workspaceId: row.workspaceId, revision: row.revision})]
   }
   if (meta.ticketType.startsWith('AG-')) {
     const appId = meta.action === 'sync_app' ? fixtureApps[1].id : id
@@ -172,7 +202,7 @@ async function waitApp(ticketNo, cookie, view = 'query', timeoutMs = 6000) {
       const row = data.items?.find(r => r.ticketNo === ticketNo)
       if (row?.execution?.status === 'succeeded' || row?.execution?.status === 'failed') return row
     }
-    await new Promise(r => setTimeout(r, 80))
+    await new Promise(r => setTimeout(r, timeoutMs > 6000 ? 1000 : 80))
   }
   const res = await reqApi(`/api/applications?view=${view}`, cookie)
   const data = await res.json()
@@ -183,7 +213,7 @@ async function runCheck(meta, fn) {
   meta = {...meta, workspaceId: proofScope(meta.ticketType, wsId)}
   try {
     if (meta.ticketType.startsWith('MCP-')) throw Object.assign(new Error('缺少真实模型中心技术注册及连接核验'), {code: 'MODEL_CENTER_UNCONFIGURED'})
-    if (['PLG-03', 'PLG-04'].includes(meta.ticketType)) throw Object.assign(new Error('缺少真实可安装 difypkg；不使用 JSON 改扩展名冒充安装包'), {code: 'REAL_PLUGIN_PACKAGE_REQUIRED'})
+    if (meta.ticketType === 'PLG-04') throw Object.assign(new Error('Dify 1.7.1 没有通用插件停用/恢复接口，待部署真实调用阻断机制'), {code: 'PLUGIN_STATE_CONTROL_UNSUPPORTED'})
     if (meta.ticketType === 'KB-03' && meta.variant !== 'Dify同workspace授权') throw Object.assign(new Error('授权范围和外部检索效果尚待独立读回核验'), {code: 'BINDING_EFFECT_NOT_VERIFIED'})
     const before = meta.ticketType.startsWith('KEY-') ? (await products.api('dify', `/console/api/apps/${fixtureApps[0].id}/api-keys`)).data.map(row => row.id) : null
     const detail = await fn()
@@ -202,6 +232,13 @@ async function runCheck(meta, fn) {
 }
 
 try {
+  // The native daemon is reachable only on its Docker network. The owned loopback bridge is removed in finally.
+  daemonProxy = await startLocalDaemonProxy({dir: dataDir, difyBase: creds.dify.base})
+  process.env.DIFY_PLUGIN_DAEMON_BASE = daemonProxy.base
+  process.env.DIFY_PLUGIN_DAEMON_KEY = daemonProxy.token
+  const inventory = await products.api('dify', '/console/api/workspaces/current/plugin/list?page=1&page_size=100')
+  assert.ok(inventory.total <= 100)
+  assert.ok(!inventory.plugins.some(item => item.plugin_unique_identifier.startsWith(`appcenter/${livePluginName}:`)), 'Test namespace already installed; do not adopt or modify it')
   fixtureApps = [await products.app(), await products.app()]
   fixtureDifyDataset = await products.dataset('dify')
   fixtureRagDataset = await products.dataset('ragflow')
@@ -578,6 +615,31 @@ try {
 
   // --- 5. PLG-01 / PLG-02 (真实插件仓库上传解析、上架与修订) ---
   let pluginCatalogId = null
+  async function pluginOperation(action, operation, version) {
+    assert.ok(pluginCatalogId)
+    if (action !== 'uninstall') {
+      const row = await repository('plugin', pluginCatalogId)
+      const bytes = buildLivePlugin(livePluginName, version)
+      // Obtain the actual native content identity before dispatch, and journal cleanup intent.
+      const form = new FormData(); form.append('pkg', new Blob([bytes]), 'verify.difypkg')
+      const uploaded = await products.api('dify', '/console/api/workspaces/current/plugin/upload/pkg', {method: 'POST', body: form})
+      assert.ok(uploaded.unique_identifier.startsWith(`${row.uniqueIdentifier}:${version}@`))
+      products.own('dify', 'plugin', uploaded.unique_identifier)
+    }
+    const sub = await reqApi('/api/applications', userCookie, {ticketNo: `PLG-03-live-${action}`, ticketType: 'PLG-03',
+      resourceId: pluginCatalogId, workspaceId: wsId, fields: {operation, purpose: '隔离真实插件生命周期核验', installationId: action === 'install' ? '' : pluginInstallationId}})
+    if (sub.status !== 201) throw new Error(`plugin ${action} submit HTTP ${sub.status}: ${await sub.text()}`)
+    const row = await sub.json()
+    if (row.status === '待受理') {
+      const approve = await reqApi('/api/applications/transition', opCookie, {ticketNo: row.ticketNo, revision: row.revision, action: '批准', note: '核对原生实例及批准版本'})
+      if (approve.status !== 200) throw new Error(`plugin ${action} approval HTTP ${approve.status}: ${await approve.text()}`)
+    }
+    const done = await waitApp(row.ticketNo, userCookie, 'mine', 300000)
+    assert.equal(done?.execution?.status, 'succeeded', `native ${action} failed: ${JSON.stringify(done?.execution)}`)
+    assert.ok(!done.deliveryBlocked)
+    if (action === 'install') pluginInstallationId = done.execution.result.details.installationId
+    return `management submission -> native ${action} -> exact native ID and version readback`
+  }
   await runCheck({ticketType: 'PLG-01', action: 'publish_package'}, async () => {
     const form = new FormData()
     form.append(
@@ -625,6 +687,8 @@ try {
     return `published plugin ${pluginCatalogId}`
   })
 
+  await runCheck({ticketType: 'PLG-03', action: 'install'}, () => pluginOperation('install', '安装', '1.0.0'))
+
   await runCheck({ticketType: 'PLG-02', action: 'revise_package'}, async () => {
     if (!pluginCatalogId) throw new Error('missing pluginCatalogId')
     const form = new FormData()
@@ -650,7 +714,7 @@ try {
       fields: {
         intakeId: intake.intakeId,
         changeDescription: '真机升级插件版本',
-        upgradePolicy: '仅新安装使用新版本',
+        upgradePolicy: '逐个工单升级',
       },
     })
     if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
@@ -667,6 +731,9 @@ try {
     if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution)}`)
     return `revised plugin ${pluginCatalogId} -> 1.1.0`
   })
+
+  await runCheck({ticketType: 'PLG-03', action: 'upgrade'}, () => pluginOperation('upgrade', '升级', '1.1.0'))
+  await runCheck({ticketType: 'PLG-03', action: 'uninstall'}, () => pluginOperation('uninstall', '卸载'))
 
   // --- 6. AG-02 / AG-03 / AG-04 / AG-05 (真实 Dify 1.7.1 应用发布、授权、再发布、下架) ---
   await runCheck({ticketType: 'AG-02', action: 'publish'}, async () => {
@@ -1004,5 +1071,6 @@ try {
   }
   journal.save()
   await stack.close()
+  await daemonProxy?.close()
   await rm(runDir, {recursive: true, force: true})
 }

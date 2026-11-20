@@ -18,7 +18,7 @@ export async function execute(context) {
   check(existing && existing.status !== '已卸载', 404, 'NOT_FOUND')
   check(existing.revision === instPre.revision, 409, 'STALE_SNAPSHOT', '插件安装实例修订已变化')
 
-  const result = await setDifyPluginState({installationId, workspaceId, action: command.action})
+  const result = await setDifyPluginState({productInstallationId: existing.productInstallationId, workspaceId, action: command.action})
   const updated = upsertInstallation(instDb, {
     ...existing,
     status: result.state,

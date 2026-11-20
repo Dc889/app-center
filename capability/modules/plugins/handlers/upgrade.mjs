@@ -1,5 +1,6 @@
+import {recordNativeTaskFailure} from './task-failure.mjs'
 import {check} from '../../../../runtime/http.mjs'
-import {installPlugin, installed} from '../adapters/dify-install.mjs'
+import {upgradePlugin, findInstalledPlugin} from '../adapters/dify-install.mjs'
 import {findInstallation, readPluginApprovedInput, upsertInstallation} from '../adapters/installations-store.mjs'
 
 export async function execute(context) {
@@ -22,20 +23,28 @@ export async function execute(context) {
 
   state.status = 'reconciling'
   store.put(command.executionId, row)
-  const task = await installPlugin(
+  const task = await upgradePlugin(
     {...command, payload: {workspaceId, version: targetVersion, sha256: targetSha256}},
     plugin,
+    existing,
   )
   row.productTask = {...task, installationId, version: targetVersion, sha256: targetSha256, pluginName: fields['插件名称'] || existing.pluginName}
 }
 
 export async function reconcileUpgrade({row, store, stamp, openLedger}) {
-  if (!row.productTask) return
-  if (await installed(row.productTask)) {
+  if (!row.productTask || row.state.status !== 'reconciling') return
+  let product
+  try {product = await findInstalledPlugin(row.productTask)} catch (error) {
+    if (recordNativeTaskFailure({row, store, stamp}, error)) return
+    throw error
+  }
+  if (product) {
+    row.productTask.productInstallationId = product.id
     const t = row.productTask
     if (openLedger) {
       upsertInstallation(openLedger('installations'), {
         installationId: t.installationId,
+        productInstallationId: product.id,
         resourceId: row.command.resourceId,
         pluginName: t.pluginName,
         workspaceId: t.workspaceId,

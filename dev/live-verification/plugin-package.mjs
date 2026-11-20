@@ -1,3 +1,6 @@
+import {existsSync, readFileSync, writeFileSync} from 'node:fs'
+import {resolve} from 'node:path'
+import {randomUUID} from 'node:crypto'
 import {zipSync, strToU8} from 'fflate'
 import {stringify} from 'yaml'
 import {check} from '../../runtime/http.mjs'
@@ -23,4 +26,24 @@ export function buildLivePlugin(name, version) {
     '_assets/icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#2463eb"/></svg>',
   }
   return Buffer.from(zipSync(Object.fromEntries(Object.entries(files).map(([path, content]) => [path, strToU8(content)]))))
+}
+
+
+// Reuse only this test namespace; native installation checks still refuse an existing instance.
+export function loadLivePluginName(dir) {
+  const file = resolve(dir, 'live-plugin-namespace.json')
+  if (existsSync(file)) {
+    const state = JSON.parse(readFileSync(file, 'utf8'))
+    check(state.owner === 'appcenter-capfin' && /^capfin_[a-f0-9]{8}$/.test(state.name), 409, 'INVALID_TEST_PLUGIN_NAMESPACE')
+    return state.name
+  }
+  let name
+  const previous = resolve(dir, 'live-plugin-native-report.json')
+  if (existsSync(previous)) {
+    const report = JSON.parse(readFileSync(previous, 'utf8'))
+    if (report.ok && report.cleanupOk && /^capfin_[a-f0-9]{8}$/.test(report.pluginName)) name = report.pluginName
+  }
+  name ??= `capfin_${randomUUID().slice(0, 8)}`
+  writeFileSync(file, JSON.stringify({owner: 'appcenter-capfin', name}, null, 2) + '\n')
+  return name
 }

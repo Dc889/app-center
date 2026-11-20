@@ -18,7 +18,7 @@ export async function execute(context) {
   check(existing && existing.status !== '已卸载', 404, 'NOT_FOUND', '待卸载的安装实例不存在')
   check(existing.revision === instPre.revision, 409, 'STALE_SNAPSHOT', '插件安装实例修订已变化')
 
-  await uninstallDifyPlugin({installationId, workspaceId})
+  await uninstallDifyPlugin({productInstallationId: existing.productInstallationId, workspaceId, uniqueIdentifier: existing.uniqueIdentifier})
   const updated = upsertInstallation(instDb, {
     ...existing,
     status: '已卸载',

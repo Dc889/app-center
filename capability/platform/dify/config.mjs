@@ -25,3 +25,10 @@ export function resolveProductOwner(candidates, {product = 'DIFY'} = {}) {
   }
   return candidates.find(c => typeof c === 'string' && c) ?? ''
 }
+
+
+export function getDifyPluginDaemonConfig() {
+  const base = process.env.DIFY_PLUGIN_DAEMON_BASE
+  const token = process.env.DIFY_PLUGIN_DAEMON_KEY
+  return {base, token, isReal: Boolean(base && token)}
+}
