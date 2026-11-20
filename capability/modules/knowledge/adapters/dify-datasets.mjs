@@ -134,11 +134,19 @@ export async function copyDifyDatasetCrossWorkspace({name, sourceDatasetId, sour
 }
 
 export async function disableDifyDocument({datasetId, documentId, workspaceId}) {
-  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
-  await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/disable${query}`, {
-    method: 'PATCH',
-    body: {enabled: false},
-  })
+  const batchQuery = `?document_id=${encodeURIComponent(documentId)}${workspaceId ? `&workspace_id=${encodeURIComponent(workspaceId)}` : ''}`
+  try {
+    await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}/documents/status/disable/batch${batchQuery}`, {
+      method: 'PATCH',
+    })
+  } catch (err) {
+    if (err.status !== 404) throw err
+    const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
+    await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/disable${query}`, {
+      method: 'PATCH',
+      body: {enabled: false},
+    })
+  }
 }
 
 export async function revokeDifyDatasetAccess({datasetId, workspaceId, bindingId, targetAppId}) {

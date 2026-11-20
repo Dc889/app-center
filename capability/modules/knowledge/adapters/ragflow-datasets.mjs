@@ -22,9 +22,9 @@ async function ragflowFetch(path, {method = 'GET', body} = {}) {
       data = {raw: text}
     }
   }
-  if (!res.ok) {
+  if (!res.ok || (typeof data?.code === 'number' && data.code !== 0)) {
     const err = Object.assign(new Error(data?.message ?? `RAGFlow 接口错误 (${res.status})`), {
-      status: res.status >= 500 ? 502 : res.status,
+      status: res.status >= 500 ? 502 : res.status === 200 ? 502 : res.status,
       code: data?.code ?? 'UPSTREAM_ERROR',
     })
     throw err
@@ -64,11 +64,16 @@ export async function listRagflowDatasets() {
 export async function getRagflowDatasetDetail(datasetId) {
   const cfg = getRagflowConfig()
   check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
-  const [dsRaw, docsRaw] = await Promise.all([
-    ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}`),
-    ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}/documents`),
-  ])
-  const ds = dsRaw?.data ?? dsRaw
+  let dsRaw
+  try {
+    dsRaw = await ragflowFetch(`/api/v1/datasets?id=${encodeURIComponent(datasetId)}`)
+  } catch {
+    dsRaw = await ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}`)
+  }
+  const docsRaw = await ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}/documents`)
+  const dsList = Array.isArray(dsRaw?.data) ? dsRaw.data : null
+  const ds = dsList ? dsList.find(item => String(item.id ?? item.resourceId) === datasetId) ?? dsList[0] : (dsRaw?.data ?? dsRaw)
+  check(ds, 404, 'NOT_FOUND', '未找到 RAGFlow 知识库')
   const docList = Array.isArray(docsRaw?.data?.docs)
     ? docsRaw.data.docs
     : Array.isArray(docsRaw?.data)

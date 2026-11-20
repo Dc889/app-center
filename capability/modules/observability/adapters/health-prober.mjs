@@ -22,26 +22,35 @@ function safeEvidenceRef(key, checkedAt, status) {
   return `probe-${key}-${digest}`
 }
 
-async function probeHttpService({key, url, token, instance, defaultVersion, historyLedger, now}) {
+async function probeHttpService({key, urls, token, instance, defaultVersion, historyLedger, now}) {
   const started = Date.now()
   const checkedAt = new Date(now()).toISOString()
   const prev = historyLedger.get(key) ?? {consecutiveFailures: 0}
   try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: token ? {authorization: `Bearer ${token}`} : {},
-      signal: AbortSignal.timeout(3000),
-    })
+    let res = null
+    let data = null
+    for (const url of urls) {
+      res = await fetch(url, {
+        method: 'GET',
+        headers: token ? {authorization: `Bearer ${token}`} : {},
+        signal: AbortSignal.timeout(3000),
+      })
+      data = null
+      try {
+        data = await res.json()
+      } catch {
+        data = null
+      }
+      const ragNotFound = typeof data?.code === 'number' && data.code !== 0
+      if (res.ok && !ragNotFound) break
+      if (res.status !== 404 && !ragNotFound) break
+    }
     const latencyMs = Math.max(0, Date.now() - started)
     let version = defaultVersion
-    try {
-      const data = await res.json()
-      if (typeof data?.version === 'string' && data.version.trim()) version = data.version.slice(0, 64)
-      else if (typeof data?.data?.version === 'string' && data.data.version.trim()) version = data.data.version.slice(0, 64)
-    } catch {
-      // ignore non-json health body
-    }
-    const ok = res.ok
+    if (typeof data?.version === 'string' && data.version.trim()) version = data.version.slice(0, 64)
+    else if (typeof data?.data?.version === 'string' && data.data.version.trim()) version = data.data.version.slice(0, 64)
+    const ragFailed = typeof data?.code === 'number' && data.code !== 0
+    const ok = Boolean(res?.ok) && !ragFailed
     const status = ok ? (latencyMs > 2000 ? 'degraded' : 'healthy') : 'failed'
     const consecutiveFailures = ok ? 0 : (prev.consecutiveFailures ?? 0) + 1
     historyLedger.put(key, {consecutiveFailures, lastCheckedAt: checkedAt, lastStatus: status})
@@ -85,10 +94,10 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
       results.push(
         await probeHttpService({
           key,
-          url: `${dify.base}/health`,
+          urls: [`${dify.base}/console/api/setup`, `${dify.base}/health`],
           token: dify.token,
           instance: 'dify-api',
-          defaultVersion: process.env.DIFY_VERSION ?? 'dify-console',
+          defaultVersion: process.env.DIFY_VERSION ?? 'dify-1.7.1',
           historyLedger,
           now,
         }),
@@ -98,10 +107,10 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
       results.push(
         await probeHttpService({
           key,
-          url: `${ragflow.base}/api/v1/system/health`,
+          urls: [`${ragflow.base}/v1/system/healthz`, `${ragflow.base}/api/v1/system/health`],
           token: ragflow.token,
           instance: 'ragflow-api',
-          defaultVersion: process.env.RAGFLOW_VERSION ?? 'ragflow-api',
+          defaultVersion: process.env.RAGFLOW_VERSION ?? 'ragflow-0.22.1',
           historyLedger,
           now,
         }),
@@ -111,7 +120,7 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
       results.push(
         await probeHttpService({
           key,
-          url: `${process.env.DIFY_PLUGIN_DAEMON_URL}/health/check`,
+          urls: [`${process.env.DIFY_PLUGIN_DAEMON_URL}/health/check`],
           token: process.env.DIFY_PLUGIN_DAEMON_KEY ?? '',
           instance: 'plugin-daemon',
           defaultVersion: process.env.DIFY_PLUGIN_DAEMON_VERSION ?? 'daemon',
@@ -124,7 +133,7 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
       results.push(
         await probeHttpService({
           key,
-          url: process.env.OBJECT_STORE_HEALTH_URL,
+          urls: [process.env.OBJECT_STORE_HEALTH_URL],
           token: '',
           instance: 'object-store',
           defaultVersion: 's3-compatible',
@@ -137,7 +146,7 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
       results.push(
         await probeHttpService({
           key,
-          url: process.env.MANAGEMENT_HEALTH_URL,
+          urls: [process.env.MANAGEMENT_HEALTH_URL],
           token: '',
           instance: 'management-service',
           defaultVersion: 'app-center-1.0',
