@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../../../../tests/fixtures/repository-data.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp, rm} from 'node:fs/promises'
@@ -44,6 +45,7 @@ test('agents 未配置 Dify 环境时 sync_app 与 withdraw_app 抛出 501 UPSTR
 
 test('AG-01~05 全生命周期：纳管、目标应用、发布、授权、影响分析、再发布、替代目录与下架', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'agents-lifecycle-'))
+  seedRepositoryFixtures(dir)
   const agentRepo = await startAgent({dir, token: 'tok'})
   const difyServer = await listen((req, res, path) => {
     if (path === '/console/api/apps' || path.startsWith('/console/api/apps?')) {

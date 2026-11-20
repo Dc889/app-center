@@ -1,5 +1,6 @@
 import {check} from '../../../../runtime/http.mjs'
 import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
+import {resolveProductOwner} from '../../../platform/dify/public.mjs'
 import {computeManifest} from './knowledge-store.mjs'
 
 async function ragflowFetch(path, {method = 'GET', body} = {}) {
@@ -12,6 +13,7 @@ async function ragflowFetch(path, {method = 'GET', body} = {}) {
       ...(body !== undefined ? {'content-type': 'application/json'} : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(15000),
   })
   const text = await res.text()
   let data = null
@@ -32,48 +34,43 @@ async function ragflowFetch(path, {method = 'GET', body} = {}) {
   return data
 }
 
+// Dify 外部知识库 API 会向 `<endpoint>/retrieval` 发起校验请求，因此端点需指向 RAGFlow 的 `/api/v1/dify`，
+// 且必须是 Dify 容器可达的地址；可用 RAGFLOW_EXTERNAL_ENDPOINT 覆盖（例如 http://host.docker.internal:9380/api/v1/dify）。
 export function getRagflowExternalEndpoint() {
   const cfg = getRagflowConfig()
   check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
-  const parsed = new URL('/api/v1/dify/retrieval', cfg.base)
+  const parsed = new URL(process.env.RAGFLOW_EXTERNAL_ENDPOINT || '/api/v1/dify', process.env.RAGFLOW_EXTERNAL_ENDPOINT ? undefined : cfg.base)
   parsed.username = ''
   parsed.password = ''
   parsed.search = ''
   parsed.hash = ''
-  return parsed.toString()
+  return parsed.toString().replace(/\/$/, '')
 }
 
 export async function listRagflowDatasets() {
   const cfg = getRagflowConfig()
-  if (!cfg.isReal) {
-    check(process.env.CAPABILITY_STRICT_UPSTREAM !== '1', 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
-    return [{resourceId: 'rag-kb-01', name: '警务研判 RAG 知识库', source: 'ragflow', workspaceId: null}]
-  }
+  check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实知识库连接凭证')
   const raw = await ragflowFetch('/api/v1/datasets?page_size=100')
-  const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : []
+  const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : null
+  check(rows, 502, 'UPSTREAM_INVALID_RESPONSE', '知识库列表响应格式错误')
   return rows.map(row => ({
     resourceId: String(row.id ?? row.resourceId),
     name: String(row.name ?? row.id),
     source: 'ragflow',
     workspaceId: null,
     tenantId: String(row.tenant_id ?? row.tenantId ?? cfg.tenantId),
-    ownerAccount: row.owner_account ?? row.ownerAccount ?? row.created_by ?? '',
+    ownerAccount: resolveProductOwner([row.owner_account, row.ownerAccount, row.created_by], {product: 'RAGFLOW'}),
   }))
 }
 
 export async function getRagflowDatasetDetail(datasetId) {
   const cfg = getRagflowConfig()
   check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
-  let dsRaw
-  try {
-    dsRaw = await ragflowFetch(`/api/v1/datasets?id=${encodeURIComponent(datasetId)}`)
-  } catch {
-    dsRaw = await ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}`)
-  }
-  const docsRaw = await ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}/documents`)
-  const dsList = Array.isArray(dsRaw?.data) ? dsRaw.data : null
-  const ds = dsList ? dsList.find(item => String(item.id ?? item.resourceId) === datasetId) ?? dsList[0] : (dsRaw?.data ?? dsRaw)
+  const dsRaw = await ragflowFetch(`/api/v1/datasets?id=${encodeURIComponent(datasetId)}`)
+  check(Array.isArray(dsRaw?.data), 502, 'UPSTREAM_INVALID_RESPONSE', 'RAGFlow 知识库列表响应格式错误')
+  const ds = dsRaw.data.find(item => String(item.id ?? item.resourceId) === datasetId)
   check(ds, 404, 'NOT_FOUND', '未找到 RAGFlow 知识库')
+  const docsRaw = await ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}/documents`)
   const docList = Array.isArray(docsRaw?.data?.docs)
     ? docsRaw.data.docs
     : Array.isArray(docsRaw?.data)
@@ -87,7 +84,7 @@ export async function getRagflowDatasetDetail(datasetId) {
     name: String(ds?.name ?? datasetId),
     tenantId: String(ds?.tenant_id ?? ds?.tenantId ?? cfg.tenantId),
     workspaceId: null,
-    ownerAccount: String(ds?.owner_account ?? ds?.ownerAccount ?? ds?.created_by ?? ''),
+    ownerAccount: resolveProductOwner([ds?.owner_account, ds?.ownerAccount, ds?.created_by], {product: 'RAGFLOW'}),
     modelVerified: ds?.model_verified !== false,
     ...manifest,
   }
@@ -96,6 +93,6 @@ export async function getRagflowDatasetDetail(datasetId) {
 export async function disableRagflowDocument({datasetId, documentId}) {
   await ragflowFetch(`/api/v1/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}`, {
     method: 'PUT',
-    body: {enabled: false, status: 'disabled'},
+    body: {enabled: false},
   })
 }

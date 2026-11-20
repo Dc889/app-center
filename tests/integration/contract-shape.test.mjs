@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../fixtures/repository-data.mjs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -14,6 +15,7 @@ function hasKeys(value, keys) {
 test('能力核验按工作区隔离，冲突记录不能用于发布', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'capability-evidence-'))
   const file = join(dir, 'evidence.json')
+  seedRepositoryFixtures(dir)
   const stack = await localStack(dir)
   const original = process.env.CAPABILITY_EVIDENCE_FILE
   t.after(async () => {
@@ -41,6 +43,7 @@ test('能力核验按工作区隔离，冲突记录不能用于发布', async t 
 
 test('运行结果符合两份已接通的 OpenAPI', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'app-center-contract-'))
+  seedRepositoryFixtures(dir)
   const stack = await localStack(dir)
   t.after(async () => { await stack.close(); await rm(dir, { recursive: true, force: true }) })
   const auth = { authorization: 'Bearer ' + stack.token, 'content-type': 'application/json' }

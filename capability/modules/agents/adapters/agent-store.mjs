@@ -1,61 +1,81 @@
 import {randomUUID} from 'node:crypto'
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, resolveProductOwner} from '../../../platform/dify/public.mjs'
 
-export const SEED_DIFY_APPS = Object.freeze([
-  {resourceId: 'app-police-01', name: '警情摘要与案情研判助手', source: 'dify', workspaceId: 'ws-default', revision: 1, ownerAccount: 'chen.yu'},
-  {resourceId: 'app-doc-02', name: '智能政务公文问答助手', source: 'dify', workspaceId: 'ws-default', revision: 1, ownerAccount: 'zhou.min'},
-])
-
-export async function listDifyApps({workspaceId = 'ws-default', openLedger} = {}) {
-  const {base, token, isReal} = getDifyConfig()
+export async function listDifyApps({workspaceId, openLedger} = {}) {
+  const {base, token, isReal, workspaceId: configuredWorkspace} = getDifyConfig()
+  check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 应用连接')
+  const scope = workspaceId || configuredWorkspace
   const map = new Map()
-  if (isReal) {
-    const response = await fetch(`${base}/console/api/apps?page=1&limit=100`, {
+  let page = 1
+  for (;;) {
+    const response = await fetch(`${base}/console/api/apps?page=${page}&limit=100`, {
       headers: {Authorization: `Bearer ${token}`},
       signal: AbortSignal.timeout(15000),
     })
     check(response.ok, 503, 'UPSTREAM_ERROR', `Dify 应用列表读取失败: HTTP ${response.status}`)
     const data = await response.json()
-    for (const app of data.data ?? []) {
-      if (!app || typeof app.id !== 'string') continue
+    check(Array.isArray(data?.data), 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用列表响应格式错误')
+    for (const app of data.data) {
+      check(typeof app?.id === 'string' && app.id, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用缺少真实标识')
+      const appScope = app.workspace_id || configuredWorkspace
+      if (scope && appScope && appScope !== scope) continue
+      const synced = openLedger ? openLedger('synced-apps').get(app.id) : null
       map.set(app.id, {
         resourceId: app.id,
         name: app.name || app.id,
         source: 'dify',
-        workspaceId: app.workspace_id || workspaceId,
-        revision: 1,
-        mode: app.mode || 'workflow',
-        ownerAccount: app.owner_account ?? app.ownerAccount ?? app.created_by ?? '',
-        webSiteEnabled: Boolean(app.enable_site ?? app.webSiteEnabled ?? false),
-        publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? `pub-${app.id}-v1`,
-        workflowSnapshotId: app.workflow_snapshot_id ?? app.workflowSnapshotId ?? `wf-${app.id}-1`,
+        workspaceId: appScope || null,
+        revision: synced?.revision ?? 0,
+        mode: app.mode ?? null,
+        ownerAccount: resolveProductOwner([app.owner_account, app.ownerAccount, app.created_by], {product: 'DIFY'}),
+        webSiteEnabled: app.enable_site ?? app.webSiteEnabled ?? null,
+        publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? null,
+        workflowSnapshotId: app.workflow_snapshot_id ?? app.workflowSnapshotId ?? app.workflow?.id ?? null,
       })
     }
-  } else {
-    for (const seed of SEED_DIFY_APPS) {
-      map.set(seed.resourceId, {...seed, workspaceId})
-    }
+    if (!data.has_more) break
+    check(data.data.length > 0 && page < 10000, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用分页未结束')
+    page += 1
   }
-  if (openLedger) {
-    for (const row of openLedger('synced-apps').all()) {
-      if (!workspaceId || !row.workspaceId || row.workspaceId === workspaceId) {
-        map.set(row.resourceId, row)
-      }
-    }
-  }
+  // 同步台账只补充管理元数据，不能让已删除或已失权的产品资源重新出现。
   return [...map.values()]
+}
+
+export async function readDifyApp(appId, workspaceId) {
+  const {base, token, isReal, workspaceId: configuredWorkspace} = getDifyConfig()
+  check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 应用连接')
+  const response = await fetch(`${base}/console/api/apps/${encodeURIComponent(appId)}`, {
+    headers: {Authorization: `Bearer ${token}`},
+    signal: AbortSignal.timeout(15000),
+  })
+  check(response.ok, response.status === 404 ? 404 : 503, 'UPSTREAM_ERROR', `Dify 应用详情读取失败: HTTP ${response.status}`)
+  const app = await response.json()
+  check(app?.id === appId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用详情标识不一致')
+  const actualScope = app.workspace_id || configuredWorkspace || workspaceId
+  check(!workspaceId || !actualScope || workspaceId === actualScope, 404, 'NOT_FOUND', '应用不属于目标工作区')
+  return {
+    resourceId: app.id,
+    name: app.name,
+    workspaceId: actualScope || null,
+    mode: app.mode ?? null,
+    ownerAccount: resolveProductOwner([app.owner_account, app.ownerAccount, app.created_by], {product: 'DIFY'}),
+    webSiteEnabled: app.enable_site ?? null,
+    publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? app.model_config?.id ?? null,
+    workflowSnapshotId: app.workflow_snapshot_id ?? app.workflowSnapshotId ?? app.workflow?.id ?? null,
+  }
 }
 
 export function saveSyncedApp(openLedger, app) {
   const db = openLedger('synced-apps')
   const existing = db.get(app.resourceId)
+  check(app.workspaceId, 409, 'MISSING_WORKSPACE', '同步应用缺少已核验工作区')
   const record = {
     resourceId: app.resourceId,
     name: app.name || existing?.name || app.resourceId,
     source: 'dify',
-    workspaceId: app.workspaceId || existing?.workspaceId || 'ws-default',
-    mode: app.mode || existing?.mode || 'workflow',
+    workspaceId: app.workspaceId,
+    mode: app.mode ?? existing?.mode ?? null,
     ownerAccount: app.ownerAccount || existing?.ownerAccount || '',
     revision: existing ? existing.revision + 1 : 1,
     syncedAt: new Date().toISOString(),

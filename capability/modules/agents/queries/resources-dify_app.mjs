@@ -1,8 +1,8 @@
 import {check, id} from '../../../../runtime/http.mjs'
-import {buildAgentImpact, listDifyApps} from '../adapters/agent-store.mjs'
+import {buildAgentImpact, listDifyApps, readDifyApp} from '../adapters/agent-store.mjs'
 
 export async function listDifyAppResources({query, openLedger}) {
-  const workspaceId = query?.get('workspaceId') || 'ws-default'
+  const workspaceId = query?.get('workspaceId') || undefined
   const q = (query?.get('q') ?? '').trim().toLowerCase()
   const cursor = query?.get('cursor') ?? ''
   const limitRaw = query?.get('limit')
@@ -23,11 +23,12 @@ export async function listDifyAppResources({query, openLedger}) {
 }
 
 export async function difyAppResourceDetail({resourceId, query, clients, openLedger}) {
-  const workspaceId = (query?.get('workspaceId') ?? 'ws-default').trim()
+  const workspaceId = (query?.get('workspaceId') ?? '').trim()
   const catalogResourceId = (query?.get('catalogResourceId') ?? '').trim()
 
   const apps = await listDifyApps({workspaceId, openLedger})
-  const app = apps.find(a => a.resourceId === resourceId)
+  const listedApp = apps.find(a => a.resourceId === resourceId)
+  const app = listedApp ? {...listedApp, ...await readDifyApp(resourceId, listedApp.workspaceId)} : null
 
   let catalogEntry = null
   const lookupCatalogId = catalogResourceId || resourceId
@@ -45,18 +46,18 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
   const data = {
     appId: effectiveAppId,
     name: effectiveName,
-    workspaceId,
-    mode: app?.mode ?? 'workflow',
+    workspaceId: app?.workspaceId ?? catalogEntry?.workspaceId ?? null,
+    mode: app?.mode ?? null,
     ownerAccount: app?.ownerAccount ?? catalogEntry?.ownerAccount ?? '',
-    webSiteEnabled: Boolean(app?.webSiteEnabled ?? false),
-    publicationVersionId: catalogEntry?.publicationVersionId ?? app?.publicationVersionId ?? `pub-${effectiveAppId}-v1`,
-    workflowSnapshotId: catalogEntry?.workflowSnapshotId ?? app?.workflowSnapshotId ?? `wf-${effectiveAppId}-1`,
+    webSiteEnabled: app?.webSiteEnabled ?? null,
+    publicationVersionId: catalogEntry?.publicationVersionId ?? app?.publicationVersionId ?? null,
+    workflowSnapshotId: catalogEntry?.workflowSnapshotId ?? app?.workflowSnapshotId ?? null,
     catalogRevision: catalogEntry?.revision ?? 0,
   }
   if (catalogResourceId) {
-    data.publicationVersionId = catalogEntry?.publicationVersionId ?? `pub-${catalogResourceId}-v1`
-    data.workflowSnapshotId = catalogEntry?.workflowSnapshotId ?? `wf-${catalogResourceId}-1`
-    data.catalogRevision = catalogEntry?.revision ?? 1
+    data.publicationVersionId = catalogEntry?.publicationVersionId ?? null
+    data.workflowSnapshotId = catalogEntry?.workflowSnapshotId ?? null
+    data.catalogRevision = catalogEntry?.revision ?? 0
     data.agentImpact = buildAgentImpact({
       resourceId: catalogResourceId,
       appId: effectiveAppId,
@@ -71,7 +72,7 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
     resourceId: effectiveAppId,
     name: effectiveName,
     source: 'dify',
-    workspaceId,
+    workspaceId: data.workspaceId,
     data,
   }
 }

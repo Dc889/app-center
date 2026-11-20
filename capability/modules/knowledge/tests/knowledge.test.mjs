@@ -50,10 +50,16 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
       return json(res, {data: difyDocs})
     }
     if (req.method === 'POST' && path === '/console/api/datasets/external-knowledge-api') {
+      const payload = await body(req)
+      assert.equal(payload.settings.api_key, 'rag-tok')
+      assert.ok(payload.settings.endpoint.endsWith('/api/v1/dify'))
       calls.externalApi += 1
       return json(res, {id: 'ext-api-1'}, 201)
     }
     if (req.method === 'POST' && path === '/console/api/datasets/external') {
+      const payload = await body(req)
+      assert.equal(payload.external_knowledge_api_id, 'ext-api-1')
+      assert.equal(payload.external_knowledge_id, 'rag-ds-1')
       calls.externalDataset += 1
       return json(res, {id: 'ext-ds-1'}, 201)
     }
@@ -65,10 +71,11 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
       calls.crossWsCopy += 1
       return json(res, {id: 'dify-replica-1'}, 201)
     }
-    const disableMatch = /^\/console\/api\/datasets\/([\w-]+)\/documents\/([\w-]+)\/disable$/.exec(path)
-    if (req.method === 'PATCH' && disableMatch) {
-      calls.difyDisableDocs.push(disableMatch[2])
-      return json(res, {disabled: true})
+    if (req.method === 'PATCH' && path === '/console/api/datasets/dify-ds-1/documents/status/disable/batch') {
+      const ids = new URL(req.url, 'http://localhost').searchParams.getAll('document_id')
+      assert.equal(ids.length, 1)
+      calls.difyDisableDocs.push(...ids)
+      return json(res, {result: 'success'})
     }
     const revokeMatch = /^\/console\/api\/datasets\/([\w-]+)\/revoke$/.exec(path)
     if (req.method === 'POST' && revokeMatch) {
@@ -94,6 +101,7 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
     }
     const disableMatch = /^\/api\/v1\/datasets\/([\w-]+)\/documents\/([\w-]+)$/.exec(path)
     if (req.method === 'PUT' && disableMatch) {
+      assert.deepEqual(await body(req), {enabled: false})
       calls.ragDisableDocs.push(disableMatch[2])
       return json(res, {disabled: true})
     }
@@ -271,7 +279,7 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
     await call(`/execution-contexts/KB-03?action=bind_dataset&resourceId=${ragCatalogId}&workspaceId=ws-a&permission=` + encodeURIComponent('检索使用'))
   ).json()
   assert.equal(ctxRagBind.fields['实现方式'], 'RAGFlow外部知识库')
-  assert.ok(ctxRagBind.fields['外部知识库API地址'].endsWith('/api/v1/dify/retrieval'))
+  assert.ok(ctxRagBind.fields['外部知识库API地址'].endsWith('/api/v1/dify'))
   approvedInputs.set('exec-kb03-rag', {
     decisionRef: 'dec-kb03-rag',
     ticketType: 'KB-03',

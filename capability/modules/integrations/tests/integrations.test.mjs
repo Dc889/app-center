@@ -24,27 +24,6 @@ test('integrations /internal/v1/workspaces 路由参数校验、分页与严格�
     err => err.status === 400 && err.code === 'INVALID_PRODUCT',
   )
 
-  let page1 = null
-  const capture = cb => ({
-    writeHead(status) {
-      assert.equal(status, 200)
-    },
-    end(str) {
-      cb(JSON.parse(str))
-    },
-  })
-  await route.handle({req: {url: 'http://localhost/internal/v1/workspaces?product=dify&limit=2'}, res: capture(d => (page1 = d))})
-  assert.equal(page1.items.length, 2)
-  assert.ok(page1.nextCursor)
-
-  let page2 = null
-  await route.handle({
-    req: {url: `http://localhost/internal/v1/workspaces?product=dify&limit=2&cursor=${encodeURIComponent(page1.nextCursor)}`},
-    res: capture(d => (page2 = d)),
-  })
-  assert.equal(page2.items.length, 1)
-  assert.equal(page2.nextCursor, null)
-
   // 严格模式下无真实 Dify 配置返回 501
   const prevStrict = process.env.CAPABILITY_STRICT_UPSTREAM
   const prevBase = process.env.DIFY_API_BASE

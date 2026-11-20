@@ -1,10 +1,11 @@
+import {seedRepositoryFixtures} from '../fixtures/repository-data.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp, rm} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {localStack} from '../../dev/services.mjs'
-import {listen, json, body} from '../../runtime/http.mjs'
+import {listen, json, body, ledger, digest} from '../../runtime/http.mjs'
 
 async function waitUntil(fn, {timeoutMs = 5000, intervalMs = 50} = {}) {
   const deadline = Date.now() + timeoutMs
@@ -19,6 +20,15 @@ async function waitUntil(fn, {timeoutMs = 5000, intervalMs = 50} = {}) {
 
 test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓库端到端闭环', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'app-center-fullstack-'))
+  const registrations = ledger(dir, 'mod_mcp_registrations')
+  registrations.put('mcp-test-registration', {
+    registrationId: 'mcp-test-registration', name: '全栈测试技术注册', source: 'mcp', status: 'registered',
+    transport: 'sse', authType: 'bearer', urlFingerprint: digest(Buffer.from('https://test.invalid/mcp')),
+    tools: [{name: 'test_search', description: '测试工具', inputSchema: {type: 'object'}}],
+    syncedAt: new Date().toISOString(),
+  })
+  registrations.close()
+
 
   // 外层模拟 Dify 与 RAGFlow 上游产品（管理端与能力端均跑真实生产代码）
   const ragUsers = new Map()
@@ -52,6 +62,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
         name: '法制助手',
         mode: 'workflow',
         enable_site: false,
+        workflow: {id: 'published-workflow-test-1'},
         owner_account: 'chen.yu',
         workspace_id: 'ws-1',
       })
@@ -167,6 +178,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
   process.env.RAGFLOW_API_BASE = ragServer.url
   process.env.RAGFLOW_API_KEY = 'rag-tok'
 
+  seedRepositoryFixtures(dir)
   const stack = await localStack(dir)
   t.after(async () => {
     await stack.close()

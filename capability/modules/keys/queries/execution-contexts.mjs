@@ -3,14 +3,14 @@ import {check, json} from '../../../../runtime/http.mjs'
 import {fetchDifyAppForKey} from '../adapters/difyAppInfo.mjs'
 import {KEY_REGISTRATION_ACTIONS, canManageRegistration} from '../adapters/registration-store.mjs'
 
-export async function key01Context({res, query, identity}) {
+export async function key01Context({res, query}) {
   const action = query.get('action')
   const resourceId = (query.get('resourceId') ?? '').trim()
   const workspaceId = (query.get('workspaceId') ?? '').trim()
   check(action === 'create_key', 400, 'INVALID_KEY_ACTION')
   check(resourceId && workspaceId, 400, 'INVALID_REQUEST')
 
-  const app = await fetchDifyAppForKey(resourceId, workspaceId, identity.account)
+  const app = await fetchDifyAppForKey(resourceId, workspaceId)
   return json(res, {
     snapshotId: `snap-key01-${randomUUID().slice(0, 12)}`,
     ticketType: 'KEY-01',

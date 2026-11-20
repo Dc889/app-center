@@ -16,7 +16,7 @@ export async function installPlugin(command, plugin) {
   const bytes = await (await plugin(path+'/file')).arrayBuffer()
   check(digest(Buffer.from(bytes)) === command.payload.sha256,409,'STALE_SNAPSHOT')
   const form = new FormData()
-  form.append('pkg',new Blob([bytes]),'document-parser.txt')
+  form.append('pkg',new Blob([bytes]),'plugin.difypkg')
   const uploaded = await call('upload/pkg',{method:'POST',body:form})
   if (!uploaded.unique_identifier) throw Error('缺少上传结果')
   const installation = await call('install/pkg',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({plugin_unique_identifiers:[uploaded.unique_identifier]})})

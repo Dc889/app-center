@@ -1,0 +1,183 @@
+{
+  "scope": "isolated adapter write/readback checks; not deployment proof or full work-order acceptance",
+  "runs": [
+    {
+      "runId": "cap-fin-01-3d1a4226-ec24-403a-a6d8-a7c3d8cbf7e5",
+      "generatedAt": "2026-11-20T04:05:57.254Z",
+      "scope": "isolated adapter writes; not full work-order acceptance",
+      "checks": [
+        {
+          "name": "Dify create dataset and upload document",
+          "ok": true
+        },
+        {
+          "name": "Dify batch disable, enable and readback",
+          "ok": true
+        },
+        {
+          "name": "Dify create real API key and revoke only newly created key",
+          "ok": true
+        },
+        {
+          "name": "RAGFlow create dataset and upload document",
+          "ok": true
+        },
+        {
+          "name": "RAGFlow enabled=false, enabled=true and readback",
+          "ok": true
+        }
+      ],
+      "resources": [
+        {
+          "product": "dify",
+          "kind": "dataset",
+          "id": "8d5793d4-81ef-4bca-aa03-1cbd4efac63b"
+        },
+        {
+          "product": "dify",
+          "kind": "upload",
+          "id": "5c1140ca-9b61-445d-bca7-707b7f9ba1a7",
+          "parentId": "8d5793d4-81ef-4bca-aa03-1cbd4efac63b"
+        },
+        {
+          "product": "dify",
+          "kind": "document",
+          "id": "fa73fb3e-7512-4641-afb2-90a5fcb6b4cf",
+          "parentId": "8d5793d4-81ef-4bca-aa03-1cbd4efac63b"
+        },
+        {
+          "product": "dify",
+          "kind": "key",
+          "id": "9dc93c14-1e32-4ce7-ad4d-272f749e45b0",
+          "parentId": "35199f57-3159-4769-8c09-28e1c675647b"
+        },
+        {
+          "product": "ragflow",
+          "kind": "dataset",
+          "id": "b1aa60cee49711f1b3faca129c6e00ef"
+        },
+        {
+          "product": "ragflow",
+          "kind": "document",
+          "id": "b1c908eee49711f1b3faca129c6e00ef",
+          "parentId": "b1aa60cee49711f1b3faca129c6e00ef"
+        }
+      ],
+      "cleanup": [
+        {
+          "product": "dify",
+          "kind": "key",
+          "id": "9dc93c14-1e32-4ce7-ad4d-272f749e45b0",
+          "verifiedAbsent": true
+        },
+        {
+          "product": "ragflow",
+          "kind": "dataset",
+          "id": "b1aa60cee49711f1b3faca129c6e00ef",
+          "verifiedAbsent": true
+        },
+        {
+          "product": "dify",
+          "kind": "dataset",
+          "id": "8d5793d4-81ef-4bca-aa03-1cbd4efac63b",
+          "verifiedAbsent": true
+        }
+      ],
+      "ok": true,
+      "finishedAt": "2026-11-20T04:06:01.890Z"
+    },
+    {
+      "runId": "cap-fin-01-a3991446-da09-4d12-8741-0775c58f495e",
+      "generatedAt": "2026-11-20T04:04:08.632Z",
+      "scope": "isolated adapter writes; not full work-order acceptance",
+      "checks": [
+        {
+          "name": "Dify create dataset and upload document",
+          "ok": true
+        },
+        {
+          "name": "Dify batch disable, enable and readback",
+          "ok": true
+        },
+        {
+          "name": "Dify create real API key and revoke only newly created key",
+          "ok": true
+        },
+        {
+          "name": "RAGFlow create dataset and upload document",
+          "ok": true
+        },
+        {
+          "name": "RAGFlow enabled=false, enabled=true and readback",
+          "ok": true
+        }
+      ],
+      "resources": [
+        {
+          "product": "dify",
+          "kind": "dataset",
+          "id": "e71e8aa7-b61a-4a38-a7df-e6dd61bf972d"
+        },
+        {
+          "product": "dify",
+          "kind": "upload",
+          "id": "8db29864-e666-4391-8772-be7877135a8c",
+          "parentId": "e71e8aa7-b61a-4a38-a7df-e6dd61bf972d"
+        },
+        {
+          "product": "dify",
+          "kind": "document",
+          "id": "a69f481a-b815-43c1-96eb-5b15f2fa09bc",
+          "parentId": "e71e8aa7-b61a-4a38-a7df-e6dd61bf972d"
+        },
+        {
+          "product": "dify",
+          "kind": "key",
+          "id": "6e495cf7-24c7-48cd-83e9-e7a735017963",
+          "parentId": "35199f57-3159-4769-8c09-28e1c675647b"
+        },
+        {
+          "product": "ragflow",
+          "kind": "dataset",
+          "id": "712eac6ce49711f1b3faca129c6e00ef"
+        },
+        {
+          "product": "ragflow",
+          "kind": "document",
+          "id": "714bab8ce49711f1b3faca129c6e00ef",
+          "parentId": "712eac6ce49711f1b3faca129c6e00ef"
+        }
+      ],
+      "cleanup": [
+        {
+          "product": "dify",
+          "kind": "key",
+          "id": "6e495cf7-24c7-48cd-83e9-e7a735017963",
+          "verifiedAbsent": true
+        },
+        {
+          "product": "ragflow",
+          "kind": "dataset",
+          "id": "712eac6ce49711f1b3faca129c6e00ef",
+          "verifiedAbsent": false
+        },
+        {
+          "product": "dify",
+          "kind": "dataset",
+          "id": "e71e8aa7-b61a-4a38-a7df-e6dd61bf972d",
+          "verifiedAbsent": true
+        }
+      ],
+      "ok": false,
+      "finishedAt": "2026-11-20T04:04:15.408Z",
+      "cleanupRecheck": {
+        "generatedAt": "2026-11-20T04:10:39.504058+00:00",
+        "product": "ragflow",
+        "kind": "dataset",
+        "id": "712eac6ce49711f1b3faca129c6e00ef",
+        "verifiedAbsent": true,
+        "method": "paginated dataset list"
+      }
+    }
+  ]
+}

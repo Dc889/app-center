@@ -1,58 +1,16 @@
 import {body, check, json, ledger, listen, prefix} from '../../../runtime/http.mjs'
 
-const seedAgents = [
-  {
-    resourceId: 'app-police-query',
-    name: '警情摘要与案情研判助手',
-    status: 'active',
-    revision: 1,
-    appId: 'app-dify-police-01',
-    workspaceId: 'ws-default',
-    version: 'v1.0.0',
-    publicationVersionId: 'pub-police-v1',
-    workflowSnapshotId: 'wf-police-snap-1',
-    policyRef: 'pol-police-v1',
-    scope: 'org',
-    targetOrgs: ['业务一部'],
-    targetAccounts: [],
-    boundaryOrgs: ['业务一部'],
-    usages: ['web'],
-    ownerAccount: 'chen.yu',
-    versions: [{publicationVersionId: 'pub-police-v1', version: 'v1.0.0', workflowSnapshotId: 'wf-police-snap-1', status: 'active'}],
-  },
-  {
-    resourceId: 'app-doc-assistant',
-    name: '智能政务公文问答助手',
-    status: 'active',
-    revision: 1,
-    appId: 'app-dify-doc-02',
-    workspaceId: 'ws-default',
-    version: 'v1.2.0',
-    publicationVersionId: 'pub-doc-v1',
-    workflowSnapshotId: 'wf-doc-snap-1',
-    policyRef: 'pol-doc-v1',
-    scope: 'public',
-    targetOrgs: [],
-    targetAccounts: [],
-    boundaryOrgs: [],
-    usages: ['web', 'api'],
-    ownerAccount: 'zhou.min',
-    versions: [{publicationVersionId: 'pub-doc-v1', version: 'v1.2.0', workflowSnapshotId: 'wf-doc-snap-1', status: 'active'}],
-  },
-]
-
 export function startAgent(options) {
   const store = ledger(options.dir, 'agents')
 
   function mergedItems() {
     const map = new Map()
-    for (const s of seedAgents) map.set(s.resourceId, {...s})
     for (const row of store.all()) map.set(row.resourceId, row)
     return [...map.values()]
   }
 
   function findItem(resourceId) {
-    return store.get(resourceId) ?? seedAgents.find(s => s.resourceId === resourceId) ?? null
+    return store.get(resourceId) ?? null
   }
 
   return listen(
@@ -87,7 +45,7 @@ export function startAgent(options) {
         const ver = {
           publicationVersionId: input.publicationVersionId,
           version: input.version || input.publicationVersionId,
-          workflowSnapshotId: input.workflowSnapshotId || input.snapshotId || 'wf-snap',
+          workflowSnapshotId: input.workflowSnapshotId ?? input.snapshotId ?? null,
           status: 'active',
           publishedAt: new Date().toISOString(),
         }

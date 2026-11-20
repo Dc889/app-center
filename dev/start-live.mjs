@@ -1,6 +1,7 @@
 import {existsSync, readFileSync} from 'node:fs'
-import {resolve} from 'node:path'
+import {resolve, dirname} from 'node:path'
 import {spawn} from 'node:child_process'
+import {createRequire} from 'node:module'
 
 const configFile = resolve(process.env.APP_DATA_DIR ?? '.local-data', 'local-products.json')
 if (!existsSync(configFile)) {
@@ -10,7 +11,6 @@ if (!existsSync(configFile)) {
 }
 
 const creds = JSON.parse(readFileSync(configFile, 'utf8'))
-const evidenceFile = resolve(process.env.APP_DATA_DIR ?? '.local-data', 'capability-evidence.json')
 
 const env = {
   ...process.env,
@@ -21,7 +21,6 @@ const env = {
   RAGFLOW_API_KEY: process.env.RAGFLOW_API_KEY ?? creds.ragflow?.apiKey ?? '',
   RAGFLOW_TENANT_ID: process.env.RAGFLOW_TENANT_ID ?? creds.ragflow?.tenantId ?? '',
   CAPABILITY_STRICT_UPSTREAM: process.env.CAPABILITY_STRICT_UPSTREAM ?? '1',
-  ...(existsSync(evidenceFile) && !process.env.CAPABILITY_EVIDENCE_FILE ? {CAPABILITY_EVIDENCE_FILE: evidenceFile} : {}),
 }
 
 console.log('Starting App Center (live mode):')
@@ -30,8 +29,16 @@ console.log(`  RAGFlow: ${env.RAGFLOW_API_BASE} (tenant=${env.RAGFLOW_TENANT_ID}
 console.log(`  Strict:  CAPABILITY_STRICT_UPSTREAM=${env.CAPABILITY_STRICT_UPSTREAM}`)
 if (env.CAPABILITY_EVIDENCE_FILE) console.log(`  Evidence: ${env.CAPABILITY_EVIDENCE_FILE}`)
 
-const child = spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['vite', ...process.argv.slice(2)], {
+const require = createRequire(import.meta.url)
+const viteCli = resolve(dirname(require.resolve('vite/package.json')), 'bin/vite.js')
+const child = spawn(process.execPath, [viteCli, ...process.argv.slice(2)], {
+  windowsHide: true,
   stdio: 'inherit',
   env,
 })
-child.on('exit', code => process.exit(code ?? 0))
+child.on('error', () => {
+  console.error('Vite 启动失败，请检查本地依赖。')
+  process.exitCode = 1
+})
+child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)))
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal))

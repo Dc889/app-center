@@ -1,48 +1,12 @@
 import {randomUUID} from 'node:crypto'
-import {check, digest} from '../../../../runtime/http.mjs'
-
-export const SEED_MCP_REGISTRATIONS = Object.freeze([
-  {
-    registrationId: 'mcp-archive-reg',
-    name: '档案检索服务技术注册',
-    source: 'mcp',
-    status: 'registered',
-    transport: 'sse',
-    urlFingerprint: digest(Buffer.from('http://mcp.internal/archive-reg')),
-    authType: 'bearer',
-    tools: [
-      {name: 'search_archive', description: '检索案卷档案', inputSchema: {type: 'object', properties: {q: {type: 'string'}}}},
-      {name: 'get_archive_detail', description: '读取卷宗详情', inputSchema: {type: 'object', properties: {id: {type: 'string'}}}},
-    ],
-    syncedAt: '2026-11-20T00:00:00.000Z',
-  },
-  {
-    registrationId: 'mcp-corp-reg',
-    name: '企业信用查询技术注册',
-    source: 'mcp',
-    status: 'active',
-    transport: 'stream',
-    urlFingerprint: digest(Buffer.from('http://mcp.internal/corp-reg')),
-    authType: 'api_key',
-    tools: [
-      {name: 'query_company', description: '查询工商信息', inputSchema: {type: 'object', properties: {name: {type: 'string'}}}},
-    ],
-    syncedAt: '2026-11-20T00:00:00.000Z',
-  },
-])
+import {check} from '../../../../runtime/http.mjs'
 
 export function getAllRegistrations(openLedger) {
-  const map = new Map()
-  for (const seed of SEED_MCP_REGISTRATIONS) map.set(seed.registrationId, {...seed})
-  if (openLedger) {
-    for (const row of openLedger('registrations').all()) map.set(row.registrationId, row)
-  }
-  return [...map.values()]
+  return openLedger ? openLedger('registrations').all() : []
 }
 
 export function findRegistration(openLedger, registrationId) {
-  const persisted = openLedger ? openLedger('registrations').get(registrationId) : null
-  return persisted ?? SEED_MCP_REGISTRATIONS.find(s => s.registrationId === registrationId) ?? null
+  return openLedger ? openLedger('registrations').get(registrationId) ?? null : null
 }
 
 export function listActiveBindings(db, resourceId) {

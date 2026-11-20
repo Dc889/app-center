@@ -1,1 +1,1 @@
-export {getDifyConfig} from './config.mjs'
+export {getDifyConfig, resolveProductOwner} from './config.mjs'

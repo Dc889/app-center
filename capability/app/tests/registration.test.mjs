@@ -185,9 +185,9 @@ test('现有启动入口与模块资源/目录路由保持可用，不完整Dify
     await rm(dir, {recursive: true, force: true})
   })
   const get = path => fetch(api.url + '/internal/v1' + path, {headers: {authorization: 'Bearer test'}})
-  assert.equal((await get('/workspaces?product=dify')).status, 200)
-  assert.equal((await (await get('/resources?kind=dify_app&workspaceId=chosen')).json()).items[0].workspaceId, 'chosen')
-  assert.equal((await (await get('/catalog?kind=agent')).json()).items.length, 2)
+  assert.equal((await get('/workspaces?product=dify')).status, 501)
+  assert.equal((await get('/resources?kind=dify_app&workspaceId=chosen')).status, 501)
+  assert.equal((await get('/catalog?kind=agent')).status, 503)
   const c = {
     executionId: 'unsupported',
     ticketNo: 'AG-05-one',

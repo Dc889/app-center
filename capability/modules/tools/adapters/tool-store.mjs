@@ -1,26 +1,6 @@
 import {check, digest} from '../../../../runtime/http.mjs'
 import {getDifyConfig} from '../../../platform/dify/public.mjs'
 
-const SEED_TOOLS = Object.freeze([
-  {
-    toolId: 'tool-web-search',
-    providerId: 'builtin-search',
-    name: '联网搜索工具',
-    providerName: '内置搜索提供者',
-    version: '1.0.0',
-    inputSchema: {type: 'object', properties: {query: {type: 'string'}}, required: ['query']},
-    outputDescription: '返回搜索结果列表与摘要',
-  },
-  {
-    toolId: 'tool-case-lookup',
-    providerId: 'api-police-gw',
-    name: '案情检索工具',
-    providerName: '警务网关接口',
-    version: '2.1.0',
-    inputSchema: {type: 'object', properties: {caseNo: {type: 'string'}}, required: ['caseNo']},
-    outputDescription: '返回标准化案情结构化 JSON',
-  },
-])
 
 export function computeToolFingerprint(tool) {
   return digest(
@@ -48,14 +28,17 @@ function pickText(value, fallback) {
 export async function listWorkspaceTools({workspaceId, openLedger}) {
   const {base, token, isReal} = getDifyConfig()
   const map = new Map()
-  if (isReal) {
+  check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 工具来源')
+  {
     const response = await fetch(`${base}/console/api/workspaces/current/tools/api`, {
       headers: {Authorization: `Bearer ${token}`},
       signal: AbortSignal.timeout(15000),
     })
     check(response.ok, 503, 'UPSTREAM_ERROR', `Dify 工具列表读取失败: HTTP ${response.status}`)
     const rows = await response.json()
-    for (const provider of Array.isArray(rows) ? rows : rows.data ?? []) {
+    const providers = Array.isArray(rows) ? rows : rows?.data
+    check(Array.isArray(providers), 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 工具列表响应格式错误')
+    for (const provider of providers) {
       for (const t of provider.tools ?? []) {
         const toolId = t.id || t.name
         if (!toolId) continue
@@ -83,10 +66,6 @@ export async function listWorkspaceTools({workspaceId, openLedger}) {
         }
         map.set(toolId, {...tool, fingerprint: computeToolFingerprint(tool)})
       }
-    }
-  } else {
-    for (const seed of SEED_TOOLS) {
-      map.set(seed.toolId, {...seed, workspaceId, fingerprint: computeToolFingerprint(seed)})
     }
   }
   if (openLedger) {

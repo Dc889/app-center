@@ -1,60 +1,21 @@
 import {check, json} from '../../../../runtime/http.mjs'
 
-const FALLBACK_AGENTS = [
-  {
-    resourceId: 'app-police-query',
-    name: '警情摘要与案情研判助手',
-    status: 'active',
-    revision: 1,
-    appId: 'app-dify-police-01',
-    workspaceId: 'ws-default',
-    version: 'v1.0.0',
-    publicationVersionId: 'pub-police-v1',
-    workflowSnapshotId: 'wf-police-snap-1',
-    policyRef: 'pol-police-v1',
-    ownerAccount: 'chen.yu',
-  },
-  {
-    resourceId: 'app-doc-assistant',
-    name: '智能政务公文问答助手',
-    status: 'active',
-    revision: 1,
-    appId: 'app-dify-doc-02',
-    workspaceId: 'ws-default',
-    version: 'v1.2.0',
-    publicationVersionId: 'pub-doc-v1',
-    workflowSnapshotId: 'wf-doc-snap-1',
-    policyRef: 'pol-doc-v1',
-    ownerAccount: 'zhou.min',
-  },
-]
-
 async function fetchAgents(clients) {
-  if (!clients?.agent) return FALLBACK_AGENTS
-  try {
-    const data = await (await clients.agent('/agents')).json()
-    return Array.isArray(data.items) ? data.items : FALLBACK_AGENTS
-  } catch (err) {
-    if (err.code === 'REPOSITORY_UNCONFIGURED') return FALLBACK_AGENTS
-    throw err
-  }
+  check(clients?.agent, 501, 'REPOSITORY_UNCONFIGURED', '未配置智能体仓库')
+  const data = await (await clients.agent('/agents')).json()
+  check(Array.isArray(data?.items), 502, 'UPSTREAM_INVALID_RESPONSE', '智能体仓库未返回有效列表')
+  return data.items
 }
 
 async function fetchAgent(clients, resourceId) {
-  if (clients?.agent) {
-    try {
-      return await (await clients.agent('/agents/' + encodeURIComponent(resourceId))).json()
-    } catch (err) {
-      if (err.code !== 'REPOSITORY_UNCONFIGURED') throw err
-    }
-  }
-  const found = FALLBACK_AGENTS.find(a => a.resourceId === resourceId)
-  check(found, 404, 'NOT_FOUND')
-  return found
+  check(clients?.agent, 501, 'REPOSITORY_UNCONFIGURED', '未配置智能体仓库')
+  const item = await (await clients.agent('/agents/' + encodeURIComponent(resourceId))).json()
+  check(item?.resourceId === resourceId, 502, 'UPSTREAM_INVALID_RESPONSE', '智能体仓库返回的资源标识不一致')
+  return item
 }
 
 function canManage(item, identity) {
-  if (!identity?.account && !identity?.role) return true
+  if (!identity?.account && !identity?.role) return false
   if (['operator', 'admin'].includes(identity.role)) return true
   return Boolean(identity.account && item.ownerAccount === identity.account)
 }
@@ -88,8 +49,8 @@ function projectAgent(item, requestedAction, identity) {
       workflowSnapshotId: item.workflowSnapshotId,
       policyRef: item.policyRef,
       revision: item.revision,
-      scope: item.scope ?? 'all',
-      usages: Array.isArray(item.usages) && item.usages.length ? item.usages : ['run', 'embed', 'api'],
+      scope: item.scope ?? null,
+      usages: Array.isArray(item.usages) ? item.usages : [],
       boundaryOrgs: item.boundaryOrgs ?? [],
       targetOrgs: item.targetOrgs ?? [],
       targetAccounts: item.targetAccounts ?? [],

@@ -1,2 +1,2 @@
-capability/repositories/skill/objects/* -text
-capability/repositories/plugin/packages/* -text
+# Hash-checked fixture payloads retain their exact bytes on every platform.
+tests/fixtures/*.txt -text

@@ -2,89 +2,19 @@ import {mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {body, check, digest, json, ledger, listen, prefix} from '../../../runtime/http.mjs'
 
-function seedDocBytes() {
-  return readFileSync(new URL('./packages/document-parser.txt', import.meta.url))
-}
-
-function buildSeedPlugins() {
-  const docBytes = seedDocBytes()
-  const docSha = digest(docBytes)
-  return [
-    {
-      resourceId: 'document-parser',
-      uniqueIdentifier: 'document-parser',
-      name: '文档解析与抽取插件 (Document Parser)',
-      status: 'approved',
-      revision: 1,
-      version: 'v2.4.1',
-      sha256: docSha,
-      sizeBytes: docBytes.length,
-      upgradePolicy: '逐个工单升级',
-      installAccess: 'approval',
-      versions: [
-        {version: 'v2.4.1', sha256: docSha, sizeBytes: docBytes.length, seed: true, status: 'approved'},
-      ],
-    },
-    {
-      resourceId: 'web-search-pro',
-      uniqueIdentifier: 'web-search-pro',
-      name: '联网专业搜索插件 (Web Search Pro)',
-      status: 'approved',
-      revision: 1,
-      version: 'v1.5.0',
-      sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      sizeBytes: 0,
-      upgradePolicy: '逐个工单升级',
-      installAccess: 'instant',
-      versions: [
-        {
-          version: 'v1.5.0',
-          sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          sizeBytes: 0,
-          empty: true,
-          status: 'approved',
-        },
-      ],
-    },
-    {
-      resourceId: 'browser-agent',
-      uniqueIdentifier: 'browser-agent',
-      name: '网页浏览自动化插件 (Browser Agent)',
-      status: 'approved',
-      revision: 1,
-      version: 'v1.2.0',
-      sha256: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
-      sizeBytes: 1,
-      upgradePolicy: '逐个工单升级',
-      installAccess: 'approval',
-      versions: [
-        {
-          version: 'v1.2.0',
-          sha256: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
-          sizeBytes: 1,
-          empty: true,
-          status: 'approved',
-        },
-      ],
-    },
-  ]
-}
-
 export function startPlugin(options) {
   const catalogStore = ledger(options.dir, 'plugin-catalog')
   const objectsDir = join(options.dir, 'plugin-objects')
   mkdirSync(objectsDir, {recursive: true})
-  const seeds = buildSeedPlugins()
 
   function mergedItems() {
     const map = new Map()
-    for (const s of seeds) map.set(s.resourceId, s)
     for (const p of catalogStore.all()) map.set(p.resourceId, p)
     return [...map.values()]
   }
 
   function findItem(resourceId) {
-    return catalogStore.get(resourceId) ?? seeds.find(s => s.resourceId === resourceId) ?? null
+    return catalogStore.get(resourceId) ?? null
   }
 
   function writeBlob(resourceId, version, base64Content) {
@@ -95,7 +25,6 @@ export function startPlugin(options) {
   }
 
   function readVersionBytes(item, ver) {
-    if (ver.seed && item.resourceId === 'document-parser') return seedDocBytes()
     if (ver.blobName) return readFileSync(join(objectsDir, ver.blobName))
     check(false, 404, 'PACKAGE_FILE_NOT_FOUND')
   }
@@ -190,7 +119,7 @@ export function startPlugin(options) {
         return json(res, {
           resourceId: item.resourceId,
           revision: item.revision,
-          versions: item.versions.map(({blobName: _b, seed: _s, empty: _e, ...v}) => v),
+          versions: item.versions.map(({blobName: _b, ...v}) => v),
         })
       }
       if (sub === 'versions' && req.method === 'PUT') {

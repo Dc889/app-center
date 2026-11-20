@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../../../../tests/fixtures/repository-data.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp, rm} from 'node:fs/promises'
@@ -141,11 +142,14 @@ test('plugins 资源候选与目录读取', async () => {
     req: mockReq,
     res: mockRes,
     query: new URLSearchParams('kind=plugin&workspaceId=ws-default'),
+    plugin: mockPluginClient,
   })
 
   assert.ok(listResult)
   assert.ok(Array.isArray(listResult.items))
   assert.ok(listResult.items.some(i => i.resourceId === 'document-parser'))
+  assert.equal(listResult.items[0].data.installed, null)
+  assert.equal(listResult.items[0].data.installationId, '')
 
   let detailResult = null
   const detailRes = {
@@ -167,6 +171,7 @@ test('plugins 资源候选与目录读取', async () => {
 
 test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更再审、升级对账、禁用恢复与卸载', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'plugins-lifecycle-'))
+  seedRepositoryFixtures(dir)
   const pluginRepo = await startPlugin({dir, token: 'tok'})
   const installedIds = new Set()
   const difyCalls = []

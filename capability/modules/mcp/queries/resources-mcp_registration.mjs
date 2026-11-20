@@ -2,7 +2,7 @@ import {check} from '../../../../runtime/http.mjs'
 import {findRegistration, getAllRegistrations} from '../adapters/mcp-store.mjs'
 
 export function listMcpRegistrations({query, openLedger}) {
-  const ws = query?.get('workspaceId') || 'ws-default'
+  const ws = query?.get('workspaceId') || null
   const q = (query?.get('q') ?? '').trim().toLowerCase()
   const items = getAllRegistrations(openLedger)
     .filter(r => ['active', 'registered'].includes(r.status))

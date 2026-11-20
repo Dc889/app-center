@@ -1,56 +1,16 @@
-import {body, check, digest, json, ledger, listen, prefix} from '../../../runtime/http.mjs'
-
-const seedMcps = [
-  {
-    resourceId: 'mcp-archive-search',
-    name: '档案检索与卷宗服务 MCP',
-    status: 'active',
-    revision: 1,
-    transport: 'sse',
-    toolNames: ['search_archive', 'get_archive_detail'],
-    urlFingerprint: digest(Buffer.from('http://mcp.internal/archive')),
-    bindingAccess: 'approval',
-    provider: 'internal-archive',
-    ownerAccount: 'zhou.min',
-  },
-  {
-    resourceId: 'mcp-corp-search',
-    name: '企业信息与信用核查 MCP',
-    status: 'active',
-    revision: 1,
-    transport: 'stream',
-    toolNames: ['query_company', 'verify_credit'],
-    urlFingerprint: digest(Buffer.from('http://mcp.internal/corp')),
-    bindingAccess: 'instant',
-    provider: 'internal-corp',
-    ownerAccount: 'zhou.min',
-  },
-  {
-    resourceId: 'mcp-map-service',
-    name: '空间地理与地图定位 MCP',
-    status: 'active',
-    revision: 1,
-    transport: 'sse',
-    toolNames: ['get_coordinates', 'route_planning'],
-    urlFingerprint: digest(Buffer.from('http://mcp.internal/map')),
-    bindingAccess: 'approval',
-    provider: 'internal-map',
-    ownerAccount: 'chen.yu',
-  },
-]
+import {body, check, json, ledger, listen, prefix} from '../../../runtime/http.mjs'
 
 export function startMcp(options) {
   const store = ledger(options.dir, 'mcps')
 
   function mergedItems() {
     const map = new Map()
-    for (const seed of seedMcps) map.set(seed.resourceId, {...seed})
     for (const row of store.all()) map.set(row.resourceId, row)
     return [...map.values()]
   }
 
   function findItem(resourceId) {
-    return store.get(resourceId) ?? seedMcps.find(s => s.resourceId === resourceId) ?? null
+    return store.get(resourceId) ?? null
   }
 
   return listen(

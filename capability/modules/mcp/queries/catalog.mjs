@@ -1,42 +1,6 @@
 import {check, json} from '../../../../runtime/http.mjs'
 import {listActiveBindings} from '../adapters/mcp-store.mjs'
 
-const FALLBACK_MCPS = [
-  {
-    resourceId: 'mcp-archive-search',
-    name: '档案检索与卷宗服务 MCP',
-    status: 'active',
-    revision: 1,
-    transport: 'sse',
-    toolNames: ['search_archive', 'get_archive_detail'],
-    bindingAccess: 'approval',
-    provider: 'internal-archive',
-    ownerAccount: 'zhou.min',
-  },
-  {
-    resourceId: 'mcp-corp-search',
-    name: '企业信息与信用核查 MCP',
-    status: 'active',
-    revision: 1,
-    transport: 'stream',
-    toolNames: ['query_company', 'verify_credit'],
-    bindingAccess: 'instant',
-    provider: 'internal-corp',
-    ownerAccount: 'zhou.min',
-  },
-  {
-    resourceId: 'mcp-map-service',
-    name: '空间地理与地图定位 MCP',
-    status: 'active',
-    revision: 1,
-    transport: 'sse',
-    toolNames: ['get_coordinates', 'route_planning'],
-    bindingAccess: 'approval',
-    provider: 'internal-map',
-    ownerAccount: 'chen.yu',
-  },
-]
-
 const ALLOWED_STATUSES = {
   unbind_mcp: ['active', 'isolated', 'withdrawn'],
   isolate_mcp: ['active'],
@@ -44,27 +8,17 @@ const ALLOWED_STATUSES = {
 }
 
 async function fetchMcps(clients) {
-  if (!clients?.mcp) return FALLBACK_MCPS
-  try {
-    const data = await (await clients.mcp('/mcps')).json()
-    return Array.isArray(data.items) ? data.items : FALLBACK_MCPS
-  } catch (err) {
-    if (err.code === 'REPOSITORY_UNCONFIGURED') return FALLBACK_MCPS
-    throw err
-  }
+  check(clients?.mcp, 501, 'REPOSITORY_UNCONFIGURED', '未配置 MCP 仓库')
+  const data = await (await clients.mcp('/mcps')).json()
+  check(Array.isArray(data?.items), 502, 'UPSTREAM_INVALID_RESPONSE', 'MCP 仓库未返回有效列表')
+  return data.items
 }
 
 async function fetchMcpItem(clients, resourceId) {
-  if (clients?.mcp) {
-    try {
-      return await (await clients.mcp('/mcps/' + encodeURIComponent(resourceId))).json()
-    } catch (err) {
-      if (err.code !== 'REPOSITORY_UNCONFIGURED') throw err
-    }
-  }
-  const found = FALLBACK_MCPS.find(m => m.resourceId === resourceId)
-  check(found, 404, 'NOT_FOUND')
-  return found
+  check(clients?.mcp, 501, 'REPOSITORY_UNCONFIGURED', '未配置 MCP 仓库')
+  const item = await (await clients.mcp('/mcps/' + encodeURIComponent(resourceId))).json()
+  check(item?.resourceId === resourceId, 502, 'UPSTREAM_INVALID_RESPONSE', 'MCP 仓库返回的资源标识不一致')
+  return item
 }
 
 function canDispose(item, action, identity, bindings) {
@@ -90,7 +44,7 @@ function computeActions(item, requestedAction, identity, bindings) {
 
 function projectEntry(item, {workspaceId, action, identity, bindings}) {
   const wsBinding = workspaceId ? bindings.find(b => b.workspaceId === workspaceId && (!identity?.account || b.account === identity.account)) : null
-  const isBound = Boolean(wsBinding) || (workspaceId === 'ws-default' && item.resourceId === 'mcp-corp-search' && bindings.length === 0)
+  const isBound = Boolean(wsBinding)
   return {
     resourceId: item.resourceId,
     name: item.name,
@@ -100,7 +54,7 @@ function projectEntry(item, {workspaceId, action, identity, bindings}) {
       transport: item.transport,
       toolNames: item.toolNames,
       bound: isBound,
-      bindingId: wsBinding?.bindingId ?? (isBound ? 'bind-corp-01' : ''),
+      bindingId: wsBinding?.bindingId ?? '',
       bindingAccess: item.status === 'active' ? item.bindingAccess || 'approval' : 'denied',
       revision: item.revision,
     },

@@ -1,5 +1,6 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, resolveProductOwner} from '../../../platform/dify/public.mjs'
+import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
 import {computeManifest} from './knowledge-store.mjs'
 
 async function difyFetch(path, {method = 'GET', body} = {}) {
@@ -12,6 +13,7 @@ async function difyFetch(path, {method = 'GET', body} = {}) {
       ...(body !== undefined ? {'content-type': 'application/json'} : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(15000),
   })
   const text = await res.text()
   let data = null
@@ -34,22 +36,17 @@ async function difyFetch(path, {method = 'GET', body} = {}) {
 
 export async function listDifyDatasets(workspaceId) {
   const cfg = getDifyConfig()
-  if (!cfg.isReal) {
-    check(process.env.CAPABILITY_STRICT_UPSTREAM !== '1', 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 连接凭证')
-    return [
-      {resourceId: 'ds-law-01', name: '刑事诉讼与法律法规知识库', source: 'dify', workspaceId: workspaceId ?? cfg.workspaceId},
-      {resourceId: 'ds-case-02', name: '历年涉企经济案例文档库', source: 'dify', workspaceId: workspaceId ?? cfg.workspaceId},
-    ]
-  }
+  check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实知识库连接凭证')
   const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}&limit=100` : '?limit=100'
   const raw = await difyFetch(`/console/api/datasets${query}`)
-  const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : []
+  const rows = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : null
+  check(rows, 502, 'UPSTREAM_INVALID_RESPONSE', '知识库列表响应格式错误')
   return rows.map(row => ({
     resourceId: String(row.id ?? row.resourceId),
     name: String(row.name ?? row.id),
     source: 'dify',
     workspaceId: String(row.workspace_id ?? row.workspaceId ?? workspaceId ?? cfg.workspaceId),
-    ownerAccount: row.owner_account ?? row.ownerAccount ?? row.created_by ?? '',
+    ownerAccount: resolveProductOwner([row.owner_account, row.ownerAccount, row.created_by], {product: 'DIFY'}),
   }))
 }
 
@@ -67,35 +64,40 @@ export async function getDifyDatasetDetail(datasetId, workspaceId) {
     resourceId: String(ds?.id ?? datasetId),
     name: String(ds?.name ?? datasetId),
     workspaceId: String(ds?.workspace_id ?? ds?.workspaceId ?? workspaceId ?? cfg.workspaceId),
-    ownerAccount: String(ds?.owner_account ?? ds?.ownerAccount ?? ds?.created_by ?? ''),
+    ownerAccount: resolveProductOwner([ds?.owner_account, ds?.ownerAccount, ds?.created_by], {product: 'DIFY'}),
     modelVerified: ds?.model_verified !== false,
     ...manifest,
   }
 }
 
-export async function createDifyExternalBinding({name, targetWorkspaceId, endpoint, externalKnowledgeId, targetAppId}) {
+export async function createDifyExternalBinding({name, targetWorkspaceId, endpoint, externalKnowledgeId}) {
+  const cfg = getDifyConfig()
+  check(!cfg.workspaceId || cfg.workspaceId === targetWorkspaceId, 501, 'UPSTREAM_UNSUPPORTED', 'Dify 当前访问身份不属于目标工作区')
+  const rag = getRagflowConfig()
+  check(rag.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
   const apiRes = await difyFetch('/console/api/datasets/external-knowledge-api', {
     method: 'POST',
     body: {
-      name: `ext-api-${externalKnowledgeId}`,
-      workspace_id: targetWorkspaceId,
-      settings: {endpoint, api_key: 'configured-by-deployment'},
+      name: `ragflow-${externalKnowledgeId.slice(0, 12)}-${Date.now().toString(36)}`,
+      settings: {endpoint, api_key: rag.token},
     },
   })
-  const apiId = String(apiRes?.id ?? apiRes?.data?.id ?? `ext-api-${externalKnowledgeId}`)
+  const apiId = String(apiRes?.id ?? apiRes?.data?.id ?? '')
+  check(apiId, 502, 'UPSTREAM_ERROR', 'Dify 未返回外部知识库 API 标识')
   const extRes = await difyFetch('/console/api/datasets/external', {
     method: 'POST',
     body: {
-      name,
-      workspace_id: targetWorkspaceId,
+      name: `${name}-${Date.now().toString(36)}`.slice(0, 40),
       external_knowledge_api_id: apiId,
       external_knowledge_id: externalKnowledgeId,
-      target_app_id: targetAppId ?? null,
+      external_retrieval_model: {top_k: 2, score_threshold: 0.5, score_threshold_enabled: false},
     },
   })
+  const datasetId = extRes?.id ?? extRes?.data?.id
+  check(typeof datasetId === 'string' && datasetId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 未返回外部知识库标识')
   return {
     externalApiId: apiId,
-    externalDatasetId: String(extRes?.id ?? extRes?.data?.id ?? ''),
+    externalDatasetId: datasetId,
   }
 }
 
@@ -135,18 +137,9 @@ export async function copyDifyDatasetCrossWorkspace({name, sourceDatasetId, sour
 
 export async function disableDifyDocument({datasetId, documentId, workspaceId}) {
   const batchQuery = `?document_id=${encodeURIComponent(documentId)}${workspaceId ? `&workspace_id=${encodeURIComponent(workspaceId)}` : ''}`
-  try {
-    await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}/documents/status/disable/batch${batchQuery}`, {
-      method: 'PATCH',
-    })
-  } catch (err) {
-    if (err.status !== 404) throw err
-    const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
-    await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/disable${query}`, {
-      method: 'PATCH',
-      body: {enabled: false},
-    })
-  }
+  await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}/documents/status/disable/batch${batchQuery}`, {
+    method: 'PATCH',
+  })
 }
 
 export async function revokeDifyDatasetAccess({datasetId, workspaceId, bindingId, targetAppId}) {

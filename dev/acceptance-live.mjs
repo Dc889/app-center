@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../tests/fixtures/repository-data.mjs'
 import assert from 'node:assert/strict'
 import {mkdtemp,rm,writeFile,mkdir} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
@@ -11,6 +12,7 @@ await mkdir(output,{recursive:true})
 const persist=()=>writeFile(join(output,'live-evidence.json'),JSON.stringify({scope:'isolated_local_real_services',checks,snapshots},null,2)+'\n')
 async function verify(id,fn){try{const evidence=await fn();checks.push({id,status:'passed',at:new Date().toISOString(),evidence});await persist();return evidence}catch(e){checks.push({id,status:'failed',at:new Date().toISOString(),message:e.message});await persist();throw e}}
 try {
+  seedRepositoryFixtures(dir)
   stack=await localStack(dir)
   const internal=path=>fetch(stack.executor+'/internal/v1'+path,{headers:{authorization:'Bearer '+stack.token}})
   for(const workspaceId of [null,'ws-default','ws-ops','ws-dev']){const r=await internal('/capabilities'+(workspaceId?'?workspaceId='+workspaceId:''));assert.equal(r.status,200);snapshots.push({workspaceId,environment:'isolated local demo scope, not a verified deployment',...await r.json()})}

@@ -68,7 +68,7 @@ export async function routeReads(context) {
       return true
     }
     if (provider.legacyList) {
-      const ws = query.get('workspaceId') || 'ws-default'
+      const ws = query.get('workspaceId') || null
       const raw = await provider.legacyList(ws, moduleContext)
       const items = q ? raw.filter(r => (r.name + r.resourceId).toLowerCase().includes(q)) : raw
       json(res, {items, nextCursor: null})

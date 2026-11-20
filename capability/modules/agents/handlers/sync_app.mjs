@@ -1,3 +1,4 @@
+import {getDifyConfig} from '../../../platform/dify/public.mjs'
 import {syncDifyApp} from '../adapters/syncDifyApp.mjs'
 import {readAgentApprovedInput, saveSyncedApp} from '../adapters/agent-store.mjs'
 
@@ -5,7 +6,7 @@ export async function execute(context) {
   const {command, state, clients, openLedger} = context
   const appInfo = await syncDifyApp(command)
   const approved = await readAgentApprovedInput(clients, command)
-  const workspaceId = approved?.fields?.['Dify workspace ID'] || approved?.fields?.workspaceId || command.payload?.workspaceId || 'ws-default'
+  const workspaceId = approved?.fields?.['Dify workspace ID'] || approved?.fields?.workspaceId || command.payload?.workspaceId || getDifyConfig().workspaceId
 
   let revision = 1
   if (openLedger) {

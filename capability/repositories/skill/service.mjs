@@ -2,16 +2,6 @@ import {mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {body, check, digest, json, ledger, listen, prefix, same} from '../../../runtime/http.mjs'
 
-const seedCatalog = [
-  {resourceId: 'skl_doc', name: '公文摘要 Skill', version: 'v2.1.0', orgs: [], ownerAccount: 'zhou.min'},
-  {resourceId: 'skl_sheet', name: '表格分析 Skill', version: 'v1.8.2', orgs: ['业务一部'], ownerAccount: 'chen.yu'},
-]
-
-function seedObject(resourceId) {
-  const bytes = readFileSync(new URL('./objects/' + resourceId + '.txt', import.meta.url))
-  return {bytes, sha256: digest(bytes), sizeBytes: bytes.length, filename: resourceId + '.txt', contentType: 'text/plain; charset=utf-8'}
-}
-
 export function startSkill(options) {
   const store = ledger(options.dir, 'skill')
   const catalogStore = ledger(options.dir, 'skill-catalog')
@@ -20,29 +10,6 @@ export function startSkill(options) {
 
   function mergedItems() {
     const map = new Map()
-    for (const seed of seedCatalog) {
-      const obj = seedObject(seed.resourceId)
-      map.set(seed.resourceId, {
-        ...seed,
-        sha256: obj.sha256,
-        sizeBytes: obj.sizeBytes,
-        filename: obj.filename,
-        contentType: obj.contentType,
-        status: 'available',
-        revision: 1,
-        versions: [
-          {
-            version: seed.version,
-            sha256: obj.sha256,
-            sizeBytes: obj.sizeBytes,
-            filename: obj.filename,
-            contentType: obj.contentType,
-            status: 'available',
-            seed: true,
-          },
-        ],
-      })
-    }
     for (const persisted of catalogStore.all()) {
       map.set(persisted.resourceId, persisted)
     }
@@ -58,7 +25,6 @@ export function startSkill(options) {
   function readVersionBytes(item, versionName) {
     const ver = item.versions?.find(v => v.version === versionName)
     check(ver, 404, 'VERSION_NOT_FOUND')
-    if (ver.seed) return seedObject(item.resourceId)
     const bytes = readFileSync(join(objectsDir, ver.blobName))
     return {
       bytes,
@@ -160,7 +126,7 @@ export function startSkill(options) {
           return json(res, {
             resourceId: item.resourceId,
             revision: item.revision,
-            versions: item.versions.map(({blobName: _b, seed: _s, ...v}) => v),
+            versions: item.versions.map(({blobName: _b, ...v}) => v),
           })
         }
 

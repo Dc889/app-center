@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../../../../tests/fixtures/repository-data.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp, rm} from 'node:fs/promises'
@@ -100,6 +101,7 @@ test('skills 目录与候选资源读取', async () => {
 
 test('SKL-03/download 取消闭环：联动管理端关闭与仓库作废预留，已取消拒绝拉取且已交付拒绝取消', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'skills-cancel-'))
+  seedRepositoryFixtures(dir)
   const skillRepo = await startSkill({dir, token: 'tok'})
   let blockClose = false
   const closeCalls = []
@@ -176,6 +178,7 @@ test('SKL-03/download 取消闭环：联动管理端关闭与仓库作废预留�
 
 test('SKL-01/02/04 全生命周期：上传扫描、上架、版本变更再审、历史下载策略、统计上下文与下架留存审计副本', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'skills-lifecycle-'))
+  seedRepositoryFixtures(dir)
   const skillRepo = await startSkill({dir, token: 'tok'})
   const approvedInputs = new Map()
   const mgmt = await listen(

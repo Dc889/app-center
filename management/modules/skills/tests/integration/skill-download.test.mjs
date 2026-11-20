@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../../../../../tests/fixtures/repository-data.mjs'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -9,6 +10,7 @@ import { localStack } from '../../../../../dev/services.mjs'
 const hash='656085df494bea2c4bec3c08e164ff66927cd3373abbc3b6e1e5451ffcf0a1e1'
 async function setup(t) {
   const dir=await mkdtemp(join(tmpdir(),'app-center-contract-'))
+  seedRepositoryFixtures(dir)
   let stack=await localStack(dir)
   t.after(async()=>{await stack.close(); await rm(dir,{recursive:true,force:true})})
   return {get stack(){return stack},async restart(){await stack.close();stack=await localStack(dir)}}

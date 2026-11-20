@@ -1,7 +1,7 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, resolveProductOwner} from '../../../platform/dify/public.mjs'
 
-export async function fetchDifyAppForKey(appId, workspaceId, fallbackAccount) {
+export async function fetchDifyAppForKey(appId, workspaceId) {
   const {base, token, isReal} = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置已核验的 Dify 访问身份')
 
@@ -13,11 +13,12 @@ export async function fetchDifyAppForKey(appId, workspaceId, fallbackAccount) {
   check(response.ok, 503, 'UPSTREAM_ERROR', `Dify 应用读取失败: HTTP ${response.status}`)
 
   const app = await response.json()
+  check(app?.id === appId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用标识不一致')
   return {
-    appId: app.id || appId,
+    appId: app.id,
     appName: app.name || appId,
     workspaceId: app.workspace_id || workspaceId,
-    ownerAccount: app.owner_account || app.created_by_account || fallbackAccount || '',
+    ownerAccount: resolveProductOwner([app.owner_account, app.created_by_account, app.created_by], {product: 'DIFY'}),
     apiBase: `${base}/v1`,
     publicationTicketNo: app.publication_ticket_no ?? null,
   }

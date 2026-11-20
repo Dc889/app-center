@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../../../../tests/fixtures/repository-data.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp, rm} from 'node:fs/promises'
@@ -7,7 +8,7 @@ import {capabilityModule} from '../public.mjs'
 import {createRegistry} from '../../../platform/registry/public.mjs'
 import {startExecutionServer} from '../../../platform/execution/public.mjs'
 import {startMcp} from '../../../repositories/mcp/public.mjs'
-import {listen, json} from '../../../../runtime/http.mjs'
+import {listen, json, ledger, digest} from '../../../../runtime/http.mjs'
 
 test('mcp 模块导出结构契约、动作与路由登记', () => {
   assert.equal(capabilityModule.id, 'mcp')
@@ -23,6 +24,18 @@ test('mcp 模块导出结构契约、动作与路由登记', () => {
 
 test('MCP-01/02/03 全生命周期：技术注册详情、上架、指纹校验绑定、单用户解绑隔离与目录下架', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'mcp-lifecycle-'))
+  // 测试显式提供模型中心同步结果，运行时代码不再自带技术注册。
+  const registrations = ledger(dir, 'mod_mcp_registrations')
+  registrations.put('mcp-archive-reg', {
+    registrationId: 'mcp-archive-reg', name: '测试档案注册', source: 'mcp', status: 'registered',
+    transport: 'sse', urlFingerprint: digest(Buffer.from('https://test.invalid/archive')),
+    authType: 'bearer', tools: [
+      {name: 'search_archive', description: '测试检索', inputSchema: {type: 'object'}},
+      {name: 'get_archive_detail', description: '测试详情', inputSchema: {type: 'object'}},
+    ], syncedAt: new Date().toISOString(),
+  })
+  registrations.close()
+  seedRepositoryFixtures(dir)
   const mcpRepo = await startMcp({dir, token: 'tok'})
   const approvedInputs = new Map()
   const mgmt = await listen(

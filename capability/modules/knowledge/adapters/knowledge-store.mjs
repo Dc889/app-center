@@ -13,7 +13,7 @@ export function normalizeDocument(raw) {
       ? raw.sha256
       : sha256Hex({documentId, name, content: raw.content ?? raw.text ?? raw.updated_at ?? raw.word_count ?? ''})
   const autoVerdict = raw.autoVerdict === '不通过' || raw.flagged === true ? '不通过' : '通过'
-  const disabled = Boolean(raw.disabled === true || raw.enabled === false || raw.status === 'disabled')
+  const disabled = Boolean(raw.disabled === true || raw.enabled === false || raw.status === 'disabled' || raw.status === '0' || raw.status === 0 || raw.enabled === '0' || raw.enabled === 0)
   return {documentId, name, sha256: sha, autoVerdict, disabled}
 }
 
