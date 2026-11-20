@@ -1,0 +1,83 @@
+{
+  "batch": "CAP-FIN-04-batch1-SKL-KEY",
+  "generatedAt": "2026-11-20T09:47:59.341Z",
+  "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+  "evidenceFile": "capability-evidence.json",
+  "tickets": {
+    "SKL-01": {
+      "passed": true,
+      "checks": [
+        "upload_dedup",
+        "withdraw",
+        "reject",
+        "idempotency",
+        "conflict_409",
+        "role_403",
+        "stale_revision_409",
+        "repo_readback",
+        "confirm_done"
+      ]
+    },
+    "SKL-02": {
+      "passed": true,
+      "checks": [
+        "reject",
+        "role_403",
+        "history_allow",
+        "history_forbid",
+        "versions_readback",
+        "confirm_done"
+      ]
+    },
+    "SKL-03": {
+      "passed": true,
+      "checks": [
+        "idempotency",
+        "anon_404",
+        "foreign_404",
+        "sha256_match",
+        "repeat_download",
+        "cancel_delivery",
+        "post_cancel_blocked",
+        "restart_persistence"
+      ]
+    },
+    "SKL-04": {
+      "passed": true,
+      "checks": [
+        "reject",
+        "role_403",
+        "withdraw_readback",
+        "post_withdraw_blocked",
+        "restart_persistence",
+        "confirm_done"
+      ]
+    },
+    "KEY-01": {
+      "passed": true,
+      "checks": [
+        "invalid_cidr_400",
+        "live_dify_key_created",
+        "no_secret_in_record",
+        "foreign_reveal_denied",
+        "one_time_reveal",
+        "confirm_done"
+      ],
+      "registrationId": "reg-5b59fd5f-16d"
+    },
+    "KEY-02": {
+      "passed": true,
+      "checks": [
+        "reject",
+        "role_403",
+        "rotate_dify_readback",
+        "revoke_dify_readback",
+        "restart_persistence",
+        "confirm_done"
+      ]
+    }
+  },
+  "ok": true,
+  "cleanupOk": true,
+  "finishedAt": "2026-11-20T09:48:05.402Z"
+}
