@@ -1,0 +1,86 @@
+{
+  "batch": "CAP-FIN-04-batch2-TOL-AG-EVT",
+  "generatedAt": "2026-11-20T09:51:02.697Z",
+  "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+  "evidenceFile": "capability-evidence.json",
+  "tickets": {
+    "TOL-01": {
+      "passed": true,
+      "checks": [
+        "live_dify_tool_discovery",
+        "reject",
+        "role_403",
+        "security_verdict_400",
+        "approve_readback",
+        "revoke_readback",
+        "confirm_done"
+      ],
+      "toolId": "searchCaseFiles"
+    },
+    "AG-01": {
+      "passed": true,
+      "checks": [
+        "idempotency",
+        "self_service_sync",
+        "live_dify_readback",
+        "confirm_done"
+      ],
+      "appId": "d64fb52f-92d3-4b1d-82de-fd9d8f689215"
+    },
+    "AG-02": {
+      "passed": true,
+      "checks": [
+        "withdraw",
+        "reject",
+        "role_403",
+        "stale_revision_409",
+        "live_publish_readback",
+        "confirm_done"
+      ],
+      "appId": "b70ad793-f447-45ee-90c6-a4242df2c6e2"
+    },
+    "AG-03": {
+      "passed": true,
+      "checks": [
+        "grant_access_readback",
+        "confirm_done"
+      ],
+      "appId": "b70ad793-f447-45ee-90c6-a4242df2c6e2"
+    },
+    "AG-04": {
+      "passed": true,
+      "checks": [
+        "reject",
+        "role_403",
+        "live_republish_readback",
+        "confirm_done"
+      ],
+      "appId": "b70ad793-f447-45ee-90c6-a4242df2c6e2"
+    },
+    "AG-05": {
+      "passed": true,
+      "checks": [
+        "reject",
+        "role_403",
+        "live_withdraw_readback",
+        "confirm_done"
+      ],
+      "appId": "b70ad793-f447-45ee-90c6-a4242df2c6e2"
+    },
+    "EVT-01": {
+      "passed": true,
+      "checks": [
+        "admin_403",
+        "assess",
+        "dispose",
+        "self_review_403",
+        "independent_close",
+        "zero_capability_executions",
+        "restart_persistence"
+      ]
+    }
+  },
+  "ok": true,
+  "cleanupOk": true,
+  "finishedAt": "2026-11-20T09:51:06.522Z"
+}
