@@ -36,6 +36,15 @@ export function computeToolFingerprint(tool) {
   )
 }
 
+function pickText(value, fallback) {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (value && typeof value === 'object') {
+    const candidate = value.zh_Hans ?? value.zh_CN ?? value.en_US ?? Object.values(value).find(v => typeof v === 'string' && v.trim())
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+  }
+  return fallback
+}
+
 export async function listWorkspaceTools({workspaceId, openLedger}) {
   const {base, token, isReal} = getDifyConfig()
   const map = new Map()
@@ -50,14 +59,26 @@ export async function listWorkspaceTools({workspaceId, openLedger}) {
       for (const t of provider.tools ?? []) {
         const toolId = t.id || t.name
         if (!toolId) continue
+        const schema =
+          t.parameters_schema && typeof t.parameters_schema === 'object' && !Array.isArray(t.parameters_schema)
+            ? t.parameters_schema
+            : {
+                type: 'object',
+                properties: Object.fromEntries(
+                  (Array.isArray(t.parameters) ? t.parameters : []).map(p => [
+                    p.name,
+                    {type: p.type || 'string', description: pickText(p.human_description ?? p.label, p.name)},
+                  ]),
+                ),
+              }
         const tool = {
           toolId,
-          providerId: provider.id || provider.name || 'dify-api',
-          name: (typeof t.label === 'string' ? t.label : t.label?.zh_Hans || t.label?.en_US) || toolId,
-          providerName: (typeof provider.label === 'string' ? provider.label : provider.label?.zh_Hans) || provider.name || 'Dify API',
-          version: t.version || '1.0.0',
-          inputSchema: t.parameters_schema || {type: 'object', properties: {}},
-          outputDescription: t.description || '工具调用输出',
+          providerId: String(provider.id || provider.name || 'dify-api'),
+          name: pickText(t.label, toolId),
+          providerName: pickText(provider.label, provider.name || 'Dify API'),
+          version: typeof t.version === 'string' && t.version.trim() ? t.version.trim() : '1.0.0',
+          inputSchema: schema,
+          outputDescription: pickText(t.description, '工具调用输出'),
           workspaceId,
         }
         map.set(toolId, {...tool, fingerprint: computeToolFingerprint(tool)})

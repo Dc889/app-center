@@ -88,6 +88,11 @@ function projectAgent(item, requestedAction, identity) {
       workflowSnapshotId: item.workflowSnapshotId,
       policyRef: item.policyRef,
       revision: item.revision,
+      scope: item.scope ?? 'all',
+      usages: Array.isArray(item.usages) && item.usages.length ? item.usages : ['run', 'embed', 'api'],
+      boundaryOrgs: item.boundaryOrgs ?? [],
+      targetOrgs: item.targetOrgs ?? [],
+      targetAccounts: item.targetAccounts ?? [],
     },
   }
 }
