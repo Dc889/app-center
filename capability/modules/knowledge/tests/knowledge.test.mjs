@@ -432,6 +432,7 @@ test('KB-01~KB-05：双引擎同步发布、真实协议分支与未适配分支
     })
   ).json()
   assert.equal(reviewRes.status, 'succeeded')
+  assert.equal(reviewRes.result.details.values['新目录状态'], '保持发布')
 
   // 6. KB-05 告警暂停分享（普通账号冒充 system_event 必须被拦截，真实 system_event 通过）与最终处置
   const spoofAlert = await call(

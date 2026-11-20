@@ -1,0 +1,789 @@
+{
+  "scope": "Dify workspace representative deployment flow; not full 27 work-order acceptance",
+  "verification": {
+    "generatedAt": "2026-11-20T05:53:15.388Z",
+    "runId": "d5f5f4cf-5847-486d-b7da-6deebf78baad",
+    "resourceRunId": "25a846bf-94d2-4f98-8f9c-4e344aea4ecc",
+    "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+    "total": 35,
+    "verified": 18,
+    "report": [
+      {
+        "ticketType": "SKL-01",
+        "ticketTypeVersion": "1",
+        "action": "publish_skill",
+        "variant": null,
+        "workspaceId": null,
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:09.118Z",
+        "ok": true,
+        "detail": "published skl-live-verify v1.0.0",
+        "witnesses": [
+          {
+            "source": "Skill repository readback",
+            "resourceId": "skl-live-verify",
+            "assertion": "publish_skill: status and persisted version",
+            "observed": {
+              "status": "available",
+              "version": "v1.0.0",
+              "sha256": "3126655d9c12eee5b1159aedc0a48879e6a8c5a62f44c08536234b7c489996cb",
+              "sizeBytes": 155
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "SKL-02",
+        "ticketTypeVersion": "1",
+        "action": "revise_skill",
+        "variant": null,
+        "workspaceId": null,
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:09.327Z",
+        "ok": true,
+        "detail": "revised skl-live-verify -> v2.0.0",
+        "witnesses": [
+          {
+            "source": "Skill repository readback",
+            "resourceId": "skl-live-verify",
+            "assertion": "revise_skill: status and persisted version",
+            "observed": {
+              "status": "available",
+              "version": "v2.0.0",
+              "sha256": "4d4c94c39bd13b650506ebbb0849d6542240a5e6f1c9ce7588764abcc714004d",
+              "sizeBytes": 156
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "SKL-03",
+        "ticketTypeVersion": "1",
+        "action": "download",
+        "variant": null,
+        "workspaceId": null,
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:09.573Z",
+        "ok": true,
+        "detail": "download + receipt + cancel verified",
+        "witnesses": [
+          {
+            "source": "Skill repository readback",
+            "resourceId": "skl-live-verify",
+            "assertion": "download: status and persisted version",
+            "observed": {
+              "status": "available",
+              "version": "v2.0.0",
+              "sha256": "4d4c94c39bd13b650506ebbb0849d6542240a5e6f1c9ce7588764abcc714004d",
+              "sizeBytes": 156
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "SKL-04",
+        "ticketTypeVersion": "1",
+        "action": "withdraw_skill",
+        "variant": null,
+        "workspaceId": null,
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:09.742Z",
+        "ok": true,
+        "detail": "withdrew skl-live-verify",
+        "witnesses": [
+          {
+            "source": "Skill repository readback",
+            "resourceId": "skl-live-verify",
+            "assertion": "withdraw_skill: status and persisted version",
+            "observed": {
+              "status": "withdrawn",
+              "version": "v2.0.0",
+              "sha256": "4d4c94c39bd13b650506ebbb0849d6542240a5e6f1c9ce7588764abcc714004d",
+              "sizeBytes": 156
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KEY-01",
+        "ticketTypeVersion": "1",
+        "action": "create_key",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:09.960Z",
+        "ok": true,
+        "detail": "created & revealed real Dify 1.7.1 key (reg-c5bc6fa3-40d)",
+        "witnesses": [
+          {
+            "source": "Dify API key list",
+            "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+            "assertion": "key set transition: create_key",
+            "observed": {
+              "beforeKeyIds": [],
+              "afterKeyIds": [
+                "e666824b-b556-44d1-a1c1-4e8cbd53baea"
+              ]
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KEY-02",
+        "ticketTypeVersion": "1",
+        "action": "rotate_key",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:10.159Z",
+        "ok": true,
+        "detail": "rotated real Dify 1.7.1 key -> reg-d045fd11-121",
+        "witnesses": [
+          {
+            "source": "Dify API key list",
+            "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+            "assertion": "key set transition: rotate_key",
+            "observed": {
+              "beforeKeyIds": [
+                "e666824b-b556-44d1-a1c1-4e8cbd53baea"
+              ],
+              "afterKeyIds": [
+                "0202daf9-b1da-48a5-ba46-6d3547007f51"
+              ]
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KEY-02",
+        "ticketTypeVersion": "1",
+        "action": "revoke_key",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:10.338Z",
+        "ok": true,
+        "detail": "revoked real Dify 1.7.1 key (reg-d045fd11-121)",
+        "witnesses": [
+          {
+            "source": "Dify API key list",
+            "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+            "assertion": "key set transition: revoke_key",
+            "observed": {
+              "beforeKeyIds": [
+                "0202daf9-b1da-48a5-ba46-6d3547007f51"
+              ],
+              "afterKeyIds": []
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "TOL-01",
+        "ticketTypeVersion": "1",
+        "action": "set_tool_approval",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:10.625Z",
+        "ok": true,
+        "detail": "approved real Dify 1.7.1 tool (searchCaseFiles)",
+        "witnesses": [
+          {
+            "source": "Dify tool and approval ledger readback",
+            "resourceId": "searchCaseFiles",
+            "assertion": "approved discovered real tool",
+            "observed": {
+              "status": "approved",
+              "fingerprint": "e02396eab82e69d3b8150e0062f11ebc5412ede81fb1fb72263f3f062bbc64d0",
+              "revision": 1
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "MCP-01",
+        "ticketTypeVersion": "1",
+        "action": "register_mcp",
+        "variant": null,
+        "workspaceId": null,
+        "state": "unverified",
+        "reasonCode": "MODEL_CENTER_UNCONFIGURED",
+        "checkedAt": "2026-11-20T05:53:10.636Z",
+        "ok": false,
+        "detail": "缺少真实模型中心技术注册及连接核验",
+        "witnesses": []
+      },
+      {
+        "ticketType": "MCP-02",
+        "ticketTypeVersion": "1",
+        "action": "bind",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "unverified",
+        "reasonCode": "MODEL_CENTER_UNCONFIGURED",
+        "checkedAt": "2026-11-20T05:53:10.646Z",
+        "ok": false,
+        "detail": "缺少真实模型中心技术注册及连接核验",
+        "witnesses": []
+      },
+      {
+        "ticketType": "MCP-03",
+        "ticketTypeVersion": "1",
+        "action": "isolate_mcp",
+        "variant": null,
+        "workspaceId": null,
+        "state": "unverified",
+        "reasonCode": "MODEL_CENTER_UNCONFIGURED",
+        "checkedAt": "2026-11-20T05:53:10.656Z",
+        "ok": false,
+        "detail": "缺少真实模型中心技术注册及连接核验",
+        "witnesses": []
+      },
+      {
+        "ticketType": "PLG-01",
+        "ticketTypeVersion": "1",
+        "action": "publish_package",
+        "variant": null,
+        "workspaceId": null,
+        "state": "unverified",
+        "reasonCode": "REAL_PLUGIN_PACKAGE_REQUIRED",
+        "checkedAt": "2026-11-20T05:53:10.665Z",
+        "ok": false,
+        "detail": "缺少真实可安装 difypkg；不使用 JSON 改扩展名冒充安装包",
+        "witnesses": []
+      },
+      {
+        "ticketType": "PLG-02",
+        "ticketTypeVersion": "1",
+        "action": "revise_package",
+        "variant": null,
+        "workspaceId": null,
+        "state": "unverified",
+        "reasonCode": "REAL_PLUGIN_PACKAGE_REQUIRED",
+        "checkedAt": "2026-11-20T05:53:10.673Z",
+        "ok": false,
+        "detail": "缺少真实可安装 difypkg；不使用 JSON 改扩展名冒充安装包",
+        "witnesses": []
+      },
+      {
+        "ticketType": "AG-02",
+        "ticketTypeVersion": "1",
+        "action": "publish",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:10.910Z",
+        "ok": true,
+        "detail": "published real Dify 1.7.1 app 0be9043a-b3f1-401a-9494-707be4c5d9b2",
+        "witnesses": [
+          {
+            "source": "Dify app and capability ledger readback",
+            "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+            "assertion": "publish",
+            "observed": {
+              "sourceWorkflowId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+              "catalog": {
+                "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "name": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "status": "active",
+                "revision": 1,
+                "appId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+                "version": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "publicationVersionId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "workflowSnapshotId": "dify-app-565075bd-4fb2-4104-b54d-103df7da141e",
+                "policyRef": "pol-0be9043a-b3f1-401a-9494-707be4c5d9b2-1",
+                "scope": "orgs",
+                "targetOrgs": [
+                  "业务一部"
+                ],
+                "targetAccounts": [],
+                "boundaryOrgs": [
+                  "业务一部"
+                ],
+                "usages": [
+                  "run",
+                  "api"
+                ],
+                "ownerAccount": "chen.yu"
+              }
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "AG-03",
+        "ticketTypeVersion": "1",
+        "action": "grant_app_access",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:11.205Z",
+        "ok": true,
+        "detail": "granted access to 0be9043a-b3f1-401a-9494-707be4c5d9b2",
+        "witnesses": [
+          {
+            "source": "Dify app and capability ledger readback",
+            "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+            "assertion": "grant_app_access",
+            "observed": {
+              "sourceWorkflowId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+              "catalog": {
+                "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "name": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "status": "active",
+                "revision": 1,
+                "appId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+                "version": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "publicationVersionId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "workflowSnapshotId": "dify-app-565075bd-4fb2-4104-b54d-103df7da141e",
+                "policyRef": "pol-0be9043a-b3f1-401a-9494-707be4c5d9b2-1",
+                "scope": "orgs",
+                "targetOrgs": [
+                  "业务一部"
+                ],
+                "targetAccounts": [],
+                "boundaryOrgs": [
+                  "业务一部"
+                ],
+                "usages": [
+                  "run",
+                  "api"
+                ],
+                "ownerAccount": "chen.yu"
+              }
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "AG-05",
+        "ticketTypeVersion": "1",
+        "action": "withdraw_app",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:11.666Z",
+        "ok": true,
+        "detail": "withdrew real Dify 1.7.1 app 0be9043a-b3f1-401a-9494-707be4c5d9b2",
+        "witnesses": [
+          {
+            "source": "Dify app and capability ledger readback",
+            "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+            "assertion": "withdraw_app",
+            "observed": {
+              "sourceWorkflowId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+              "catalog": {
+                "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "name": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "status": "withdrawn",
+                "revision": 2,
+                "appId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+                "version": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "publicationVersionId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "workflowSnapshotId": "dify-app-565075bd-4fb2-4104-b54d-103df7da141e",
+                "policyRef": "pol-0be9043a-b3f1-401a-9494-707be4c5d9b2-1",
+                "scope": "orgs",
+                "targetOrgs": [
+                  "业务一部"
+                ],
+                "targetAccounts": [],
+                "boundaryOrgs": [
+                  "业务一部"
+                ],
+                "usages": [
+                  "run",
+                  "api"
+                ],
+                "ownerAccount": "chen.yu",
+                "withdrawnAt": "2026-11-20T05:53:11.543Z",
+                "replacementResourceId": null
+              }
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "EVT-01",
+        "action": "manual_lifecycle",
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "ok": true,
+        "detail": "manual report -> assess -> dispose -> independent review closed",
+        "witnesses": [],
+        "checkedAt": "2026-11-20T05:53:11.734Z",
+        "scope": "manual lifecycle; no execution capability"
+      },
+      {
+        "ticketType": "AG-01",
+        "ticketTypeVersion": "1",
+        "action": "sync_app",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:11.964Z",
+        "ok": true,
+        "detail": "synced real Dify 1.7.1 app f381ee4b-5082-4737-a608-2e79e7f0ac62",
+        "witnesses": [
+          {
+            "source": "Dify app and capability ledger readback",
+            "resourceId": "f381ee4b-5082-4737-a608-2e79e7f0ac62",
+            "assertion": "sync_app",
+            "observed": {
+              "sourceWorkflowId": "157ebbdf-6335-4ac6-94e6-1aac3589a106",
+              "catalog": {
+                "resourceId": "f381ee4b-5082-4737-a608-2e79e7f0ac62",
+                "name": "verify-25a846bf-1",
+                "source": "dify",
+                "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+                "mode": "workflow",
+                "ownerAccount": "chen.yu",
+                "revision": 1,
+                "syncedAt": "2026-11-20T05:53:11.877Z"
+              }
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "AG-04",
+        "ticketTypeVersion": "1",
+        "action": "republish",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:12.297Z",
+        "ok": true,
+        "detail": "republished 0be9043a-b3f1-401a-9494-707be4c5d9b2",
+        "witnesses": [
+          {
+            "source": "Dify app and capability ledger readback",
+            "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+            "assertion": "republish",
+            "observed": {
+              "sourceWorkflowId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+              "catalog": {
+                "resourceId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "name": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "status": "active",
+                "revision": 3,
+                "appId": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+                "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+                "version": "v3.0.0",
+                "publicationVersionId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "workflowSnapshotId": "f292ea87-ebc5-4811-83f6-932ed6e84ed5",
+                "policyRef": "pol-0be9043a-b3f1-401a-9494-707be4c5d9b2-1",
+                "scope": "orgs",
+                "targetOrgs": [
+                  "业务一部"
+                ],
+                "targetAccounts": [],
+                "boundaryOrgs": [
+                  "业务一部"
+                ],
+                "usages": [
+                  "run",
+                  "api"
+                ],
+                "ownerAccount": "chen.yu",
+                "withdrawnAt": "2026-11-20T05:53:11.543Z",
+                "replacementResourceId": null
+              }
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KB-01",
+        "ticketTypeVersion": "1",
+        "action": "sync_dataset",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:12.593Z",
+        "ok": true,
+        "detail": "synced Dify kb-dify-983581f9-5306-4bc5-8a01-50d336391dad + RAGFlow kb-ragflow-a9a86e5ce4a611f1b3faca129c6e00ef",
+        "witnesses": [
+          {
+            "source": "Dify documents and knowledge ledger readback",
+            "resourceId": "983581f9-5306-4bc5-8a01-50d336391dad",
+            "assertion": "sync_dataset",
+            "observed": {
+              "catalogResourceId": "kb-dify-983581f9-5306-4bc5-8a01-50d336391dad",
+              "status": "已纳管",
+              "revision": 1,
+              "documentIds": [
+                "08fecad7-879c-4ed8-a28b-ad9b6ac0e793"
+              ],
+              "manifestSha256": "a6beba868ac9227f16ae8876e77608e6ebb5f1097b0105f36aa9bea42a59b14b"
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KB-02",
+        "ticketTypeVersion": "1",
+        "action": "publish_dataset",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:12.858Z",
+        "ok": true,
+        "detail": "published kb-dify-983581f9-5306-4bc5-8a01-50d336391dad",
+        "witnesses": [
+          {
+            "source": "Dify documents and knowledge ledger readback",
+            "resourceId": "983581f9-5306-4bc5-8a01-50d336391dad",
+            "assertion": "publish_dataset",
+            "observed": {
+              "catalogResourceId": "kb-dify-983581f9-5306-4bc5-8a01-50d336391dad",
+              "status": "已发布",
+              "revision": 2,
+              "documentIds": [
+                "08fecad7-879c-4ed8-a28b-ad9b6ac0e793"
+              ],
+              "manifestSha256": "a6beba868ac9227f16ae8876e77608e6ebb5f1097b0105f36aa9bea42a59b14b"
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KB-03",
+        "ticketTypeVersion": "1",
+        "action": "bind_dataset",
+        "variant": "Dify同workspace授权",
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "unverified",
+        "reasonCode": "TARGET_APPLICATION_BINDING_UNIMPLEMENTED",
+        "checkedAt": "2026-11-20T05:53:13.105Z",
+        "ok": false,
+        "detail": "same-workspace bind kb-dify-983581f9-5306-4bc5-8a01-50d336391dad",
+        "witnesses": [
+          {
+            "source": "Dify member ACL and owned binding readback",
+            "resourceId": "983581f9-5306-4bc5-8a01-50d336391dad",
+            "assertion": "retrieval grant only; application wiring remains unverified",
+            "observed": {
+              "permission": "partial_members",
+              "memberIds": [
+                "849ad755-7889-4051-a61a-f1d4b7c0cb1b"
+              ],
+              "bindingId": "bind-646428af-1830-49a8-b9e1-deb12c7f9742",
+              "addedMemberIds": [
+                "849ad755-7889-4051-a61a-f1d4b7c0cb1b"
+              ]
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KB-03",
+        "ticketTypeVersion": "1",
+        "action": "bind_dataset",
+        "variant": "RAGFlow外部知识库",
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "unverified",
+        "reasonCode": "BINDING_EFFECT_NOT_VERIFIED",
+        "checkedAt": "2026-11-20T05:53:13.112Z",
+        "ok": false,
+        "detail": "授权范围和外部检索效果尚待独立读回核验",
+        "witnesses": []
+      },
+      {
+        "ticketType": "KB-04",
+        "ticketTypeVersion": "1",
+        "action": "review_dataset_changes",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:14.065Z",
+        "ok": true,
+        "detail": "real indexed document addition -> owner -> operator confirmation -> persisted manifest and canonical result",
+        "witnesses": [
+          {
+            "source": "Knowledge catalog, Dify documents and native ACL readback",
+            "resourceId": "983581f9-5306-4bc5-8a01-50d336391dad",
+            "assertion": "review_dataset_changes",
+            "observed": {
+              "catalogResourceId": "kb-dify-983581f9-5306-4bc5-8a01-50d336391dad",
+              "status": "已发布",
+              "revision": 3,
+              "permission": "partial_members",
+              "documents": [
+                {
+                  "id": "3de258f2-122a-40f6-95d2-cd89e4e15ca8",
+                  "enabled": true
+                },
+                {
+                  "id": "08fecad7-879c-4ed8-a28b-ad9b6ac0e793",
+                  "enabled": true
+                }
+              ],
+              "manifestSha256": "69c5174865f73d9f63c355c0dbcfd2c9d80263075ae34ef336f2f57930767860"
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KB-05",
+        "ticketTypeVersion": "1",
+        "action": "pause_share",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:14.344Z",
+        "ok": true,
+        "detail": "trusted alert -> pause node -> platform sharing paused; native documents unchanged until approved disposal",
+        "witnesses": [
+          {
+            "source": "Knowledge catalog, Dify documents and native ACL readback",
+            "resourceId": "983581f9-5306-4bc5-8a01-50d336391dad",
+            "assertion": "pause_share",
+            "observed": {
+              "catalogResourceId": "kb-dify-983581f9-5306-4bc5-8a01-50d336391dad",
+              "status": "暂停分享",
+              "revision": 4,
+              "permission": "partial_members",
+              "documents": [
+                {
+                  "id": "3de258f2-122a-40f6-95d2-cd89e4e15ca8",
+                  "enabled": true
+                },
+                {
+                  "id": "08fecad7-879c-4ed8-a28b-ad9b6ac0e793",
+                  "enabled": true
+                }
+              ],
+              "manifestSha256": "69c5174865f73d9f63c355c0dbcfd2c9d80263075ae34ef336f2f57930767860"
+            },
+            "passed": true
+          }
+        ]
+      },
+      {
+        "ticketType": "KB-05",
+        "ticketTypeVersion": "1",
+        "action": "dispose_dataset",
+        "variant": null,
+        "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+        "state": "verified",
+        "reasonCode": "LIVE_STATE_READBACK_PASSED",
+        "checkedAt": "2026-11-20T05:53:14.888Z",
+        "ok": true,
+        "detail": "approved native member delta revoked + both real documents disabled + catalog withdrawn; all effects read back",
+        "witnesses": [
+          {
+            "source": "Knowledge catalog, Dify documents and native ACL readback",
+            "resourceId": "983581f9-5306-4bc5-8a01-50d336391dad",
+            "assertion": "dispose_dataset",
+            "observed": {
+              "catalogResourceId": "kb-dify-983581f9-5306-4bc5-8a01-50d336391dad",
+              "status": "已下架",
+              "revision": 5,
+              "permission": "only_me",
+              "documents": [
+                {
+                  "id": "3de258f2-122a-40f6-95d2-cd89e4e15ca8",
+                  "enabled": false
+                },
+                {
+                  "id": "08fecad7-879c-4ed8-a28b-ad9b6ac0e793",
+                  "enabled": false
+                }
+              ],
+              "manifestSha256": "69c5174865f73d9f63c355c0dbcfd2c9d80263075ae34ef336f2f57930767860"
+            },
+            "passed": true
+          }
+        ]
+      }
+    ]
+  },
+  "resources": {
+    "runId": "25a846bf-94d2-4f98-8f9c-4e344aea4ecc",
+    "resources": [
+      {
+        "product": "dify",
+        "kind": "app",
+        "id": "0be9043a-b3f1-401a-9494-707be4c5d9b2"
+      },
+      {
+        "product": "dify",
+        "kind": "app",
+        "id": "f381ee4b-5082-4737-a608-2e79e7f0ac62"
+      },
+      {
+        "product": "dify",
+        "kind": "dataset",
+        "id": "983581f9-5306-4bc5-8a01-50d336391dad"
+      },
+      {
+        "product": "ragflow",
+        "kind": "dataset",
+        "id": "a9a86e5ce4a611f1b3faca129c6e00ef"
+      }
+    ],
+    "cleanup": [
+      {
+        "product": "ragflow",
+        "kind": "dataset",
+        "id": "a9a86e5ce4a611f1b3faca129c6e00ef",
+        "ok": true
+      },
+      {
+        "product": "dify",
+        "kind": "dataset",
+        "id": "983581f9-5306-4bc5-8a01-50d336391dad",
+        "ok": true
+      },
+      {
+        "product": "dify",
+        "kind": "app",
+        "id": "f381ee4b-5082-4737-a608-2e79e7f0ac62",
+        "ok": true
+      },
+      {
+        "product": "dify",
+        "kind": "app",
+        "id": "0be9043a-b3f1-401a-9494-707be4c5d9b2",
+        "ok": true
+      }
+    ]
+  }
+}

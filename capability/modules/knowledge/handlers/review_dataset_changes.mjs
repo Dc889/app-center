@@ -58,6 +58,7 @@ export async function execute({command, state, clients, openLedger}) {
     version: String(nextRevision),
     sha256: live.manifestSha256,
     details: {
+      values: {新目录状态: nextStatus === '已发布' ? '保持发布' : '暂停分享'},
       目录知识库ID: command.resourceId,
       运维确认结论: verdict,
       新目录状态: nextStatus,

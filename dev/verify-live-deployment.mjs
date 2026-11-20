@@ -33,7 +33,7 @@ const stack = await localStack(runDir)
 
 const products = liveProducts({dir: dataDir, credentials: creds})
 const journal = createProofJournal({dir: dataDir, modules: capabilityModules, workspaceId: wsId, resourceRunId: products.runId})
-let fixtureApps = [], fixtureDifyDataset, fixtureRagDataset
+let fixtureApps = [], fixtureDifyDataset, fixtureRagDataset, reviewTicket, alertTicket
 const witness = (source, resourceId, assertion, observed = {}) => ({source, resourceId, assertion, observed, passed: true})
 function records(module, name) {
   const file = join(runDir, `mod_${module}_${name}.sqlite`)
@@ -94,6 +94,32 @@ async function readback(meta, before) {
     assert.ok(docs.data.length > 0)
     return [witness('Dify documents and knowledge ledger readback', fixtureDifyDataset, meta.action, {catalogResourceId: row.resourceId, status: row.status, revision: row.revision, documentIds: docs.data.map(doc => doc.id), manifestSha256: row.manifestSha256})]
   }
+  if (meta.ticketType === 'KB-03' && meta.variant === 'Dify同workspace授权') {
+    const binding = records('knowledge', 'bindings').find(row => row.sourceResourceId === fixtureDifyDataset)
+    assert.ok(binding?.productRef?.granteeAccountId)
+    const product = await products.api('dify', `/console/api/datasets/${fixtureDifyDataset}`)
+    assert.equal(product.permission, 'partial_members')
+    assert.ok(product.partial_member_list.includes(binding.productRef.granteeAccountId))
+    return [witness('Dify member ACL and owned binding readback', fixtureDifyDataset, 'retrieval grant only; application wiring remains unverified',
+      {permission: product.permission, memberIds: product.partial_member_list, bindingId: binding.bindingId, addedMemberIds: binding.productRef.addedMemberIds})]
+  }
+  if (['review_dataset_changes', 'pause_share', 'dispose_dataset'].includes(meta.action)) {
+    const row = records('knowledge', 'datasets').find(item => item.sourceResourceId === fixtureDifyDataset)
+    const docs = await products.api('dify', `/console/api/datasets/${fixtureDifyDataset}/documents`)
+    const source = await products.api('dify', `/console/api/datasets/${fixtureDifyDataset}`)
+    if (meta.action === 'review_dataset_changes') {
+      assert.equal(row.lastReviewVerdict, '通过'); assert.equal(row.status, '已发布'); assert.equal(row.documents.length, 2)
+    } else if (meta.action === 'pause_share') {
+      assert.equal(row.status, '暂停分享'); assert.ok(docs.data.every(doc => doc.enabled)); assert.equal(source.permission, 'partial_members')
+    } else {
+      assert.equal(row.status, '已下架'); assert.ok(docs.data.length === 2 && docs.data.every(doc => doc.enabled === false))
+      const bindings = records('knowledge', 'bindings').filter(binding => binding.sourceResourceId === fixtureDifyDataset)
+      assert.equal(bindings.length, 1); assert.equal(bindings[0].status, 'revoked'); assert.equal(source.permission, 'only_me')
+    }
+    return [witness('Knowledge catalog, Dify documents and native ACL readback', fixtureDifyDataset, meta.action,
+      {catalogResourceId: row.resourceId, status: row.status, revision: row.revision, permission: source.permission,
+        documents: docs.data.map(doc => ({id: doc.id, enabled: doc.enabled})), manifestSha256: row.manifestSha256})]
+  }
   // Unimplemented postconditions cannot silently promote a successful HTTP response.
   return []
 }
@@ -135,10 +161,15 @@ async function runCheck(meta, fn) {
   try {
     if (meta.ticketType.startsWith('MCP-')) throw Object.assign(new Error('缺少真实模型中心技术注册及连接核验'), {code: 'MODEL_CENTER_UNCONFIGURED'})
     if (meta.ticketType.startsWith('PLG-')) throw Object.assign(new Error('缺少真实可安装 difypkg；不使用 JSON 改扩展名冒充安装包'), {code: 'REAL_PLUGIN_PACKAGE_REQUIRED'})
-    if (meta.ticketType === 'KB-03') throw Object.assign(new Error('授权范围和外部检索效果尚待独立读回核验'), {code: 'BINDING_EFFECT_NOT_VERIFIED'})
+    if (meta.ticketType === 'KB-03' && meta.variant !== 'Dify同workspace授权') throw Object.assign(new Error('授权范围和外部检索效果尚待独立读回核验'), {code: 'BINDING_EFFECT_NOT_VERIFIED'})
     const before = meta.ticketType.startsWith('KEY-') ? (await products.api('dify', `/console/api/apps/${fixtureApps[0].id}/api-keys`)).data.map(row => row.id) : null
     const detail = await fn()
     const witnesses = meta.ticketType === 'EVT-01' ? [] : await readback(meta, before)
+    if (meta.ticketType === 'KB-03') {
+      journal.record(meta, {ok: false, reasonCode: 'TARGET_APPLICATION_BINDING_UNIMPLEMENTED', detail, witnesses})
+      console.log(`[PARTIAL] ${meta.ticketType}/${meta.variant}: native retrieval ACL proven; full branch remains unverified`)
+      return
+    }
     journal.record(meta, {ok: true, detail, witnesses})
     console.log(`[${witnesses.length || meta.ticketType === 'EVT-01' ? 'PASS' : 'UNVERIFIED'}] ${meta.ticketType}/${meta.action}`)
   } catch (err) {
@@ -885,6 +916,57 @@ try {
     const done = await waitApp('KB-03-live-rag', opCookie)
     if (done?.execution?.status !== 'succeeded') throw new Error(`exec ${JSON.stringify(done?.execution?.result)}`)
     return `RAGFlow external bind ${ragKbId}`
+  })
+
+  // --- 10. Real change -> owner submission -> per-document review -> pause -> native disposal ---
+  await runCheck({ticketType: 'KB-04', action: 'review_dataset_changes'}, async () => {
+    assert.ok(difyKbId)
+    await products.addDifyDocument(fixtureDifyDataset, 'review-change')
+    const event = await fetch(stack.management + '/internal/v1/dataset-changes', {
+      method: 'POST', headers: {authorization: `Bearer ${stack.token}`, 'content-type': 'application/json'},
+      body: JSON.stringify({sourceEventId: `change-${products.runId}`, resourceId: difyKbId}),
+    })
+    if (event.status !== 201) throw new Error(`change event HTTP ${event.status}: ${await event.text()}`)
+    let row = await event.json(); reviewTicket = row
+    const submit = await reqApi('/api/applications/transition', userCookie, {ticketNo: row.ticketNo, revision: row.revision,
+      action: '提交变更审查', note: '本轮隔离测试新增真实文档'})
+    if (submit.status !== 200) throw new Error(`owner review submit HTTP ${submit.status}: ${await submit.text()}`)
+    row = await submit.json()
+    const confirmations = row.snapshot.fields['文档审查明细'].map(doc => ({documentId: doc.documentId, sha256: doc.sha256, verdict: '通过'}))
+    assert.equal(confirmations.length, 1)
+    const approve = await reqApi('/api/applications/transition', opCookie, {ticketNo: row.ticketNo, revision: row.revision,
+      action: '确认审查', note: '核验新增测试文档和源指纹', reviewVerdict: '通过', confirmations})
+    if (approve.status !== 200) throw new Error(`document review HTTP ${approve.status}: ${await approve.text()}`)
+    const done = await waitApp(row.ticketNo, opCookie)
+    assert.equal(done?.execution?.status, 'succeeded'); assert.ok(!done.deliveryBlocked)
+    assert.equal(done.execution.result.details.values['新目录状态'], '保持发布')
+    return 'real indexed document addition -> owner -> operator confirmation -> persisted manifest and canonical result'
+  })
+
+  await runCheck({ticketType: 'KB-05', action: 'pause_share'}, async () => {
+    assert.ok(reviewTicket?.snapshot?.fields?.['处置证据事件ID'])
+    const alert = await fetch(stack.management + '/internal/v1/dataset-alerts', {
+      method: 'POST', headers: {authorization: `Bearer ${stack.token}`, 'content-type': 'application/json'},
+      body: JSON.stringify({sourceEventId: reviewTicket.snapshot.fields['处置证据事件ID'], resourceId: difyKbId,
+        fields: {target: '整库', documentIds: [], reason: '内容违规', facts: '隔离测试目录与文档的原生处置验收'}}),
+    })
+    if (alert.status !== 201) throw new Error(`alert HTTP ${alert.status}: ${await alert.text()}`)
+    const row = await alert.json()
+    alertTicket = await waitApp(row.ticketNo, opCookie)
+    assert.equal(alertTicket?.execution?.status, 'succeeded'); assert.ok(!alertTicket.deliveryBlocked)
+    assert.equal(alertTicket.status, '待运维确认')
+    return 'trusted alert -> pause node -> platform sharing paused; native documents unchanged until approved disposal'
+  })
+
+  await runCheck({ticketType: 'KB-05', action: 'dispose_dataset'}, async () => {
+    assert.ok(alertTicket)
+    const approve = await reqApi('/api/applications/transition', opCookie, {ticketNo: alertTicket.ticketNo, revision: alertTicket.revision,
+      action: '批准', note: '逐项核对原生文档停用及本次授权撤销', dispositionActions: ['目录下架', '撤销未到期授权', '停用文档'], recoveryCondition: '重新核验后另行发布'})
+    if (approve.status !== 200) throw new Error(`disposal HTTP ${approve.status}: ${await approve.text()}`)
+    const done = await waitApp(alertTicket.ticketNo, opCookie)
+    assert.equal(done?.execution?.status, 'succeeded'); assert.ok(!done.deliveryBlocked)
+    assert.equal(done.execution.result.details['已执行节点数'], 4)
+    return 'approved native member delta revoked + both real documents disabled + catalog withdrawn; all effects read back'
   })
 
   const summary = journal.save()
