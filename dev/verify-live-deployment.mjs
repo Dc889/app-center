@@ -1,5 +1,8 @@
 import {existsSync, readFileSync} from 'node:fs'
 import assert from 'node:assert/strict'
+import {createHash} from 'node:crypto'
+import {buildLivePlugin} from './live-verification/plugin-package.mjs'
+import {inspectPluginArchive} from '../capability/modules/plugins/adapters/package-archive.mjs'
 import {DatabaseSync} from 'node:sqlite'
 import {capabilityModules} from '../capability/app/modules.mjs'
 import {createProofJournal, proofScope} from './live-verification/proofs.mjs'
@@ -32,6 +35,7 @@ const runDir = await mkdtemp(join(tmpdir(), 'app-center-live-verify-'))
 const stack = await localStack(runDir)
 
 const products = liveProducts({dir: dataDir, credentials: creds})
+const livePluginName = `capfin_${products.runId.slice(0, 8)}`
 const journal = createProofJournal({dir: dataDir, modules: capabilityModules, workspaceId: wsId, resourceRunId: products.runId})
 let fixtureApps = [], fixtureDifyDataset, fixtureRagDataset, reviewTicket, alertTicket
 const witness = (source, resourceId, assertion, observed = {}) => ({source, resourceId, assertion, observed, passed: true})
@@ -64,6 +68,25 @@ async function readback(meta, before) {
     if (meta.action === 'revise_skill') assert.ok((await repository('skill', row.resourceId, '/versions')).versions.length >= 2)
     // Download receipt is checked inside its scenario, including content digest and cancellation.
     return [witness('Skill repository readback', row.resourceId, `${meta.action}: status and persisted version`, {status: row.status, version: row.version, sha256: row.sha256, sizeBytes: row.sizeBytes})]
+  }
+  if (['PLG-01', 'PLG-02'].includes(meta.ticketType)) {
+    const listResponse = await fetch(`${stack.plugin}/internal/v1/plugins`, {headers: {authorization: `Bearer ${stack.token}`}})
+    assert.equal(listResponse.status, 200)
+    const row = (await listResponse.json()).items.find(item => item.uniqueIdentifier === `appcenter/${livePluginName}`)
+    assert.ok(row)
+    const expectedVersion = meta.ticketType === 'PLG-01' ? '1.0.0' : '1.1.0'
+    assert.equal(row.status, 'approved'); assert.equal(row.version, expectedVersion)
+    const file = await fetch(`${stack.plugin}/internal/v1/plugins/${row.resourceId}/versions/${expectedVersion}/file`, {headers: {authorization: `Bearer ${stack.token}`}})
+    assert.equal(file.status, 200)
+    const bytes = Buffer.from(await file.arrayBuffer())
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), row.sha256)
+    const metadata = inspectPluginArchive(bytes)
+    assert.equal(metadata.uniqueIdentifier, row.uniqueIdentifier); assert.equal(metadata.version, expectedVersion)
+    const form = new FormData(); form.append('pkg', new Blob([bytes]), `${livePluginName}.difypkg`)
+    const validation = await products.api('dify', '/console/api/workspaces/current/plugin/upload/pkg', {method: 'POST', body: form})
+    assert.ok(validation.unique_identifier.startsWith(`${row.uniqueIdentifier}:${expectedVersion}@`))
+    return [witness('Repository artifact bytes, ZIP manifest and Dify native package validation', row.resourceId, meta.action,
+      {version: row.version, sha256: row.sha256, nativeUniqueIdentifier: validation.unique_identifier})]
   }
   if (meta.ticketType.startsWith('AG-')) {
     const appId = meta.action === 'sync_app' ? fixtureApps[1].id : id
@@ -160,7 +183,7 @@ async function runCheck(meta, fn) {
   meta = {...meta, workspaceId: proofScope(meta.ticketType, wsId)}
   try {
     if (meta.ticketType.startsWith('MCP-')) throw Object.assign(new Error('缺少真实模型中心技术注册及连接核验'), {code: 'MODEL_CENTER_UNCONFIGURED'})
-    if (meta.ticketType.startsWith('PLG-')) throw Object.assign(new Error('缺少真实可安装 difypkg；不使用 JSON 改扩展名冒充安装包'), {code: 'REAL_PLUGIN_PACKAGE_REQUIRED'})
+    if (['PLG-03', 'PLG-04'].includes(meta.ticketType)) throw Object.assign(new Error('缺少真实可安装 difypkg；不使用 JSON 改扩展名冒充安装包'), {code: 'REAL_PLUGIN_PACKAGE_REQUIRED'})
     if (meta.ticketType === 'KB-03' && meta.variant !== 'Dify同workspace授权') throw Object.assign(new Error('授权范围和外部检索效果尚待独立读回核验'), {code: 'BINDING_EFFECT_NOT_VERIFIED'})
     const before = meta.ticketType.startsWith('KEY-') ? (await products.api('dify', `/console/api/apps/${fixtureApps[0].id}/api-keys`)).data.map(row => row.id) : null
     const detail = await fn()
@@ -559,7 +582,7 @@ try {
     const form = new FormData()
     form.append(
       'file',
-      new Blob([JSON.stringify({uniqueIdentifier: 'org.live/demo-plugin', name: '真机联调插件', version: '1.0.0', dependencies: []})], {
+      new Blob([buildLivePlugin(livePluginName, '1.0.0')], {
         type: 'application/octet-stream',
       }),
       'live-plugin-1.0.0.difypkg',
@@ -580,10 +603,10 @@ try {
         intakeId: intake.intakeId,
         description: '真机联调插件包',
         instructions: '安装后在工作流中使用',
-        permissions: ['网络访问'],
+        permissions: ['本地计算'],
         accessMode: '公开免审安装',
         installationMethod: '本地包',
-        networkAccess: [{domain: 'internal.local', port: 443, purpose: '内网检索'}],
+        networkAccess: [],
       },
     })
     if (sub.status !== 201) throw new Error(`submit ${sub.status}: ${await sub.text()}`)
@@ -607,7 +630,7 @@ try {
     const form = new FormData()
     form.append(
       'file',
-      new Blob([JSON.stringify({uniqueIdentifier: 'org.live/demo-plugin', name: '真机联调插件', version: '1.1.0', dependencies: []})], {
+      new Blob([buildLivePlugin(livePluginName, '1.1.0')], {
         type: 'application/octet-stream',
       }),
       'live-plugin-1.1.0.difypkg',

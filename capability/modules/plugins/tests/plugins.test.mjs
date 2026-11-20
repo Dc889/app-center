@@ -1,3 +1,4 @@
+import {testPluginArchive} from '../../../../tests/fixtures/plugin-archive.mjs'
 import {seedRepositoryFixtures} from '../../../../tests/fixtures/repository-data.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -179,11 +180,11 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     difyCalls.push({method: req.method, path})
     if (path === '/console/api/workspaces/current') return json(res, {id: 'ws-p'})
     if (path === '/console/api/workspaces/current/plugin/upload/pkg') {
-      const id = installedIds.size === 0 ? 'chart-gen:v1.0.0' : 'chart-gen:v2.0.0'
+      const id = installedIds.size === 0 ? 'chart-gen:1.0.0' : 'chart-gen:2.0.0'
       return json(res, {unique_identifier: id})
     }
     if (path === '/console/api/workspaces/current/plugin/install/pkg') {
-      const id = installedIds.size === 0 ? 'chart-gen:v1.0.0' : 'chart-gen:v2.0.0'
+      const id = installedIds.size === 0 ? 'chart-gen:1.0.0' : 'chart-gen:2.0.0'
       installedIds.add(id)
       return json(res, {task_id: 'task-' + installedIds.size})
     }
@@ -266,8 +267,8 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
 
   // 1. CAP-PLG-02: 上传插件包并解析 packageMetadata
   const pkg1 = multipart(
-    'chart-gen.json',
-    JSON.stringify({uniqueIdentifier: 'chart-gen', name: '图表生成插件', version: 'v1.0.0', dependencies: [{name: 'echarts', version: '5.5.0', license: 'Apache-2.0'}]}),
+    'chart-gen.difypkg',
+    testPluginArchive({uniqueIdentifier: 'chart-gen', name: '图表生成插件', version: '1.0.0', dependencies: [{name: 'echarts', version: '5.5.0'}]}),
   )
   const up1 = await (
     await fetch(server.url + '/internal/v1/intake/plugin', {
@@ -313,7 +314,7 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     resourceId: 'chart-gen',
     account: 'chen.yu',
     org: '平台运营组',
-    payload: {workspaceId: 'ws-p', version: 'v1.0.0', sha256: intake1.sha256},
+    payload: {workspaceId: 'ws-p', version: '1.0.0', sha256: intake1.sha256},
   })
   assert.equal(instStart.status, 'reconciling')
   const instDone = await (await fetch(server.url + '/internal/v1/executions/exec-plg-inst', {headers: hdr()})).json()
@@ -323,10 +324,10 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
 
   // 4. CAP-PLG-03: PLG-02 上下文与变更再审发布 v2.0.0
   const ctx02 = await (await fetch(server.url + '/internal/v1/execution-contexts/PLG-02?action=revise_package&resourceId=chart-gen', {headers: hdr()})).json()
-  assert.equal(ctx02.fields['原版本号'], 'v1.0.0')
+  assert.equal(ctx02.fields['原版本号'], '1.0.0')
   assert.equal(ctx02.fields['插件唯一标识'], 'chart-gen')
 
-  const pkg2 = multipart('chart-gen-v2.json', JSON.stringify({uniqueIdentifier: 'chart-gen', name: '图表生成插件', version: 'v2.0.0', dependencies: []}))
+  const pkg2 = multipart('chart-gen-v2.difypkg', testPluginArchive({uniqueIdentifier: 'chart-gen', name: '图表生成插件', version: '2.0.0', dependencies: []}))
   const up2 = await (
     await fetch(server.url + '/internal/v1/intake/plugin', {
       method: 'POST',
@@ -355,7 +356,7 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     payload: {decisionRef: 'dec-plg-rev'},
   })
   assert.equal(revRes.status, 'succeeded')
-  assert.equal(revRes.result.version, 'v2.0.0')
+  assert.equal(revRes.result.version, '2.0.0')
 
   // 5. CAP-PLG-04 & 05: PLG-03 候选、升级上下文与升级对账
   const cands = await (await fetch(server.url + '/internal/v1/execution-contexts/PLG-03/candidates?action=upgrade&workspaceId=ws-p', {headers: hdr()})).json()
@@ -364,8 +365,8 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     await fetch(server.url + `/internal/v1/execution-contexts/PLG-03?action=upgrade&resourceId=chart-gen&workspaceId=ws-p&installationId=${installationId}`, {headers: hdr()})
   ).json()
   assert.equal(upgCtx.eligible, true)
-  assert.equal(upgCtx.fields['原安装版本号'], 'v1.0.0')
-  assert.equal(upgCtx.fields['批准版本号'], 'v2.0.0')
+  assert.equal(upgCtx.fields['原安装版本号'], '1.0.0')
+  assert.equal(upgCtx.fields['批准版本号'], '2.0.0')
 
   approvedInputs.set('exec-plg-upg', {
     decisionRef: 'dec-plg-upg',
@@ -389,7 +390,7 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
   assert.equal(upgStart.status, 'reconciling')
   const upgDone = await (await fetch(server.url + '/internal/v1/executions/exec-plg-upg', {headers: hdr()})).json()
   assert.equal(upgDone.status, 'succeeded')
-  assert.equal(upgDone.result.version, 'v2.0.0')
+  assert.equal(upgDone.result.version, '2.0.0')
 
   // 6. CAP-PLG-06: PLG-04 禁用与恢复
   const disCtx = await (await fetch(server.url + '/internal/v1/execution-contexts/PLG-04?action=disable_plugin&resourceId=chart-gen&workspaceId=ws-p', {headers: hdr()})).json()
@@ -445,8 +446,8 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
   const unCtx = await (
     await fetch(server.url + `/internal/v1/execution-contexts/PLG-03?action=uninstall&resourceId=chart-gen&workspaceId=ws-p&installationId=${installationId}`, {headers: hdr()})
   ).json()
-  assert.equal(unCtx.fields['批准版本号'], 'v2.0.0')
-  assert.equal(unCtx.fields['原安装版本号'], 'v2.0.0')
+  assert.equal(unCtx.fields['批准版本号'], '2.0.0')
+  assert.equal(unCtx.fields['原安装版本号'], '2.0.0')
   approvedInputs.set('exec-plg-un', {
     decisionRef: 'dec-plg-un',
     ticketType: 'PLG-03',

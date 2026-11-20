@@ -1,3 +1,4 @@
+import {testPluginArchive} from '../fixtures/plugin-archive.mjs'
 import {seedRepositoryFixtures} from '../fixtures/repository-data.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -450,7 +451,7 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
   const formPlugin = new FormData()
   formPlugin.append(
     'file',
-    new Blob([JSON.stringify({uniqueIdentifier: 'org.e2e/demo-plugin', name: '全栈演示插件', version: '1.0.0', dependencies: []})], {
+    new Blob([testPluginArchive({uniqueIdentifier: 'e2e/demo-plugin', name: '全栈演示插件', version: '1.0.0'})], {
       type: 'application/octet-stream',
     }),
     'demo-plugin-1.0.0.difypkg',

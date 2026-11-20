@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto'
+import {inspectPluginArchive} from './package-archive.mjs'
 import {check, digest} from '../../../../runtime/http.mjs'
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
@@ -47,42 +48,8 @@ export async function readMultipartPlugin(req) {
   check(false, 400, 'MISSING_UPLOAD_FILE', '请求中未找到插件上传文件')
 }
 
-export function parsePluginMetadata(bytes, filename) {
-  try {
-    const parsed = JSON.parse(bytes.toString('utf8'))
-    if (
-      parsed &&
-      typeof parsed.uniqueIdentifier === 'string' &&
-      parsed.uniqueIdentifier.trim() &&
-      typeof parsed.name === 'string' &&
-      parsed.name.trim() &&
-      typeof parsed.version === 'string' &&
-      parsed.version.trim()
-    ) {
-      const deps = Array.isArray(parsed.dependencies)
-        ? parsed.dependencies
-            .filter(d => d && typeof d.name === 'string' && typeof d.version === 'string')
-            .map(d => ({name: d.name, version: d.version, license: typeof d.license === 'string' ? d.license : 'UNKNOWN'}))
-        : []
-      return {
-        uniqueIdentifier: parsed.uniqueIdentifier.trim(),
-        name: parsed.name.trim(),
-        version: parsed.version.trim(),
-        dependencies: deps,
-      }
-    }
-  } catch {
-    // Non-JSON archive: derive structured identity from filename `<id>@<version>.<ext>` if present.
-  }
-  const stem = filename.replace(/\.[^.]+$/, '')
-  const atMatch = /^([\w.-]+)@(v?[\w.-]+)$/.exec(stem)
-  if (!atMatch) return null
-  return {
-    uniqueIdentifier: atMatch[1],
-    name: atMatch[1],
-    version: atMatch[2],
-    dependencies: [],
-  }
+export function parsePluginMetadata(bytes, _filename) {
+  try {return inspectPluginArchive(bytes)} catch {return null}
 }
 
 export function storePluginIntake(db, {idempotencyKey, identity, filename, contentType, bytes}) {
@@ -112,10 +79,9 @@ export function storePluginIntake(db, {idempotencyKey, identity, filename, conte
     status = 'rejected'
     findings.push('检测到恶意测试特征码')
   } else {
-    packageMetadata = parsePluginMetadata(bytes, filename)
-    if (!packageMetadata) {
+    try {packageMetadata = inspectPluginArchive(bytes)} catch (error) {
       status = 'rejected'
-      findings.push('无法解析插件包身份元数据（uniqueIdentifier/name/version）')
+      findings.push(error.code || 'INVALID_PLUGIN_ARCHIVE')
     }
   }
 

@@ -20,10 +20,12 @@
     "accept:work-orders": "node dev/run-acceptance.mjs"
   },
   "dependencies": {
+    "fflate": "0.8.3",
     "lucide-react": "^1.73.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",
