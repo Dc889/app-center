@@ -1,0 +1,86 @@
+{
+  "batch": "CAP-FIN-04-batch3-KB-PLG",
+  "generatedAt": "2026-11-20T09:52:53.314Z",
+  "workspaceId": "590f9fb3-40a0-4891-80a0-168780c0bfae",
+  "evidenceFile": "capability-evidence.json",
+  "tickets": {
+    "KB-01": {
+      "passed": true,
+      "checks": [
+        "idempotency",
+        "dify_sync_readback",
+        "ragflow_sync_readback",
+        "confirm_done"
+      ],
+      "difyKbId": "kb-dify-51ad536b-0feb-493a-96d9-5ddf59b8ac39"
+    },
+    "KB-02": {
+      "passed": true,
+      "checks": [
+        "withdraw",
+        "reject",
+        "role_403",
+        "missing_confirmations_400",
+        "per_doc_sha256_publish",
+        "confirm_done"
+      ]
+    },
+    "KB-04": {
+      "passed": true,
+      "checks": [
+        "live_dify_doc_added",
+        "trusted_change_event",
+        "owner_403",
+        "operator_403",
+        "per_doc_review_keep_published",
+        "confirm_done"
+      ]
+    },
+    "KB-05": {
+      "passed": true,
+      "checks": [
+        "trusted_alert_pause",
+        "pause_keeps_docs_enabled",
+        "role_403",
+        "dispose_disables_real_docs",
+        "catalog_withdrawn",
+        "confirm_done"
+      ]
+    },
+    "PLG-01": {
+      "passed": true,
+      "checks": [
+        "real_difypkg_manifest",
+        "withdraw",
+        "reject",
+        "role_403",
+        "repo_sha256_readback",
+        "confirm_done"
+      ],
+      "pluginCatalogId": "plugin-314fe425-d157-4df7-ac72-66312fedcb92"
+    },
+    "PLG-02": {
+      "passed": true,
+      "checks": [
+        "reject",
+        "role_403",
+        "repo_v1_1_0_readback",
+        "confirm_done"
+      ]
+    },
+    "PLG-03": {
+      "passed": true,
+      "checks": [
+        "native_install_1_0_0",
+        "native_upgrade_1_1_0",
+        "native_uninstall_removed",
+        "role_403",
+        "restart_persistence",
+        "confirm_done"
+      ]
+    }
+  },
+  "ok": true,
+  "cleanupOk": true,
+  "finishedAt": "2026-11-20T09:55:12.161Z"
+}
