@@ -51,6 +51,7 @@ export async function execute({command, state, clients, openLedger}) {
         await revokeDifyDatasetAccess({
           datasetId: binding.productRef?.externalDatasetId ?? binding.productRef?.replicaDatasetId ?? binding.sourceResourceId,
           workspaceId: binding.targetWorkspaceId,
+          grantRef: binding.productRef,
           bindingId: binding.bindingId,
           targetAppId: binding.targetAppId,
         })

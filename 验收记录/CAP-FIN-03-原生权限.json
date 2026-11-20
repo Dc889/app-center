@@ -1,0 +1,52 @@
+{
+  "scope": "isolated native permission adapter checks; KB-03 full branch remains unverified",
+  "runs": [
+    {
+      "runId": "20c8f7fc-b306-4cdc-8e65-90eaa40091fd",
+      "generatedAt": "2026-11-20T05:46:15.788Z",
+      "scope": "native ACL protocol against an owned test dataset; not full KB-03 acceptance",
+      "checks": [],
+      "ok": false,
+      "error": {
+        "code": "UPSTREAM_UNSUPPORTED",
+        "message": "缺少可保留的原生检索配置，不能用授权操作覆盖产品配置"
+      },
+      "cleanupOk": true,
+      "finishedAt": "2026-11-20T05:46:16.791Z"
+    },
+    {
+      "runId": "e05a11dc-c623-4425-8bc9-61225e5e9940",
+      "generatedAt": "2026-11-20T05:46:50.746Z",
+      "scope": "native ACL protocol against an owned test dataset; not full KB-03 acceptance",
+      "checks": [
+        {
+          "name": "specified member grant and unrelated configuration preservation",
+          "datasetId": "edae157b-4431-4845-aaa4-8c377f8ae8a1",
+          "beforePermission": "only_me",
+          "afterPermission": "partial_members",
+          "memberIds": [
+            "849ad755-7889-4051-a61a-f1d4b7c0cb1b"
+          ],
+          "retrievalFingerprint": "4283419b2ed43a77c85a81748ee1973e5bbf83072865683d7e7291ded00ad4e0"
+        },
+        {
+          "name": "no ownership over preexisting membership; no removal",
+          "datasetId": "edae157b-4431-4845-aaa4-8c377f8ae8a1",
+          "permission": "partial_members",
+          "memberIds": [
+            "849ad755-7889-4051-a61a-f1d4b7c0cb1b"
+          ]
+        },
+        {
+          "name": "remove only owned membership and restore only_me",
+          "datasetId": "edae157b-4431-4845-aaa4-8c377f8ae8a1",
+          "permission": "only_me",
+          "retrievalFingerprint": "4283419b2ed43a77c85a81748ee1973e5bbf83072865683d7e7291ded00ad4e0"
+        }
+      ],
+      "ok": true,
+      "cleanupOk": true,
+      "finishedAt": "2026-11-20T05:46:52.292Z"
+    }
+  ]
+}

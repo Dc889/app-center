@@ -1,3 +1,4 @@
+import {isDeepStrictEqual} from 'node:util'
 import {check} from '../../../../runtime/http.mjs'
 import {getDifyConfig, resolveProductOwner} from '../../../platform/dify/public.mjs'
 import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
@@ -101,38 +102,53 @@ export async function createDifyExternalBinding({name, targetWorkspaceId, endpoi
   }
 }
 
-export async function grantDifySameWorkspaceAccess({datasetId, workspaceId, granteeAccount, permission, targetAppId}) {
-  const res = await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}`, {
-    method: 'PATCH',
-    body: {
-      workspace_id: workspaceId,
-      permission: 'all_team_members',
-      grantee_account: granteeAccount,
-      grant_permission: permission,
-      target_app_id: targetAppId ?? null,
-    },
-  })
-  return {
-    datasetId: String(res?.id ?? datasetId),
-    granted: true,
-  }
+function requireWorkspace(workspaceId) {
+  const cfg = getDifyConfig()
+  check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 连接凭证')
+  check(cfg.workspaceId && cfg.workspaceId === workspaceId, 501, 'UPSTREAM_UNSUPPORTED', '缺少目标工作区的已核验产品身份')
 }
 
-export async function copyDifyDatasetCrossWorkspace({name, sourceDatasetId, sourceWorkspaceId, targetWorkspaceId, documents, targetAppId}) {
-  const created = await difyFetch('/console/api/datasets', {
-    method: 'POST',
-    body: {
-      name: `${name} (副本)`,
-      workspace_id: targetWorkspaceId,
-      source_dataset_id: sourceDatasetId,
-      source_workspace_id: sourceWorkspaceId,
-      target_app_id: targetAppId ?? null,
-      documents: documents.map(d => ({documentId: d.documentId, name: d.name, sha256: d.sha256})),
-    },
-  })
-  return {
-    replicaDatasetId: String(created?.id ?? created?.data?.id ?? ''),
-  }
+function memberIds(dataset) {
+  check(['only_me', 'partial_members', 'all_team_members'].includes(dataset?.permission), 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 未返回有效权限范围')
+  if (dataset.permission !== 'partial_members') return []
+  check(Array.isArray(dataset.partial_member_list) && dataset.partial_member_list.every(id => typeof id === 'string' && id), 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 指定成员清单不完整')
+  return [...new Set(dataset.partial_member_list)].sort()
+}
+
+async function writeMembers(datasetId, before, members) {
+  const retrievalModel = before?.retrieval_model_dict ?? before?.retrieval_model
+  check(before?.provider === 'vendor' && retrievalModel && typeof retrievalModel === 'object' && !Array.isArray(retrievalModel),
+    501, 'UPSTREAM_UNSUPPORTED', '缺少可保留的原生检索配置，不能用授权操作覆盖产品配置')
+  const permission = members.length ? 'partial_members' : 'only_me'
+  await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}`, {method: 'PATCH', body: {
+    retrieval_model: retrievalModel, permission, partial_member_list: members.map(user_id => ({user_id})),
+  }})
+  const after = await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}`)
+  check(after?.id === datasetId && after.name === before.name && after.description === before.description &&
+    isDeepStrictEqual(after.retrieval_model_dict ?? after.retrieval_model, retrievalModel) && after.permission === permission && JSON.stringify(memberIds(after)) === JSON.stringify([...members].sort()),
+    502, 'PERMISSION_READBACK_FAILED', 'Dify 权限写入后读回不一致，需查证原执行')
+}
+
+export async function grantDifySameWorkspaceAccess({datasetId, workspaceId, granteeAccount, permission, targetAppId}) {
+  requireWorkspace(workspaceId)
+  check(permission === '检索使用' && !targetAppId, 501, 'UPSTREAM_UNSUPPORTED', '指定应用编排配置尚未完成真实适配，不以工作区授权冒充应用绑定')
+  const payload = await difyFetch('/console/api/workspaces/current/members')
+  check(Array.isArray(payload?.accounts), 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 成员目录不完整')
+  const candidates = payload.accounts.filter(member => member?.id && (member.id === granteeAccount || member.account === granteeAccount ||
+    resolveProductOwner([member.id, member.email], {product: 'DIFY'}) === granteeAccount))
+  check(candidates.length === 1, 409, 'DIFY_GRANTEE_UNRESOLVED', '获批账户没有唯一的 Dify 成员映射')
+  const member = candidates[0]
+  check(member.status === 'active', 409, 'DIFY_GRANTEE_INACTIVE', '获批 Dify 成员尚未激活')
+  const before = await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}`)
+  check(before?.id === datasetId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 知识库标识不一致')
+  const existing = memberIds(before)
+  const addedMemberIds = before.permission !== 'all_team_members' && !existing.includes(member.id) ? [member.id] : []
+  if (addedMemberIds.length) await writeMembers(datasetId, before, [...existing, member.id])
+  return {datasetId, granted: true, granteeAccountId: member.id, addedMemberIds, originalPermission: before.permission}
+}
+
+export async function copyDifyDatasetCrossWorkspace(_input) {
+  check(false, 501, 'UPSTREAM_UNSUPPORTED', '尚无目标工作区身份及真实文档复制链路，禁止创建空知识库冒充跨区复制')
 }
 
 export async function disableDifyDocument({datasetId, documentId, workspaceId}) {
@@ -142,10 +158,17 @@ export async function disableDifyDocument({datasetId, documentId, workspaceId}) 
   })
 }
 
-export async function revokeDifyDatasetAccess({datasetId, workspaceId, bindingId, targetAppId}) {
-  const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : ''
-  await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}/revoke${query}`, {
-    method: 'POST',
-    body: {bindingId, targetAppId},
-  })
+export async function revokeDifyDatasetAccess({datasetId, workspaceId, grantRef}) {
+  requireWorkspace(workspaceId)
+  check(grantRef && typeof grantRef.granteeAccountId === 'string' && Array.isArray(grantRef.addedMemberIds) &&
+    grantRef.addedMemberIds.every(id => id === grantRef.granteeAccountId), 501, 'UPSTREAM_UNSUPPORTED', '缺少可核验的原生授权增量，不能猜测撤权接口或扩大范围')
+  // Preexisting product access belongs to its original owner; this binding must not remove it.
+  if (!grantRef.addedMemberIds.length) return {revoked: true, changed: false}
+  const before = await difyFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}`)
+  check(before?.id === datasetId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 知识库标识不一致')
+  const current = memberIds(before)
+  check(before.permission !== 'all_team_members', 409, 'PERMISSION_SCOPE_CHANGED', '产品权限已改为全工作区共享，不能以单用户撤权覆盖现有范围')
+  const remaining = current.filter(id => !grantRef.addedMemberIds.includes(id))
+  if (remaining.length !== current.length) await writeMembers(datasetId, before, remaining)
+  return {revoked: true, changed: remaining.length !== current.length}
 }

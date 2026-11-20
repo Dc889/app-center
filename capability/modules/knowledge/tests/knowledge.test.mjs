@@ -19,7 +19,7 @@ test('knowledge 模块导出结构、6 动作与 3 条绑定分支契约', () =>
   assert.ok(capabilityModule.catalogs.knowledge.list)
 })
 
-test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑定分支、变更再审与暂停处置闭环', async t => {
+test('KB-01~KB-05：双引擎同步发布、真实协议分支与未适配分支拒绝、变更再审和文档处置', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'knowledge-lifecycle-'))
 
   let difyDocs = [
@@ -350,8 +350,9 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
       },
     })
   ).json()
-  assert.equal(bindSameRes.status, 'succeeded')
-  assert.equal(calls.sameWsGrant, 1)
+  assert.equal(bindSameRes.status, 'failed')
+  assert.equal(bindSameRes.result.failureCode, 'UPSTREAM_UNSUPPORTED')
+  assert.equal(calls.sameWsGrant, 0)
 
   // 4c. 分支 3：Dify跨workspace复制
   const ctxCrossWs = await (
@@ -389,8 +390,9 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
       },
     })
   ).json()
-  assert.equal(bindCrossRes.status, 'succeeded')
-  assert.equal(calls.crossWsCopy, 1)
+  assert.equal(bindCrossRes.status, 'failed')
+  assert.equal(bindCrossRes.result.failureCode, 'UPSTREAM_UNSUPPORTED')
+  assert.equal(calls.crossWsCopy, 0)
 
   // 5. KB-04 变更检测上下文与 review_dataset_changes
   difyDocs = [
@@ -445,8 +447,8 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
     )
   ).json()
   assert.equal(pauseCtx.fields['清单完整'], true)
-  assert.equal(pauseCtx.fields['影响中的授权数'], 2)
-  assert.equal(pauseCtx.fields['影响中的智能体数'], 2)
+  assert.equal(pauseCtx.fields['影响中的授权数'], 0)
+  assert.equal(pauseCtx.fields['影响中的智能体数'], 0)
   assert.equal(pauseCtx.fields['告警证据'].length, 1)
 
   approvedInputs.set('exec-kb05-pause', {
@@ -512,6 +514,6 @@ test('KB-01~KB-05 全生命周期：双引擎发现/同步、发布、3 条绑�
   ).json()
   assert.equal(dispRes.status, 'succeeded')
   assert.equal(dispRes.result.details['新状态'], '已下架')
-  assert.equal(calls.difyRevokes.length, 2)
+  assert.equal(calls.difyRevokes.length, 0)
   assert.deepEqual(calls.difyDisableDocs.sort(), ['doc-1', 'doc-3'])
 })

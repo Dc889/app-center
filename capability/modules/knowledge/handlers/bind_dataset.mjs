@@ -27,6 +27,12 @@ export async function execute({command, state, row, clients, openLedger}) {
   check(typeof targetWorkspaceId === 'string' && targetWorkspaceId.trim(), 400, 'INVALID_FIELDS')
 
   const variant = resolveBindingVariant(dataset.sourceSystem, dataset.sourceScopeId, targetWorkspaceId)
+  if (variant === 'Dify同workspace授权') {
+    const duplicate = openLedger('bindings').all().some(row => row.status === 'active' &&
+      row.sourceResourceId === dataset.sourceResourceId && row.targetWorkspaceId === targetWorkspaceId && row.granteeAccount === granteeAccount)
+    check(!duplicate, 409, 'DATASET_ALREADY_BOUND', '该账户已有有效绑定，先处置原绑定，避免重叠授权无法准确撤回')
+  }
+
   if (fields['实现方式']) {
     check(fields['实现方式'] === variant, 409, 'INVALID_BINDING_VARIANT', '绑定实现方式与目标工作区不匹配')
   }
@@ -56,7 +62,8 @@ export async function execute({command, state, row, clients, openLedger}) {
       permission,
       targetAppId,
     })
-    productRef = {difyDatasetId: granted.datasetId}
+    productRef = {difyDatasetId: granted.datasetId, granteeAccountId: granted.granteeAccountId,
+      addedMemberIds: granted.addedMemberIds, originalPermission: granted.originalPermission}
   } else {
     // Dify跨workspace复制
     const manifestPre = preconditions.find(p => p.kind === 'dataset_manifest')
