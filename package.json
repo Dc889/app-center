@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:live": "node dev/start-live.mjs",
     "service": "node dev/services.mjs",
     "test:integration": "node dev/test-modules.mjs integration",
     "build": "tsc -b && vite build",

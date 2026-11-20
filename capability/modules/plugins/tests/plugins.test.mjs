@@ -118,9 +118,17 @@ test('plugins install 与 reconcile 配合 Dify 对端完成安装闭环', async
 })
 
 test('plugins 资源候选与目录读取', async () => {
-  const resItems = await capabilityModule.resources.plugin('ws-default')
-  assert.ok(Array.isArray(resItems))
-  assert.ok(resItems.some(i => i.resourceId === 'document-parser'))
+  const mockPluginClient = async () => ({
+    json: async () => ({
+      items: [{resourceId: 'document-parser', name: '文档解析插件', version: 'v2.4.1', status: 'approved'}],
+    }),
+  })
+  const resPage = await capabilityModule.resources.plugin.list({
+    clients: {plugin: mockPluginClient},
+    query: new URLSearchParams('workspaceId=ws-default'),
+  })
+  assert.ok(Array.isArray(resPage.items))
+  assert.ok(resPage.items.some(i => i.resourceId === 'document-parser'))
 
   let listResult = null
   const mockReq = {url: 'http://localhost/catalog?kind=plugin&workspaceId=ws-default', headers: {}}

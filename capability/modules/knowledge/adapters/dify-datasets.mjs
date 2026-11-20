@@ -104,7 +104,7 @@ export async function grantDifySameWorkspaceAccess({datasetId, workspaceId, gran
     method: 'PATCH',
     body: {
       workspace_id: workspaceId,
-      permission: 'partial_members',
+      permission: 'all_team_members',
       grantee_account: granteeAccount,
       grant_permission: permission,
       target_app_id: targetAppId ?? null,

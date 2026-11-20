@@ -2,7 +2,7 @@ import {check} from '../../../runtime/http.mjs'
 import {execute as register_mcp} from './handlers/register_mcp.mjs'
 import {execute as bind} from './handlers/bind.mjs'
 import {execute as dispose_mcp} from './handlers/dispose_mcp.mjs'
-import {listCatalog, catalogItem} from './queries/legacy-catalog.mjs'
+import {listCatalog, catalogItem} from './queries/catalog.mjs'
 import {mcpRegistrationResource} from './queries/resources-mcp_registration.mjs'
 import {bindingContext, mcp03Context} from './queries/execution-contexts.mjs'
 

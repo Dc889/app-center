@@ -60,9 +60,17 @@ test('skills download 动作调用仓库建立交付预留', async () => {
 })
 
 test('skills 目录与候选资源读取', async () => {
-  const resItems = await capabilityModule.resources.skill()
-  assert.ok(Array.isArray(resItems))
-  assert.ok(resItems.some(i => i.resourceId === 'skl_doc'))
+  const mockSkillClient = async () => ({
+    json: async () => ({
+      items: [{resourceId: 'skl_doc', name: '公文摘要 Skill', version: 'v2.1.0', sha256: 'abc', sizeBytes: 99, orgs: []}],
+    }),
+  })
+  const resPage = await capabilityModule.resources.skill.list({
+    clients: {skill: mockSkillClient},
+    query: new URLSearchParams(),
+  })
+  assert.ok(Array.isArray(resPage.items))
+  assert.ok(resPage.items.some(i => i.resourceId === 'skl_doc'))
 
   let catalogResult = null
   const mockReq = {url: 'http://localhost/catalog?kind=skill', headers: {}}
