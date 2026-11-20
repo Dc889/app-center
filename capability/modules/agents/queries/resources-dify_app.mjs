@@ -1,4 +1,4 @@
-import {check} from '../../../../runtime/http.mjs'
+import {check, id} from '../../../../runtime/http.mjs'
 import {buildAgentImpact, listDifyApps} from '../adapters/agent-store.mjs'
 
 export async function listDifyAppResources({query, openLedger}) {
@@ -30,11 +30,12 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
   const app = apps.find(a => a.resourceId === resourceId)
 
   let catalogEntry = null
-  if (catalogResourceId && clients?.agent) {
+  const lookupCatalogId = catalogResourceId || resourceId
+  if (lookupCatalogId && clients?.agent) {
     try {
-      catalogEntry = await (await clients.agent('/agents/' + encodeURIComponent(catalogResourceId))).json()
+      catalogEntry = await (await clients.agent('/agents/' + encodeURIComponent(lookupCatalogId))).json()
     } catch (err) {
-      if (err.code !== 'REPOSITORY_UNCONFIGURED') throw err
+      if (err.code !== 'REPOSITORY_UNCONFIGURED' && err.status !== 404) throw err
     }
   }
   check(app || catalogEntry, 404, 'NOT_FOUND', 'Dify 应用不存在')
@@ -46,6 +47,11 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
     name: effectiveName,
     workspaceId,
     mode: app?.mode ?? 'workflow',
+    ownerAccount: app?.ownerAccount ?? catalogEntry?.ownerAccount ?? '',
+    webSiteEnabled: Boolean(app?.webSiteEnabled ?? false),
+    publicationVersionId: catalogEntry?.publicationVersionId ?? app?.publicationVersionId ?? `pub-${effectiveAppId}-v1`,
+    workflowSnapshotId: catalogEntry?.workflowSnapshotId ?? app?.workflowSnapshotId ?? `wf-${effectiveAppId}-1`,
+    catalogRevision: catalogEntry?.revision ?? 0,
   }
   if (catalogResourceId) {
     data.publicationVersionId = catalogEntry?.publicationVersionId ?? `pub-${catalogResourceId}-v1`
@@ -60,6 +66,8 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
   }
 
   return {
+    snapshotId: `dify-app-${id()}`,
+    capturedAt: new Date().toISOString(),
     resourceId: effectiveAppId,
     name: effectiveName,
     source: 'dify',

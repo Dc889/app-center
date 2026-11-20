@@ -7,24 +7,47 @@ export async function tol01Candidates({res, query, openLedger}) {
   const action = query.get('action')
   const workspaceId = (query.get('workspaceId') ?? '').trim()
   const operation = query.get('operation') || '首次批准'
-  check((!action || action === 'set_tool_approval') && workspaceId && OPERATIONS.includes(operation), 400, 'INVALID_REQUEST')
+  const q = (query.get('q') ?? '').trim().toLowerCase()
+  check((!action || action === 'set_tool_approval') && OPERATIONS.includes(operation), 400, 'INVALID_REQUEST')
+  check(operation === '撤销批准' || workspaceId, 400, 'INVALID_REQUEST')
 
-  const tools = await listWorkspaceTools({workspaceId, openLedger})
   const approvalsDb = openLedger('approvals')
-  const items = tools
-    .filter(tool => {
-      const approval = approvalsDb.get(`${workspaceId}:${tool.toolId}`)
-      const isApproved = Boolean(approval && approval.status === 'approved')
-      return operation === '首次批准' ? !isApproved : isApproved
-    })
-    .map(tool => ({
-      resourceId: tool.toolId,
-      name: tool.name,
-      workspaceId,
-      providerId: tool.providerId,
-      providerName: tool.providerName,
-      version: tool.version,
-    }))
+  let items = []
+  if (operation === '撤销批准' && !workspaceId) {
+    items = approvalsDb
+      .all()
+      .filter(a => a.status === 'approved')
+      .map(a => ({
+        resourceId: a.toolId,
+        name: a.name,
+        source: 'tool_approval',
+        workspaceId: a.workspaceId,
+        providerId: a.providerId,
+        providerName: a.providerName,
+        version: a.version,
+      }))
+  } else {
+    const tools = await listWorkspaceTools({workspaceId, openLedger})
+    items = tools
+      .filter(tool => {
+        const approval = approvalsDb.get(`${workspaceId}:${tool.toolId}`)
+        const isApproved = Boolean(approval && approval.status === 'approved')
+        return operation === '首次批准' ? !isApproved : isApproved
+      })
+      .map(tool => ({
+        resourceId: tool.toolId,
+        name: tool.name,
+        source: 'dify_tool',
+        workspaceId,
+        providerId: tool.providerId,
+        providerName: tool.providerName,
+        version: tool.version,
+      }))
+  }
+
+  if (q) {
+    items = items.filter(i => i.name.toLowerCase().includes(q) || i.resourceId.toLowerCase().includes(q))
+  }
 
   return json(res, {items, nextCursor: null})
 }

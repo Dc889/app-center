@@ -10,8 +10,15 @@ function failure(code, message) {
   return {ok: false, failureCode: code, failureReason: message, retryable: false, resultId: '', version: '', sha256: '', details: {}}
 }
 
-function makeServiceClient(url, token, name) {
-  if (url) return client(url, token)
+function makeServiceClient(urlOrGetter, token, name) {
+  if (typeof urlOrGetter === 'function') {
+    return async (...args) => {
+      const resolved = urlOrGetter()
+      check(resolved, 503, 'REPOSITORY_UNCONFIGURED', `未配置 ${name} 服务地址`)
+      return client(resolved, token)(...args)
+    }
+  }
+  if (urlOrGetter) return client(urlOrGetter, token)
   return async () => {
     check(false, 503, 'REPOSITORY_UNCONFIGURED', `未配置 ${name} 服务地址`)
   }

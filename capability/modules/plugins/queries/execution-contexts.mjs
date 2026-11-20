@@ -22,20 +22,44 @@ export async function plg02Context({res, query, plugin}) {
   })
 }
 
-export async function plg03Candidates({res, query, openLedger}) {
+export async function plg03Candidates({res, query, plugin, openLedger}) {
   const action = query.get('action')
   const workspaceId = (query.get('workspaceId') ?? '').trim()
-  check(['upgrade', 'uninstall'].includes(action) && workspaceId, 400, 'INVALID_REQUEST')
-  const instDb = openLedger('installations')
-  const items = listWorkspaceInstallations(instDb, workspaceId).map(inst => ({
-    resourceId: inst.resourceId,
-    installationId: inst.installationId,
-    name: inst.pluginName,
-    workspaceId: inst.workspaceId,
-    version: inst.version,
-    status: inst.status,
-    revision: inst.revision,
-  }))
+  const q = (query.get('q') ?? '').trim().toLowerCase()
+  check(['install', 'upgrade', 'uninstall'].includes(action), 400, 'INVALID_REQUEST')
+  check(action === 'uninstall' || workspaceId, 400, 'INVALID_REQUEST')
+
+  let items = []
+  if (action === 'install') {
+    const {items: catalogItems} = await (await plugin('/plugins')).json()
+    items = (catalogItems ?? [])
+      .filter(p => p.status !== '已下架' && p.status !== '已禁用')
+      .map(p => ({
+        resourceId: p.resourceId,
+        installationId: null,
+        name: p.name,
+        source: 'plugin_catalog',
+        workspaceId,
+        version: p.version,
+      }))
+  } else {
+    const instDb = openLedger('installations')
+    const rows = workspaceId ? listWorkspaceInstallations(instDb, workspaceId) : instDb.all().filter(i => i.status !== 'uninstalled')
+    items = rows.map(inst => ({
+      resourceId: inst.resourceId,
+      installationId: inst.installationId,
+      name: inst.pluginName,
+      source: 'plugin_installation',
+      workspaceId: inst.workspaceId,
+      version: inst.version,
+      status: inst.status,
+      revision: inst.revision,
+    }))
+  }
+
+  if (q) {
+    items = items.filter(i => i.name.toLowerCase().includes(q) || i.resourceId.toLowerCase().includes(q))
+  }
   return json(res, {items, nextCursor: null})
 }
 

@@ -24,9 +24,14 @@ export async function cancel(context) {
     failureCode: 'CANCELLED_BEFORE_DELIVERY',
     failureReason: '文件交付前已取消',
     retryable: false,
-    resultId: delivery?.resultId ?? '',
-    version: delivery?.version ?? '',
-    sha256: delivery?.sha256 ?? '',
-    details: {cancelledAt},
+    resultId: '',
+    version: '',
+    sha256: '',
+    details: {
+      cancelledAt,
+      cancelledResultId: delivery?.resultId ?? null,
+      version: delivery?.version ?? null,
+      sha256: delivery?.sha256 ?? null,
+    },
   }
 }

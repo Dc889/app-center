@@ -26,6 +26,10 @@ export async function listDifyApps({workspaceId = 'ws-default', openLedger} = {}
         workspaceId: app.workspace_id || workspaceId,
         revision: 1,
         mode: app.mode || 'workflow',
+        ownerAccount: app.owner_account ?? app.ownerAccount ?? app.created_by ?? '',
+        webSiteEnabled: Boolean(app.enable_site ?? app.webSiteEnabled ?? false),
+        publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? `pub-${app.id}-v1`,
+        workflowSnapshotId: app.workflow_snapshot_id ?? app.workflowSnapshotId ?? `wf-${app.id}-1`,
       })
     }
   } else {
