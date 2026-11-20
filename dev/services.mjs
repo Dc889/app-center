@@ -7,7 +7,7 @@ const services = {
   mcp: async options => (await import('../capability/repositories/mcp/service.mjs')).startMcp(options),
   agent: async options => (await import('../capability/repositories/agent/service.mjs')).startAgent(options),
   executor: async options => (await import('../capability/executor/service.mjs')).startExecutor(options),
-  management: async options => (await import('../management/api/service.mjs')).startManagement(options),
+  management: async options => (await import('../management/app/server/service.mjs')).startManagement(options),
 }
 export async function localStack(dir=process.env.APP_DATA_DIR ?? resolve('.local-data'), token=randomUUID(), includeManagement=true) {
   const started=[]

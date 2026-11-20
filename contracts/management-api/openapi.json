@@ -101,6 +101,1552 @@
           }
         }
       }
+    },
+    "/policy-decisions": {
+      "post": {
+        "operationId": "evaluateApprovedPolicy",
+        "description": "按实时账户资料及有效发布记录核验。随应用发布的知识库必须提供匹配的targetAppId/targetWorkspaceId；未发布或已下架应用不得放行，范围取知识库与关联应用策略交集，不能当作独立共享库访问。有效期届满拒绝。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "policyRef",
+                  "account",
+                  "resourceId",
+                  "action",
+                  "workspaceId"
+                ],
+                "properties": {
+                  "policyRef": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "account": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "resourceId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "action": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "targetAppId": {
+                    "type": "string",
+                    "description": "scope=app时必填，关联Dify原生应用ID"
+                  },
+                  "targetWorkspaceId": {
+                    "type": "string",
+                    "description": "scope=app时必填，关联Dify工作区，与知识库源租户/工作区分开"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "按当前账户资料核验冻结规则",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "allowed",
+                    "reasonCode",
+                    "policyRevision"
+                  ],
+                  "properties": {
+                    "allowed": {
+                      "type": "boolean"
+                    },
+                    "reasonCode": {
+                      "type": "string"
+                    },
+                    "policyRevision": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "服务身份无效"
+          },
+          "503": {
+            "description": "实时账户资料暂不可用"
+          }
+        }
+      }
+    },
+    "/dataset-alerts": {
+      "post": {
+        "summary": "Create or recover a KB-05 alert workflow",
+        "description": "Service authentication only. Deduplicate by sourceEventId. Freeze trusted alert evidence from capability execution-context before issuing pause_share. Repeating different content for the same event returns 409.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sourceEventId",
+                  "resourceId",
+                  "fields"
+                ],
+                "properties": {
+                  "sourceEventId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "resourceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "fields": {
+                    "type": "object",
+                    "required": [
+                      "target",
+                      "documentIds",
+                      "reason",
+                      "facts"
+                    ],
+                    "properties": {
+                      "target": {
+                        "type": "string",
+                        "enum": [
+                          "整库",
+                          "指定文档"
+                        ]
+                      },
+                      "documentIds": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "内容违规",
+                          "权限越界"
+                        ]
+                      },
+                      "facts": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created or existing workflow; automatic pause completion only advances to operator confirmation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ticketNo",
+                    "status",
+                    "revision",
+                    "sourceEventId"
+                  ],
+                  "properties": {
+                    "ticketNo": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "sourceEventId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid alert input"
+          },
+          "403": {
+            "description": "Invalid service identity"
+          },
+          "409": {
+            "description": "Conflicting duplicate, stale type, or incomplete trusted evidence"
+          }
+        }
+      }
+    },
+    "/dataset-changes": {
+      "post": {
+        "summary": "Create or recover an owner-submitted KB-04 change review",
+        "description": "Service authentication only. Resolve owner and immutable document changes through trusted capability context. Repeating sourceEventId returns the original draft; a different resource conflicts. The owner must submit before operator review.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sourceEventId",
+                  "resourceId"
+                ],
+                "properties": {
+                  "sourceEventId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "resourceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created or existing change review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ticketNo",
+                    "ticketType",
+                    "account",
+                    "status",
+                    "revision"
+                  ],
+                  "properties": {
+                    "ticketNo": {
+                      "type": "string"
+                    },
+                    "ticketType": {
+                      "type": "string",
+                      "enum": [
+                        "KB-04"
+                      ]
+                    },
+                    "account": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid event"
+          },
+          "403": {
+            "description": "Invalid service identity"
+          },
+          "409": {
+            "description": "Conflicting event, unknown owner, or incomplete trusted context"
+          }
+        }
+      }
+    },
+    "/approved-inputs/{executionId}/documents": {
+      "get": {
+        "summary": "Read frozen KB-02 or KB-04 document review conclusions",
+        "description": "Bound to the exact execution and immutable manifest. KB-04 returns newly added and modified documents; deletion details remain in approved fields. Old attempts retain their original conclusions.",
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,8})$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page from the frozen review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "snapshotId",
+                    "items",
+                    "nextCursor"
+                  ],
+                  "properties": {
+                    "snapshotId": {
+                      "type": "string"
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "documentId",
+                          "sha256",
+                          "verdict"
+                        ],
+                        "properties": {
+                          "documentId": {
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "verdict": {
+                            "type": "string",
+                            "enum": [
+                              "pass",
+                              "reject",
+                              "unconfirmed"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination"
+          },
+          "403": {
+            "description": "Invalid service identity"
+          },
+          "404": {
+            "description": "Unknown execution or wrong ticket type"
+          },
+          "409": {
+            "description": "Document conclusions not frozen"
+          }
+        }
+      }
+    },
+    "/plugin-alerts": {
+      "post": {
+        "summary": "Create or recover a targeted PLG-04 safety workflow",
+        "description": "Service token required. Counters, evidence, target instance, and disable cycle come from a trusted capability context. Deduplicate sourceEventId and workspace/plugin/disable-cycle. No manual creation and no daemon-wide fallback.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sourceEventId",
+                  "resourceId",
+                  "workspaceId"
+                ],
+                "properties": {
+                  "sourceEventId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "resourceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New or existing workflow; merging evidence does not dispatch another disable in the same cycle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ticketNo",
+                    "ticketType",
+                    "status",
+                    "revision"
+                  ],
+                  "properties": {
+                    "ticketNo": {
+                      "type": "string"
+                    },
+                    "ticketType": {
+                      "type": "string",
+                      "enum": [
+                        "PLG-04"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid event"
+          },
+          "403": {
+            "description": "Invalid service identity"
+          },
+          "409": {
+            "description": "Incomplete samples, threshold not met, mismatched target, or conflicting event"
+          },
+          "501": {
+            "description": "Trusted context adapter unavailable; sender must retain and retry event"
+          },
+          "503": {
+            "description": "Trusted evidence temporarily unavailable; no automatic action taken"
+          }
+        }
+      }
+    },
+    "/account-changes/{executionId}/commit": {
+      "put": {
+        "summary": "Commit the approved local identity after both products have been verified",
+        "description": "Service authentication only. Match the active execution, locked stable subject, original identity revision, and approved product mapping/workspace. Commit local approved fields atomically and invalidate old profile revisions. Identical replays return the original response; changed content conflicts. Platform roles are never accepted in this request.",
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "subjectId",
+                  "ragflowAccountId",
+                  "difyAccountId",
+                  "workspaceId"
+                ],
+                "properties": {
+                  "subjectId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ragflowAccountId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "difyAccountId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Original or newly committed identity revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "subjectId",
+                    "revision",
+                    "committedAt"
+                  ],
+                  "properties": {
+                    "subjectId": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "committedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid commit fields"
+          },
+          "403": {
+            "description": "Invalid service identity"
+          },
+          "409": {
+            "description": "Inactive execution, changed identity lock, wrong product IDs/workspace, or conflicting replay"
+          }
+        }
+      }
+    },
+    "/subjects/{subjectId}": {
+      "get": {
+        "summary": "Read a stable subject identity mapping for capability preflight",
+        "parameters": [
+          {
+            "name": "subjectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current account name and non-secret mapping metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "subjectId",
+                    "account",
+                    "active",
+                    "revision",
+                    "restricted"
+                  ],
+                  "properties": {
+                    "subjectId": {
+                      "type": "string"
+                    },
+                    "account": {
+                      "type": "string"
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "restricted": {
+                      "type": "boolean"
+                    },
+                    "ragflowAccountId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "difyAccountId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "workspaceId": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid service identity"
+          },
+          "404": {
+            "description": "Unknown subject"
+          }
+        }
+      }
+    },
+    "/delivery-checks/{resultId}/close": {
+      "post": {
+        "operationId": "closeDeliveryCheck",
+        "description": "Skill流水关闭查证，事务先封新领取，发送及回执可完成。详见delivery-close.md。",
+        "parameters": [
+          {
+            "name": "resultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "封存未发送或已发待结算",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "state"
+                  ],
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "closed_unserved",
+                        "receipt_pending"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "服务身份无效"
+          },
+          "404": {
+            "description": "未知或非唯一流水，不表示从未交付"
+          },
+          "409": {
+            "description": "DELIVERY_UNCERTAIN，已封住新领取但证据不足"
+          }
+        }
+      }
+    },
+    "/api/overview": {
+      "get": {
+        "operationId": "managementOverview",
+        "description": "当前运维/管理员总览。见overview.md：实时台账，账号隔离，产品快照独立校验，未采集与零/过期区分。",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "window、resources/health/calls/exceptions各自含state/source/capturedAt/reasonCode/data，management含真实台账pending、告警、Top10及recent。字段及空值语义见overview.md。"
+          },
+          "400": {
+            "description": "窗口无效"
+          },
+          "403": {
+            "description": "无权限或身份变化"
+          }
+        }
+      }
+    },
+    "/api/event-monitor": {
+      "get": {
+        "operationId": "getEventMonitor",
+        "description": "仅有效运维/管理员；管理事件台账六区块。口径、角色、空值和五块证据见event-monitor.md。当前状态聚合与趋势分开；page仅影响items，不缩减统计全集。",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "未研判",
+                "处理中",
+                "待复核",
+                "观察中",
+                "已重开",
+                "已关闭"
+              ]
+            }
+          },
+          {
+            "name": "objectType",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "知识库",
+                "智能体",
+                "插件",
+                "MCP",
+                "智能体仓库",
+                "账号与集成"
+              ]
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "提示",
+                "一般",
+                "严重",
+                "紧急",
+                "未采集"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "source,capturedAt,timezone,window,cards,trend,distribution,durations,unknownTrendTimes,total,page,limit,items；缺时长为null。"
+          },
+          "400": {
+            "description": "窗口/筛选/分页无效"
+          },
+          "403": {
+            "description": "无权限"
+          }
+        }
+      }
+    },
+    "/api/event-monitor/{ticketNo}": {
+      "get": {
+        "operationId": "getEventEvidence",
+        "description": "只读五块证据；指标/日志缺失有空态，关联执行仅结果摘要，原始API步骤尚未采集；运维裁剪ACC。见event-monitor.md。",
+        "parameters": [
+          {
+            "name": "ticketNo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 97
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "source,capturedAt,basic,facts,metrics,metricState,logs,logsState,actions,actionSource,timeline；白名单投影，不含原始payload/details。"
+          },
+          "400": {
+            "description": "事件标识无效"
+          },
+          "403": {
+            "description": "无权限"
+          },
+          "404": {
+            "description": "事件不存在"
+          }
+        }
+      }
+    },
+    "/api/audit-report": {
+      "get": {
+        "operationId": "getAuditReport",
+        "description": "仅有效且未受限的运维/管理员；审计追踪六区块。先按角色和历史组织过滤，再汇总、趋势、分布、排行与双表分页；能力侧来源按observations协议分别标记collected/stale/not_collected并去重，不从工单推算API/下载/访问/目录变更。详见audit-report.md。",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "today",
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "申请草稿",
+                "事件办理",
+                "类型版本",
+                "执行工单",
+                "能力执行",
+                "Skill交付",
+                "广场Web",
+                "外部API"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "accessPage",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 50,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "filter,source,capturedAt,timezone,scope,org,partialBoundaryBuckets,metrics,trend,bucketMs,distribution,sources,ranking,managementTotal,accessTotal,managementItems,accessItems；不含traceId及模型中心身份。"
+          },
+          "400": {
+            "description": "窗口、来源或分页参数无效"
+          },
+          "403": {
+            "description": "无权限、受限或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/audit-report/export": {
+      "get": {
+        "operationId": "exportAuditReport",
+        "description": "与/api/audit-report使用同一权限范围、筛选条件及会话复核，导出全量管理审计或访问审计JSON数组（不受分页截断）。详见audit-report.md。",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "management",
+                "access"
+              ]
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "today",
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "申请草稿",
+                "事件办理",
+                "类型版本",
+                "执行工单",
+                "能力执行",
+                "Skill交付",
+                "广场Web",
+                "外部API"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "同权限同筛选下的管理审计或访问审计记录数组。"
+          },
+          "400": {
+            "description": "导出表类型或筛选参数无效"
+          },
+          "403": {
+            "description": "无权限、受限或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/skill-monitor": {
+      "get": {
+        "operationId": "getSkillMonitor",
+        "description": "仅有效且未受限的运维/管理员；Skill监控真实结算流水、目录生效指标、下载趋势与组织分布。普通用户拒绝访问。详见skill-monitor.md。",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Skill监控聚合快照与分页结算流水明细"
+          },
+          "400": {
+            "description": "查询参数无效"
+          },
+          "403": {
+            "description": "无权限、跨组织越权或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/knowledge-monitor": {
+      "get": {
+        "operationId": "getKnowledgeMonitor",
+        "description": "仅有效且未受限的运维/管理员；知识库监控两产品库盘点、来源分布、构建任务趋势与追踪、嵌入模型核对、逐文档审查台账及处置告警。普通用户拒绝访问。详见knowledge-monitor.md。",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceSystem",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "全部",
+                "RAGFlow",
+                "Dify"
+              ],
+              "default": "全部"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "知识库监控综合聚合快照与台账明细"
+          },
+          "400": {
+            "description": "查询参数无效"
+          },
+          "403": {
+            "description": "无权限、跨组织越权或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/plugin-monitor": {
+      "get": {
+        "operationId": "getPluginMonitor",
+        "description": "仅有效且未受限的运维/管理员；插件监控实例状态、容器内存趋势、调用失败率、错误排行、自动禁用记录及Daemon探测。普通用户拒绝访问。详见plugin-monitor.md。",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "插件监控聚合快照与自动禁用台账"
+          },
+          "400": {
+            "description": "查询参数无效"
+          },
+          "403": {
+            "description": "无权限、跨组织越权或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/mcp-monitor": {
+      "get": {
+        "operationId": "getMcpMonitor",
+        "description": "仅有效且未受限的运维/管理员；MCP 监控目录盘点、五卡指标、调用与延迟趋势、异常排行、调用明细追踪、工作区绑定台账及告警处置追踪。普通用户拒绝访问。详见mcp-monitor.md。",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP 监控聚合快照、调用台账与绑定台账"
+          },
+          "400": {
+            "description": "查询参数无效"
+          },
+          "403": {
+            "description": "无权限、跨组织越权或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/agent-monitor": {
+      "get": {
+        "operationId": "getAgentMonitor",
+        "description": "仅有效且未受限的运维/管理员；Dify 全量智能体盘点、开发账户应用树、调用审计记录与逐条溯源详情。普通用户拒绝访问。详见agent-monitor.md。",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "appName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ip",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "knowledge",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mcp",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "plugin",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "智能体全量监控聚合快照、账户应用树与调用审计记录"
+          },
+          "400": {
+            "description": "查询参数无效"
+          },
+          "403": {
+            "description": "无权限、跨组织越权或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/account-monitor": {
+      "get": {
+        "operationId": "getAccountMonitor",
+        "description": "仅有效且未受限的运维/管理员；三方账号一致性核对、接口健康与延迟趋势、差异分布、同步作业台账与探针健康。普通用户拒绝访问。详见account-monitor.md。",
+        "parameters": [
+          {
+            "name": "window",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d"
+              ],
+              "default": "24h"
+            }
+          },
+          {
+            "name": "org",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "consistency",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "账号与集成监控聚合快照、映射台账与同步作业"
+          },
+          "400": {
+            "description": "查询参数无效"
+          },
+          "403": {
+            "description": "无权限、跨组织越权或会话身份变化"
+          }
+        }
+      }
+    },
+    "/api/agent-warehouse": {
+      "get": {
+        "operationId": "getAgentWarehouse",
+        "description": "智能体仓库目录盘点、四卡指标、调用排行、使用方式开通与迭代历史。支持用户组织隔离、可用性与标签过滤。详见agent-warehouse.md。",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["全部方式", "run", "embed", "api"]
+            }
+          },
+          {
+            "name": "usable",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "智能体仓库列表、指标与排行数据"
+          },
+          "400": {
+            "description": "查询参数无效"
+          },
+          "403": {
+            "description": "未登录或无效会话"
+          }
+        }
+      }
     }
   }
 }

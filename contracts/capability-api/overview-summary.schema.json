@@ -1,0 +1,381 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "from",
+    "to",
+    "bucketMs",
+    "resources",
+    "health",
+    "calls",
+    "exceptions"
+  ],
+  "properties": {
+    "scope": {
+      "type": "string",
+      "enum": [
+        "user_network"
+      ]
+    },
+    "from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "to": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "bucketMs": {
+      "type": "integer",
+      "enum": [
+        300000,
+        3600000
+      ]
+    },
+    "range": {
+      "type": "string",
+      "enum": [
+        "1h",
+        "24h",
+        "7d"
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "source",
+        "capturedAt",
+        "data"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "collected",
+            "stale",
+            "unavailable"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "nullable": true
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key",
+              "state",
+              "count",
+              "yesterdayCount"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "enum": [
+                  "agents",
+                  "datasets",
+                  "tools",
+                  "plugins",
+                  "skills",
+                  "mcp",
+                  "keys"
+                ]
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "collected",
+                  "unavailable"
+                ]
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              },
+              "yesterdayCount": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              }
+            }
+          },
+          "minItems": 7,
+          "maxItems": 7,
+          "nullable": true
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "source",
+        "capturedAt",
+        "data"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "collected",
+            "stale",
+            "unavailable"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "nullable": true
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "key",
+              "instance",
+              "version",
+              "status",
+              "checkedAt",
+              "latencyMs",
+              "consecutiveFailures",
+              "evidenceRef"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "enum": [
+                  "management",
+                  "ragflow",
+                  "dify",
+                  "plugin_daemon",
+                  "object_store",
+                  "database"
+                ]
+              },
+              "instance": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "nullable": true
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "nullable": true
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "healthy",
+                  "degraded",
+                  "failed",
+                  "unavailable"
+                ]
+              },
+              "checkedAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "latencyMs": {
+                "type": "number",
+                "minimum": 0,
+                "nullable": true
+              },
+              "consecutiveFailures": {
+                "type": "integer",
+                "minimum": 0,
+                "nullable": true
+              },
+              "evidenceRef": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "nullable": true
+              }
+            }
+          },
+          "minItems": 6,
+          "maxItems": 6,
+          "nullable": true
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "calls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "source",
+        "capturedAt",
+        "data"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "collected",
+            "stale",
+            "unavailable"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "nullable": true
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "at",
+              "agent",
+              "retrieval",
+              "mcp"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "agent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "retrieval": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mcp": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "nullable": true
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "exceptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "source",
+        "capturedAt",
+        "data"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "collected",
+            "stale",
+            "unavailable"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "nullable": true
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "at",
+              "agent",
+              "dataset_build",
+              "plugin",
+              "mcp"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "agent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "dataset_build": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "plugin": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mcp": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "nullable": true
+        },
+        "reasonCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    }
+  },
+  "description": "Conditional nulls, uniqueness, exact UTC time buckets, source authorization and freshness rules are mandatory in overview-summary.md and enforced by the management consumer."
+}

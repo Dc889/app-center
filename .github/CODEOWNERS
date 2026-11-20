@@ -1,0 +1,38 @@
+# 管理系统按功能模块分工归属清单（CODEOWNERS - 当前 2 人配置）
+# 请将 @dev-a（开发 A：公共底座与合并把关 + 智能体/知识库等）和 @dev-b（开发 B：Skill/插件/MCP/安全事件）替换为团队实际 Git 账号。
+# 规则：两个人的目录严格零重叠；修改公共平台、装配层、共享 UI 或契约目录时，必须跑通全量 `npm run check`。
+
+# 公共装配层、平台基础、共享 UI 与工程门禁（开发 A 独占维护，避免公共文件冲突）
+/management/app/                    @dev-a
+/management/platform/               @dev-a
+/management/shared-ui/              @dev-a
+/dev/                               @dev-a
+/runtime/                           @dev-a
+/package.json                       @dev-a
+/tests/                             @dev-a
+/分工文档/                          @dev-a
+
+# 跨模块与管理端契约（开发 A 负责维护，跨服务契约与能力组共同评审）
+/contracts/management-modules/      @dev-a
+/contracts/management-api/          @dev-a
+/contracts/capability-api/          @dev-a @team-capability
+/contracts/repository-api/          @dev-a @team-capability
+
+# 开发 A 负责的业务功能模块（7 个）
+/management/modules/agents/         @dev-a
+/management/modules/knowledge/      @dev-a
+/management/modules/keys/           @dev-a
+/management/modules/tools/          @dev-a
+/management/modules/accounts/       @dev-a
+/management/modules/overview/       @dev-a
+/management/modules/audit/          @dev-a
+
+# 开发 B 负责的业务功能模块（4 个，独立推进且无需修改 app/platform/shared-ui）
+/management/modules/skills/         @dev-b
+/management/modules/plugins/        @dev-b
+/management/modules/mcp/            @dev-b
+/management/modules/events/         @dev-b
+
+# 能力组件（非管理系统范围，由能力组独立维护）
+/capability/                        @team-capability
+/repositories/                      @team-capability

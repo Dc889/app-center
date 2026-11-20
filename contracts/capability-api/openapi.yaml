@@ -2,10 +2,753 @@ openapi: 3.0.3
 info:
   title: 能力组件接口
   version: 0.1.0
-  description: 管理系统调用。动作与 actions.json 对齐。SKL-03 已接通，插件安装按部署配置核验，其余登记动作返回 UPSTREAM_UNSUPPORTED。
+  description: 管理系统调用。动作与 actions.json 对齐。SKL-03 已接通，插件安装按部署配置核验，其余登记动作返回 UPSTREAM_UNSUPPORTED。稳定人员交付映射及回执结算扩展需单独核验，现有执行器仍按原账户/组织匹配，不能据此宣称已支持改名交付。
 servers:
   - url: /internal/v1
 paths:
+  /overview-summary:
+    get:
+      operationId: getOverviewSummary
+      security: [{bearerAuth: []}]
+      description: 总览独立聚合快照；只允许可信运维/管理员的当前用户网络分区，先裁剪再聚合。遵守overview-summary.md的条件空值、完整桶、去重及新鲜度约定。原observations分页协议不变；当前生产采集待实现，未采集不补零。
+      parameters:
+        - {name: view, in: query, required: true, schema: {type: string, enum: [monitor]}}
+        - {name: scope, in: query, required: true, schema: {type: string, enum: [user_network]}}
+        - {name: range, in: query, required: true, schema: {type: string, enum: [1h, 24h, 7d]}}
+        - {name: from, in: query, required: true, schema: {type: string, format: date-time}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date-time}}
+        - {name: bucketMs, in: query, required: true, schema: {type: integer, enum: [300000, 3600000]}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 分组完整快照，未采集或过期有明确标记；业务统计不包含账号工单或凭证。
+          content:
+            application/json:
+              schema: {$ref: './overview-summary.schema.json'}
+        '403': {description: 无访问权限}
+        '501': {description: 采集能力尚未实现}
+  /resources/dify_app/{resourceId}:
+    get:
+      operationId: getDifyAppResourceSnapshot
+      security: [{bearerAuth: []}]
+      description: 按可信身份和工作区读取原生Dify应用快照。AG-04/05管理预检同时传catalogResourceId，返回该目录映射下完整agentImpact；普通应用预览可不含影响数据。不得用演示数字或部分分页替代实际清单，未接入采集使用unavailable而非0。管理操作资格仍须单独核验目录动作。
+      parameters:
+        - {name: resourceId, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: workspaceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: catalogResourceId, in: query, schema: {type: string, minLength: 1, maxLength: 200}, description: AG-04/05必传的仓库目录ID，避免原生应用对应多份目录时影响范围歧义}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: data含发布版本/目录修订，AG-04另需工作流快照，管理请求需合法且新鲜的agentImpact。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshotId, resourceId, workspaceId, capturedAt, data]
+                properties:
+                  snapshotId: {type: string, minLength: 1}
+                  resourceId: {type: string, minLength: 1}
+                  workspaceId: {type: string, minLength: 1}
+                  capturedAt: {type: string, format: date-time}
+                  data:
+                    type: object
+                    properties:
+                      publicationVersionId: {type: string, minLength: 1}
+                      workflowSnapshotId: {type: string, minLength: 1}
+                      catalogRevision: {type: integer, minimum: 0}
+                      agentImpact: {$ref: '#/components/schemas/AgentImpact'}
+        '403': {description: 无该应用/工作区读取资格}
+        '409': {description: 目录/原生应用映射或版本/影响依据变化}
+        '501': {description: UPSTREAM_UNSUPPORTED，原生资源或完整影响适配未接入}
+  /agent-replacements:
+    get:
+      operationId: listAgentReplacementCandidates
+      security: [{bearerAuth: []}]
+      description: 按可信申请人和原目录处置资格，返回可作为替代的active仓库智能体。需比较原/替代发布范围和策略兼容性，不能仅按申请人个人可见权过滤。不得返回原目录或同一原生应用的别名，不自动授予替代应用权限。
+      parameters:
+        - {name: sourceResourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: resourceId为仓库目录ID，跨页唯一。nextCursor必须为下一游标或null，无凭证。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [resourceId, name]
+                      properties:
+                        resourceId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        '403': {description: 原处置申请资格或替代范围不满足}
+        '501': {description: UPSTREAM_UNSUPPORTED，替代目录/范围比较尚未适配}
+  /agent-replacements/{resourceId}:
+    get:
+      operationId: getAgentReplacementContext
+      security: [{bearerAuth: []}]
+      description: 重新核验原处置及替代关系资格，active且audienceCompatible=true。源和替代原生应用/工作区不能相同，版本、策略或兼容依据变化必须更新revision。提交和审批均重读；执行前原子核验源目录和agent_replacement前置条件，不能沿旧策略重定向。
+      parameters:
+        - {name: resourceId, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: sourceResourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 脱敏映射，revision用于冻结agent_replacement前置条件，原始凭证和工作流正文禁止返回。
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [sourceResourceId, sourceAppId, sourceWorkspaceId, resourceId, appId, workspaceId, name, status, publicationVersionId, policyRef, revision, eligible, audienceCompatible]
+                properties:
+                  sourceResourceId: {type: string, minLength: 1, maxLength: 200}
+                  sourceAppId: {type: string, minLength: 1, maxLength: 200}
+                  sourceWorkspaceId: {type: string, minLength: 1, maxLength: 200}
+                  resourceId: {type: string, minLength: 1, maxLength: 200}
+                  appId: {type: string, minLength: 1, maxLength: 200}
+                  workspaceId: {type: string, minLength: 1, maxLength: 200}
+                  name: {type: string, minLength: 1, maxLength: 200}
+                  status: {type: string, enum: [active]}
+                  publicationVersionId: {type: string, minLength: 1, maxLength: 200}
+                  policyRef: {type: string, minLength: 1, maxLength: 200}
+                  revision: {type: integer, minimum: 0}
+                  eligible: {type: boolean, enum: [true]}
+                  audienceCompatible: {type: boolean, enum: [true]}
+        '400': {description: 自替代或无效原/替代目录ID}
+        '403': {description: 当前资格或范围兼容不满足}
+        '409': {description: 已不可用、别名指向同一原生应用或映射/版本/策略/修订变化}
+        '501': {description: UPSTREAM_UNSUPPORTED，真实替代依据尚未适配}
+  /application-targets:
+    get:
+      operationId: listBindingApplicationTargets
+      security: [{bearerAuth: []}]
+      description: 按可信身份、用途及Dify工作区列出有资格关联的原生应用。dataset_publication允许待发布应用，以支持知识库先审再首次上架；关联工作区与RAG源租户分开，未发布时不产生公开知识库访问。目录可见/可运行权限不足以获得配置资格，不能从知识库或MCP使用权推断。未适配501，不用普通应用可见列表冒充。
+      parameters:
+        - {name: purpose, in: query, required: true, schema: {type: string, enum: [dataset_binding, mcp_binding, dataset_publication]}}
+        - {name: workspaceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 全部行必须属于所选目标区；appId为Dify原生ID，不是仓库目录ID。ID跨页唯一，nextCursor必须显式为下一游标或null，无凭证/工作流正文。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [appId, name, workspaceId]
+                      properties:
+                        appId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                        workspaceId: {type: string, minLength: 1, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        '400': {description: 用途/工作区/分页参数无效}
+        '403': {description: 当前身份无相应用途的配置资格}
+        '501': {description: UPSTREAM_UNSUPPORTED，按用途的目标应用候选尚未适配}
+  /application-targets/{appId}:
+    get:
+      operationId: getBindingApplicationTarget
+      security: [{bearerAuth: []}]
+      description: 按用途重新核验应用配置资格和原生ID/工作区映射。targetRef为跨工作区无歧义的应用登记引用，revision覆盖当前映射/配置及资格依据，相关变化须更新使旧前置条件失效。提交、审批及执行前检查；应用已删除/移区/撤权不得回退旧快照。
+      parameters:
+        - {name: appId, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: purpose, in: query, required: true, schema: {type: string, enum: [dataset_binding, mcp_binding, dataset_publication]}}
+        - {name: workspaceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 脱敏的准确映射及资格，管理端冻结application_target/targetRef/revision。不得含实际凭证。
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [appId, name, workspaceId, purpose, eligible, targetRef, revision]
+                properties:
+                  appId: {type: string, minLength: 1, maxLength: 200}
+                  name: {type: string, minLength: 1, maxLength: 200}
+                  workspaceId: {type: string, minLength: 1, maxLength: 200}
+                  purpose: {type: string, enum: [dataset_binding, mcp_binding, dataset_publication]}
+                  eligible: {type: boolean, enum: [true]}
+                  targetRef: {type: string, minLength: 1, maxLength: 200}
+                  revision: {type: integer, minimum: 0}
+        '403': {description: 当前用途配置资格失效}
+        '409': {description: 原生ID/用途/工作区映射或登记修订不完整或已变化}
+        '501': {description: UPSTREAM_UNSUPPORTED，真实目标应用资格/登记映射尚未适配}
+  /execution-contexts/KB-05/candidates:
+    get:
+      operationId: listDatasetDispositionCandidates
+      security: [{bearerAuth: []}]
+      description: 当前可信身份有人工处置申请资格的纳管/共享目录。不得以普通绑定或使用权替代；不要求申请人当前加入源工作区。未知适配501，不能以演示列表冒充。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [dispose_dataset]}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 源范围及原生ID独立返回，ID跨页唯一，分页终点显式null，禁止正文和凭证。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [resourceId, name, source, sourceScopeId, sourceResourceId]
+                      properties:
+                        resourceId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                        source: {type: string, enum: [Dify, RAGFlow]}
+                        sourceScopeId: {type: string, minLength: 1, maxLength: 200}
+                        sourceResourceId: {type: string, minLength: 1, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        '400': {description: 动作或分页参数无效}
+        '403': {description: 无当前处置申请资格}
+        '501': {description: UPSTREAM_UNSUPPORTED，处置候选适配尚未实现}
+  /execution-contexts/KB-05:
+    get:
+      operationId: getDatasetDispositionContext
+      security: [{bearerAuth: []}]
+      description: 按处置/暂停动作及可信身份重新核验资格，eligible=true。告警来源须独立核验sourceEventId、证据和system_event身份；普通会话不能冒充告警。清单必须完整且文档ID唯一，目标清单给真实可执行映射。恰一条同目录dataset非负修订和同清单dataset_manifest哈希前置条件。暂停后的人工处置读取新前置修订，保持原文档事实与节点规则。真实执行前原子复核。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [dispose_dataset, pause_share]}}
+        - {name: resourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: sourceEventId, in: query, schema: {type: string, minLength: 1}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 脱敏完整事实；文档/目标/告警证据内部也只含白名单。公共预览另外删除处置目标清单，提供可用动作与可停用文档ID列表。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshotId, ticketType, action, resourceId, eligible, fields, preconditions]
+                properties:
+                  snapshotId: {type: string, minLength: 1}
+                  ticketType: {type: string, enum: [KB-05]}
+                  action: {type: string, enum: [dispose_dataset, pause_share]}
+                  resourceId: {type: string, minLength: 1}
+                  eligible: {type: boolean, enum: [true]}
+                  fields:
+                    type: object
+                    required: [知识库名称, 来源系统, 源workspace/tenant ID, 源知识库ID, 文档清单快照ID, 清单完整, 文档清单, 影响中的授权数, 影响中的智能体数, 处置目标清单]
+                    properties:
+                      知识库名称: {type: string, minLength: 1}
+                      来源系统: {type: string, enum: [Dify, RAGFlow]}
+                      源workspace/tenant ID: {type: string, minLength: 1}
+                      源知识库ID: {type: string, minLength: 1}
+                      文档清单快照ID: {type: string, minLength: 1}
+                      清单完整: {type: boolean, enum: [true]}
+                      文档清单:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [documentId, sha256]
+                          properties:
+                            documentId: {type: string, minLength: 1}
+                            sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+                      影响中的授权数: {type: integer, minimum: 0}
+                      影响中的智能体数: {type: integer, minimum: 0}
+                      处置目标清单:
+                        type: array
+                        minItems: 1
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [system, objectId, action]
+                          properties:
+                            system: {type: string, enum: [平台, Dify, RAGFlow]}
+                            objectId: {type: string, minLength: 1}
+                            action: {type: string, enum: [目录下架, 暂停分享, 停用文档, 撤销未到期授权]}
+                            documentId: {type: string, minLength: 1, description: 仅停用文档时必填，必须匹配完整文档清单}
+                      告警ID: {type: string, minLength: 1}
+                      告警证据:
+                        type: array
+                        minItems: 1
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [evidenceId, sha256]
+                          properties:
+                            evidenceId: {type: string, minLength: 1}
+                            sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+                  preconditions:
+                    type: array
+                    minItems: 2
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [kind, id]
+                      properties:
+                        kind: {type: string, minLength: 1}
+                        id: {type: string, minLength: 1}
+                        revision: {type: integer, minimum: 0}
+                        version: {type: string}
+                        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        '403': {description: 当前身份或告警源无动作资格}
+        '409': {description: 来源/清单/映射不完整，前置修订歧义或状态变化}
+        '501': {description: UPSTREAM_UNSUPPORTED，真实处置依据或产品映射尚未适配}
+  /execution-contexts/KB-03/candidates:
+    get:
+      operationId: listDatasetBindingCandidates
+      security: [{bearerAuth: []}]
+      description: 当前身份可申请的本人已纳管私有库与已发布共享库，按目标Dify工作区、申请权限和边界过滤。不能以普通个人产品库或可见权代替共享申请资格。源范围和目标工作区独立，源区可属于他人。未适配501。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [bind_dataset]}}
+        - {name: workspaceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: permission, in: query, schema: {type: string, enum: [检索使用, 编排绑定], default: 检索使用}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 所有项workspaceId为请求的目标区；resourceId为目录ID，源原生ID和源范围单列。本人纳管ownerAccount须为可信申请人。ID跨页唯一，nextCursor必须显式给出，秘密字段禁止返回。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [resourceId, name, workspaceId, source, sourceSystem, sourceScopeId, sourceResourceId, ownerAccount]
+                      properties:
+                        resourceId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                        workspaceId: {type: string, minLength: 1, maxLength: 200}
+                        source: {type: string, enum: [本人纳管, 已发布共享]}
+                        sourceSystem: {type: string, enum: [Dify, RAGFlow]}
+                        sourceScopeId: {type: string, minLength: 1, maxLength: 200}
+                        sourceResourceId: {type: string, minLength: 1, maxLength: 200}
+                        ownerAccount: {type: string, minLength: 1, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        '400': {description: 目标区或申请权限无效}
+        '403': {description: 无当前目标区或知识库申请资格}
+        '501': {description: UPSTREAM_UNSUPPORTED，私有/共享目录或资格适配尚未实现}
+  /execution-contexts/KB-03:
+    get:
+      operationId: getDatasetBindingContext
+      security: [{bearerAuth: []}]
+      description: 核验同目录ID、目标区、申请权限与身份。本人纳管目录仅本人可用；共享目录必须当前已发布且边界/权限符合。实现方式按来源系统和源/目标区关系推导。必有唯一同目录dataset_catalog非负修订；复制另须指定文档清单ID和对应哈希前置条件。提交、审批及执行前复核，目录/策略变化应更新修订使旧授权失效。秘密字段不得返回。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [bind_dataset]}}
+        - {name: resourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: workspaceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: permission, in: query, schema: {type: string, enum: [检索使用, 编排绑定], default: 检索使用}}
+        - {name: targetAppId, in: query, schema: {type: string, minLength: 1, maxLength: 200}, description: 随应用发布的关联库需匹配目标原生应用，按该应用及目标workspace调用scope=app策略；无匹配上下文不能放行}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 来源、权限和实现方式均为可信脱敏事实。源所有者为当前申请人即办，其余进入运维审批。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshotId, ticketType, action, resourceId, eligible, fields, preconditions]
+                properties:
+                  snapshotId: {type: string, minLength: 1}
+                  ticketType: {type: string, enum: [KB-03]}
+                  action: {type: string, enum: [bind_dataset]}
+                  resourceId: {type: string, minLength: 1}
+                  eligible: {type: boolean, enum: [true]}
+                  fields:
+                    type: object
+                    required: [目录来源, 来源系统, 知识库名称, 源知识库ID, 源所有者账户名, 目标Dify workspace ID, 源workspace/tenant ID, 组织边界, 密级, 业务线, 允许申请权限, 实现方式, 边界匹配结果, policyRef]
+                    properties:
+                      目录来源: {type: string, enum: [本人纳管, 已发布共享]}
+                      来源系统: {type: string, enum: [Dify, RAGFlow]}
+                      知识库名称: {type: string, minLength: 1}
+                      源知识库ID: {type: string, minLength: 1}
+                      源所有者账户名: {type: string, minLength: 1}
+                      目标Dify workspace ID: {type: string, minLength: 1}
+                      源workspace/tenant ID: {type: string, minLength: 1}
+                      组织边界: {type: array, minItems: 1, items: {type: string, minLength: 1}}
+                      密级: {type: string, minLength: 1}
+                      业务线: {type: string, minLength: 1}
+                      允许申请权限: {type: array, minItems: 1, items: {type: string, enum: [检索使用, 编排绑定]}}
+                      实现方式: {type: string, enum: [RAGFlow外部知识库, Dify同workspace授权, Dify跨workspace复制]}
+                      外部知识库API地址: {type: string, format: uri, description: RAGFlow方式必填，可信生成的HTTP/HTTPS地址，无用户凭证/查询串/片段；认证凭证由能力端内部解析，不入工单}
+                      边界匹配结果: {type: string, enum: [符合, 不符合]}
+                      policyRef: {type: string, minLength: 1}
+                      文档清单快照ID: {type: string, minLength: 1}
+                      源文档版本指纹: {type: string, pattern: '^[a-f0-9]{64}$'}
+                  preconditions:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [kind, id]
+                      properties:
+                        kind: {type: string, minLength: 1}
+                        id: {type: string, minLength: 1}
+                        revision: {type: integer, minimum: 0}
+                        version: {type: string}
+                        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        '403': {description: 当前资格/边界/申请权限不满足或他人私有目录}
+        '409': {description: 来源/目标区/实现方式或目录/清单前置条件不完整或变化}
+        '501': {description: UPSTREAM_UNSUPPORTED，真实绑定依据适配尚未实现}
+  /execution-contexts/PLG-03/candidates:
+    get:
+      operationId: listPluginOperationCandidates
+      security: [{bearerAuth: []}]
+      description: 按可信身份、操作及目标区资格返回插件或具体安装实例。安装/升级必须提供本人可配置workspaceId；卸载可省略以发现有清理资格的旧工作区实例，不能因目录下架或批准版本消失而排除旧安装。安装installationId=null，升级/卸载为实际实例ID；相同插件多个实例以resourceId/workspaceId/installationId三元组区分。未实现501，不回退普通目录可见权限。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [install, upgrade, uninstall]}}
+        - {name: operation, in: query, required: true, schema: {type: string, enum: [安装, 升级, 卸载]}}
+        - {name: workspaceId, in: query, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 仅返回脱敏元数据。action与operation必须对应，指定工作区时每行同区。完整分页，nextCursor不能省略，三元组跨页唯一。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [resourceId, name, source, workspaceId, installationId]
+                      properties:
+                        resourceId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                        source: {type: string, minLength: 1, maxLength: 200}
+                        workspaceId: {type: string, minLength: 1, maxLength: 200}
+                        installationId: {type: string, nullable: true, minLength: 1, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        '400': {description: 操作错配或缺少必需工作区}
+        '403': {description: 当前身份没有操作申请资格}
+        '501': {description: UPSTREAM_UNSUPPORTED，插件操作候选或实例发现尚未适配}
+  /execution-contexts/PLG-03:
+    get:
+      operationId: getPluginInstallationOperationContext
+      security: [{bearerAuth: []}]
+      description: 升级/卸载按选中的resourceId、workspaceId、installationId读取准确实例和当前操作资格，不得在同插件多实例中任取一个。升级提供原安装事实及目标批准版本、逐个工单升级策略和目标插件哈希前置条件；卸载版本/指纹必须等于原实例事实，不要求当前目录版本仍存在。安装依据沿用按目标workspaceId读取catalog/plugin详情。提交、审批及执行前复核，执行器原子比较实例修订并作用于该实例。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [upgrade, uninstall]}}
+        - {name: resourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: workspaceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: installationId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 字段及前置条件只含脱敏事实，禁止原始凭证。安装详情另须有效名称、批准版本/哈希及installAccess。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshotId, ticketType, action, resourceId, eligible, fields, preconditions]
+                properties:
+                  snapshotId: {type: string, minLength: 1}
+                  ticketType: {type: string, enum: [PLG-03]}
+                  action: {type: string, enum: [upgrade, uninstall]}
+                  resourceId: {type: string, minLength: 1}
+                  eligible: {type: boolean, enum: [true]}
+                  fields:
+                    type: object
+                    required: [目标Dify workspace ID, 插件名称, 批准版本号, 版本指纹, 安装实例ID, 原安装版本号, 原安装指纹, 权限匹配结果]
+                    properties:
+                      目标Dify workspace ID: {type: string, minLength: 1}
+                      插件名称: {type: string, minLength: 1}
+                      批准版本号: {type: string, minLength: 1}
+                      版本指纹: {type: string, pattern: '^[a-f0-9]{64}$'}
+                      安装实例ID: {type: string, minLength: 1}
+                      原安装版本号: {type: string, minLength: 1}
+                      原安装指纹: {type: string, pattern: '^[a-f0-9]{64}$'}
+                      权限匹配结果: {type: string, enum: [免审, 需审批, 不允许]}
+                      升级策略: {type: string, enum: [逐个工单升级, 仅新安装使用新版本]}
+                  preconditions:
+                    type: array
+                    minItems: 1
+                    description: 恰一条同安装实例的非负修订；升级另需同插件sha256等于目标版本指纹。不能含额外凭证字段。
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [kind, id]
+                      properties:
+                        kind: {type: string}
+                        id: {type: string}
+                        revision: {type: integer, minimum: 0}
+                        version: {type: string}
+                        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        '403': {description: 当前操作申请资格失效}
+        '409': {description: 实例/工作区/插件错配、前置修订歧义、版本或升级策略不满足}
+        '501': {description: UPSTREAM_UNSUPPORTED，真实实例和操作资格适配尚未实现}
+  /execution-contexts/TOL-01/candidates:
+    get:
+      operationId: listToolApprovalCandidates
+      security: [{bearerAuth: []}]
+      description: 统一动作候选接口的TOL-01分支。按可信身份和operation申请资格过滤。首次批准/变更再审必须提供当前可配置workspaceId；撤销可不传工作区，从授权的既有批准登记发现旧工具，不能因产品工具/工作区消失而丢失撤销入口。resourceId为工作区、提供者、原生工具映射的稳定候选标识，不能直接以原生工具ID代替。未实现501，不回退普通应用目录。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [set_tool_approval]}}
+        - {name: operation, in: query, required: true, schema: {type: string, enum: [首次批准, 变更再审, 撤销批准]}}
+        - {name: workspaceId, in: query, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 只返回脱敏候选，完整分页；ID跨页唯一，指定工作区时所有行必须同区。名单不构成执行资格证明。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [resourceId, name, source, workspaceId]
+                      properties:
+                        resourceId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                        source: {type: string, minLength: 1, maxLength: 200}
+                        workspaceId: {type: string, minLength: 1, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        '400': {description: 未知操作或缺少必需工作区}
+        '403': {description: 当前身份无申请资格}
+        '501': {description: UPSTREAM_UNSUPPORTED，工具候选适配尚未实现}
+  /execution-contexts/TOL-01:
+    get:
+      operationId: getToolApprovalContext
+      security: [{bearerAuth: []}]
+      description: 按同一稳定resourceId、workspaceId和operation复核资格并返回工具配置。操作必须回显且eligible=true。首次批准登记修订为0且无原批准工单；变更/撤销修订为正数且有原批准工单。变更必须有原版本、原指纹和脱敏配置差异。批准时再次读取比对fields及preconditions，执行器在写登记前原子核验配置和登记两个前置条件。撤销允许使用批准登记的配置快照；不能伪称已读到当前产品。schema和差异不能包含真实凭证或秘密默认值。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [set_tool_approval]}}
+        - {name: operation, in: query, required: true, schema: {type: string, enum: [首次批准, 变更再审, 撤销批准]}}
+        - {name: resourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: workspaceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 脱敏配置及两个唯一前置条件；fields详细规则见resource-selection.md和总设计TOL-01。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshotId, ticketType, action, operation, eligible, resourceId, fields, preconditions]
+                properties:
+                  snapshotId: {type: string, minLength: 1}
+                  ticketType: {type: string, enum: [TOL-01]}
+                  action: {type: string, enum: [set_tool_approval]}
+                  operation: {type: string, enum: [首次批准, 变更再审, 撤销批准]}
+                  eligible: {type: boolean, enum: [true]}
+                  resourceId: {type: string, minLength: 1}
+                  capturedAt: {type: string, format: date-time}
+                  fields:
+                    type: object
+                    required: [Dify workspace ID, Dify工具ID, Dify工具提供者ID, 工具名称, 工具提供者名称, 配置来源, 工具版本, 工具配置指纹, 输入参数schema, 输出说明]
+                    properties:
+                      配置来源: {type: string, enum: [产品现状, 批准登记]}
+                      工具配置指纹: {type: string, pattern: '^[a-f0-9]{64}$'}
+                      输入参数schema: {type: object}
+                      配置差异:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: false
+                          required: [差异项, 原值摘要, 新值摘要]
+                          properties:
+                            差异项: {type: string}
+                            原值摘要: {type: string}
+                            新值摘要: {type: string}
+                  preconditions:
+                    type: array
+                    minItems: 2
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [kind, id]
+                      properties:
+                        kind: {type: string}
+                        id: {type: string}
+                        revision: {type: integer, minimum: 0}
+                        version: {type: string}
+                        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        '403': {description: 当前身份对请求操作无申请资格}
+        '409': {description: 工具映射、配置、批准登记修订或差异依据不完整或已变化}
+        '501': {description: UPSTREAM_UNSUPPORTED，工具配置/资格/批准登记适配尚未实现}
+  /key-registrations:
+    get:
+      operationId: listKeyRegistrationCandidates
+      security: [{bearerAuth: []}]
+      description: 密钥登记元数据候选，按可信账户/组织/角色和当前轮换或撤销资格过滤。不得从应用可见权限、调用方名称或浏览器账户参数推断资格。只返回有请求动作的active/expired登记，revoked/rotated/reconciling不作为新操作候选。未接入返回501，不用Dify应用目录替代。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [rotate_key, revoke_key]}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 权限过滤后分页。列表不含明文、凭证、密钥哈希、文件路径；product keyId仅详情必填，页面列表代理不会返回。nextCursor必须为下一页游标或null，不能省略分页终点。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  nextCursor: {type: string, nullable: true, minLength: 1, maxLength: 200}
+                  items: {type: array, items: {$ref: '#/components/schemas/KeyRegistrationMetadata'}}
+        '403': {description: 当前身份无读取权限}
+        '501': {description: UPSTREAM_UNSUPPORTED，登记候选适配未实现}
+  /key-registrations/{registrationId}:
+    get:
+      operationId: getKeyRegistrationForAction
+      security: [{bearerAuth: []}]
+      description: 重新校验请求动作的资格并返回登记详情。keyId是Dify密钥对象ID，不能用密钥明文代替。revision约束登记、产品密钥映射及授权配置变化，管理端在KEY-02上下文前后读取并比对。
+      parameters:
+        - {name: registrationId, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: action, in: query, required: true, schema: {type: string, enum: [rotate_key, revoke_key]}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 元数据加必填keyId，绝不包含明文；上下文的应用ID/产品密钥ID/后四位及登记修订必须与此详情相符。工作区从登记读取，若上下文也提供则必须一致。
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/KeyRegistrationMetadata'
+                  - {type: object, required: [keyId]}
+        '403': {description: 状态或身份不允许此动作}
+        '404': {description: 登记不存在或不可见}
+        '501': {description: UPSTREAM_UNSUPPORTED，登记详情适配未实现}
+  /key-registrations/{registrationId}/reveal:
+    post:
+      operationId: revealCreatedKeyOnce
+      security: [{bearerAuth: []}]
+      description: 已有一次性明文通道。仅已批准创建/轮换的申请人，且相应执行成功后可原子消费领取权；登记候选和详情读取绝不自动领取。跨实例重复、过期或重启失去明文时拒绝，不据此自动重建密钥。
+      parameters:
+        - {name: registrationId, in: path, required: true, schema: {type: string}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 仅当前响应展示，禁止日志、工单、审计持久保存。
+          headers:
+            Cache-Control: {schema: {type: string, enum: [no-store]}}
+          content:
+            application/json:
+              schema: {type: object, required: [secret], properties: {secret: {type: string, minLength: 1}}}
+        '404': {description: 登记不存在或无领取权}
+        '409': {description: REVEAL_UNAVAILABLE，已消费、过期或明文已不可用}
+  /workspaces:
+    get:
+      operationId: listSelectableWorkspaces
+      security: [{bearerAuth: []}]
+      description: 按可信服务身份头的账户、组织、角色及产品实际权限列出候选；不能使用浏览器提供的身份。未实现返回501，不返回演示工作区。
+      parameters:
+        - {name: product, in: query, required: true, schema: {type: string, enum: [dify]}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        '200':
+          description: 权限过滤先于分页，只返回工作区标识与显示名称，不包含凭证。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [workspaceId, name]
+                      properties:
+                        workspaceId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, maxLength: 200}
+        '403': {description: 当前身份没有读取权限}
+        '501': {description: UPSTREAM_UNSUPPORTED，工作区适配尚未实现}
+  /resources:
+    get:
+      operationId: listPreApprovalResources
+      security: [{bearerAuth: []}]
+      description: 审批前候选按实际身份权限过滤；Dify对象按指定工作区过滤。此列表不是审批授权或执行依据，提交时管理端必须重新读取可信快照/执行上下文。
+      parameters:
+        - {name: kind, in: query, required: true, schema: {type: string, enum: [dify_app, ragflow_dataset, dify_dataset, mcp_registration, model, skill, plugin]}}
+        - {name: workspaceId, in: query, schema: {type: string, maxLength: 200}}
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        '200':
+          description: 当前范围候选；分页游标不允许重复。旧的完整列表可省略nextCursor，分页实现必须返回下一游标或null。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [resourceId, name, source, workspaceId]
+                      properties:
+                        resourceId: {type: string, minLength: 1, maxLength: 200}
+                        name: {type: string, minLength: 1, maxLength: 200}
+                        source: {type: string, minLength: 1, maxLength: 200}
+                        workspaceId: {type: string, nullable: true, maxLength: 200}
+                  nextCursor: {type: string, nullable: true, maxLength: 200}
+        '403': {description: 当前身份没有读取权限}
+        '501': {description: UPSTREAM_UNSUPPORTED，资源来源尚未接入}
   /capabilities:
     get:
       operationId: listExecutionCapabilities
@@ -42,6 +785,8 @@ paths:
       operationId: submitExecution
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SubjectId'
       requestBody:
         required: true
         content:
@@ -81,9 +826,48 @@ paths:
                 $ref: '#/components/schemas/ExecutionState'
         '404':
           description: 没有这个执行标识
+  /executions/{executionId}/cancel:
+    post:
+      operationId: cancelExecution
+      description: 目标契约，当前本地执行器尚未实现。组件须与交付串行，必要时先调管理端delivery-checks关闭检查；只有确定不会继续产生未确认副作用才可返回cancelled。丢失响应后仍用原ID查询。
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200':
+          description: 当前执行，不能用HTTP成功代替业务取消确认
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExecutionState'}
+        '403': {description: 无服务权限}
+        '404': {description: 原执行或接口不存在，不等于没有副作用}
+        '409': {description: 在途、未知、已发生副作用或已经结束，查询原执行}
+        '501': {description: 部署明确不支持取消}
+        '503': {description: 暂不可用，保持查证}
+  /executions/{executionId}/account-consistency:
+    get:
+      operationId: getAccountConsistency
+      description: 只读查询ACC原执行已完成的产品查证；不得触发补偿。封存、基线与身份修订语义见account-recovery.md。真实执行器尚未实现此扩展，不支持时保留目标限制。
+      security: [{bearerAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+      responses:
+        '200':
+          description: 当前查证证明；仅restored加sealed且逐项匹配审批前基线可用于解锁。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountRestorationProof'}
+        '404': {description: 原执行或查证证明不存在，不能当作无副作用}
+        '501': {description: 部署不支持账号查证，保持限制}
+        '503': {description: 产品查证暂不可用，保持限制}
   /catalog:
     get:
-      operationId: listSkillCatalog
+      operationId: listResourceCatalog
       security:
         - bearerAuth: []
       parameters:
@@ -92,7 +876,15 @@ paths:
           required: true
           schema:
             type: string
-            enum: [skill]
+            enum: [skill, plugin, mcp, agent]
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: workspaceId, in: query, schema: {type: string, maxLength: 200}}
+        - {name: cursor, in: query, schema: {type: string, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - name: action
+          in: query
+          description: agent支持republish/withdraw_app，skill支持withdraw_skill，mcp支持unbind_mcp/isolate_mcp/withdraw_mcp，其他组合400。按可信调用身份的动作申请资格筛选，普通可见/下载/绑定权限不代表处置资格。MCP解绑允许active/isolated/withdrawn，隔离仅active，下架active/isolated。不支持返回501，不回退普通目录。
+          schema: {type: string, enum: [republish, withdraw_app, withdraw_skill, unbind_mcp, isolate_mcp, withdraw_mcp]}
         - name: X-Account
           in: header
           required: true
@@ -105,13 +897,140 @@ paths:
             type: string
       responses:
         '200':
-          description: 当前组织可见的 Skill
+          description: 当前身份可见的目录；管理候选必须在actions中明确包含请求动作。数据结构按种类见能力组件开发第3节。
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CatalogPage'
         '501':
-          description: 除 skill 以外的种类尚未接通
+          description: 当前部署尚未接通的种类或管理候选适配，返回UPSTREAM_UNSUPPORTED
+  /catalog/{kind}/{resourceId}:
+    get:
+      operationId: getCatalogResource
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: kind, in: path, required: true, schema: {type: string, enum: [skill, plugin, mcp, agent]}}
+        - {name: resourceId, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: version, in: query, schema: {type: string}}
+        - name: action
+          in: query
+          description: agent支持republish/withdraw_app，skill支持withdraw_skill，mcp支持unbind_mcp/isolate_mcp/withdraw_mcp，规则与列表一致。详情每次重新检查当前身份资格，actions不能沿用浏览器或旧列表结论。withdraw_skill须有当前data.version且未下架；MCP旧绑定清理可选择有解绑资格的已隔离/下架条目。
+          schema: {type: string, enum: [republish, withdraw_app, withdraw_skill, unbind_mcp, isolate_mcp, withdraw_mcp]}
+        - {name: X-Account, in: header, required: true, schema: {type: string}}
+        - {name: X-Org, in: header, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: 与列表项目结构一致；智能体data含appId/workspaceId，变更再发布还需原publicationVersionId/workflowSnapshotId/policyRef。
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CatalogEntry'}
+        '403': {description: 当前身份无此管理操作资格}
+        '404': {description: 资源不存在或不可见}
+        '501': {description: UPSTREAM_UNSUPPORTED，来源或动作资格适配未实现}
+  /execution-contexts/MCP-03:
+    get:
+      operationId: getMcpDispositionContext
+      security: [{bearerAuth: []}]
+      description: 可信身份的动作申请资格与绑定事实。unbind_mcp省略workspaceId及targetAccount时发现当前身份可申请处置的候选绑定；同时提供二者时读取该目标的完整provider清单。目标参数只选择范围，不改变调用身份或授权。隔离/下架读取动作授权范围内完整受影响清单，不接受用个人绑定子集代替。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [unbind_mcp, isolate_mcp, withdraw_mcp]}}
+        - {name: resourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: workspaceId, in: query, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: targetAccount, in: query, schema: {type: string, minLength: 1, maxLength: 200}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 读取前后核验同一动作资格；绑定清单完整是相对于请求的执行范围。provider可被多个账户共用，必须分别记录绑定。管理端页面不返回providerId，冻结执行时保留原始provider列表。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshotId, ticketType, action, resourceId, fields, preconditions]
+                properties:
+                  snapshotId: {type: string, minLength: 1}
+                  ticketType: {type: string, enum: [MCP-03]}
+                  action: {type: string, enum: [unbind_mcp, isolate_mcp, withdraw_mcp]}
+                  resourceId: {type: string, minLength: 1}
+                  capturedAt: {type: string, format: date-time}
+                  fields:
+                    type: object
+                    required: [绑定清单快照ID, 绑定清单完整, 绑定清单]
+                    properties:
+                      绑定清单快照ID: {type: string, minLength: 1}
+                      绑定清单完整: {type: boolean}
+                      绑定清单:
+                        type: array
+                        uniqueItems: true
+                        items:
+                          type: object
+                          required: [account, workspaceId, providerId]
+                          properties:
+                            account: {type: string, minLength: 1}
+                            workspaceId: {type: string, minLength: 1}
+                            providerId: {type: string, minLength: 1}
+                  preconditions:
+                    type: array
+                    minItems: 1
+                    description: 恰一条kind=mcp且id为本资源的非负目录修订；其他独立条件限kind/id/revision/version/sha256这些已知字段，不允许任意凭证或地址。
+                    items:
+                      type: object
+                      required: [kind, id]
+                      additionalProperties: false
+                      properties:
+                        kind: {type: string}
+                        id: {type: string}
+                        revision: {type: integer, minimum: 0}
+                        version: {type: string}
+                        sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+        '403': {description: 无当前动作申请资格或所选绑定不在范围}
+        '409': {description: 清单不完整、重复绑定或歧义目录修订}
+        '501': {description: UPSTREAM_UNSUPPORTED，资格/绑定清单适配尚未实现}
+  /execution-contexts/SKL-04:
+    get:
+      operationId: getSkillWithdrawalContext
+      security: [{bearerAuth: []}]
+      description: 核验可信调用人对Skill的下架资格，读取当前有效版本、真实历史统计和目录修订。读取前后权限/版本变化时拒绝。不可由普通下载权限推断管理资格；未采集统计不得伪造为0。
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, enum: [withdraw_skill]}}
+        - {name: resourceId, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - $ref: '#/components/parameters/Account'
+        - $ref: '#/components/parameters/Org'
+      responses:
+        '200':
+          description: 不含文件路径或凭证，必须与同一身份的catalog详情当前版本相符。preconditions恰有一条同资源kind=skill的有效目录revision，其他独立条件可额外列出。
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ticketType, action, resourceId, snapshotId, fields, preconditions]
+                properties:
+                  ticketType: {type: string, enum: [SKL-04]}
+                  action: {type: string, enum: [withdraw_skill]}
+                  resourceId: {type: string, minLength: 1}
+                  snapshotId: {type: string, minLength: 1}
+                  capturedAt: {type: string, format: date-time}
+                  fields:
+                    type: object
+                    required: [Skill名称, 当前版本号, 历史下载次数, 历史下载人数]
+                    properties:
+                      Skill名称: {type: string, minLength: 1}
+                      当前版本号: {type: string, minLength: 1}
+                      历史下载次数: {type: integer, minimum: 0}
+                      历史下载人数: {type: integer, minimum: 0}
+                  preconditions:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: object
+                      required: [kind, id]
+                      properties:
+                        kind: {type: string}
+                        id: {type: string}
+                        revision: {type: integer, minimum: 0}
+        '403': {description: 无下架管理资格}
+        '409': {description: 依据不完整、版本变化或目录修订歧义}
+        '501': {description: UPSTREAM_UNSUPPORTED，管理资格/下架依据适配未实现}
   /downloads/{resultId}:
     get:
       operationId: getSkillFile
@@ -121,6 +1040,7 @@ paths:
         - $ref: '#/components/parameters/ResultId'
         - $ref: '#/components/parameters/Account'
         - $ref: '#/components/parameters/Org'
+        - $ref: '#/components/parameters/SubjectId'
       responses:
         '200':
           description: 文件字节
@@ -139,6 +1059,12 @@ paths:
         - $ref: '#/components/parameters/ResultId'
         - $ref: '#/components/parameters/Account'
         - $ref: '#/components/parameters/Org'
+        - $ref: '#/components/parameters/SubjectId'
+        - name: X-Receipt-Mode
+          in: header
+          required: false
+          description: server-settlement仅表示管理端对已完整发送字节结算，必须校验服务身份、原流水绑定、摘要及字节数，不能授权新的文件读取。此扩展需部署核验。
+          schema: {type: string, enum: [server-settlement]}
       requestBody:
         required: true
         content:
@@ -160,6 +1086,12 @@ components:
       type: http
       scheme: bearer
   parameters:
+    SubjectId:
+      name: X-Subject-Id
+      in: header
+      required: false
+      description: 管理端从可信身份登记生成的稳定人员ID；部署支持后必须与原执行绑定及当前身份映射核对，不能仅凭此头认定有权。旧部署不能用新头绕过原账户/组织检查。
+      schema: {type: string}
     ExecutionId:
       name: executionId
       in: path
@@ -185,6 +1117,126 @@ components:
       schema:
         type: string
   schemas:
+    AgentImpact:
+      type: object
+      additionalProperties: false
+      description: 目录/原生应用/工作区必须完全匹配。capturedAt为UTC，采集不超过5分钟，未来偏差不超过5秒。三组collected表示已读完权威清单，缺采集必须unavailable。组修订覆盖完整成员/配置及权限事实变化。
+      required: [resourceId, appId, workspaceId, snapshotId, capturedAt, grants, keys, dependencies, calls30d]
+      properties:
+        resourceId: {type: string, minLength: 1, maxLength: 200}
+        appId: {type: string, minLength: 1, maxLength: 200}
+        workspaceId: {type: string, minLength: 1, maxLength: 200}
+        snapshotId: {type: string, minLength: 1, maxLength: 200}
+        capturedAt: {type: string, format: date-time}
+        grants: {$ref: '#/components/schemas/AgentImpactIds'}
+        keys: {$ref: '#/components/schemas/AgentImpactIds'}
+        dependencies:
+          oneOf:
+            - $ref: '#/components/schemas/UncollectedAgentImpact'
+            - type: object
+              additionalProperties: false
+              required: [state, count, revision, items]
+              properties:
+                state: {type: string, enum: [collected]}
+                count: {type: integer, minimum: 0, description: 必须等于完整items长度}
+                revision: {type: integer, minimum: 0}
+                items:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [kind, id, name, change, approved, externalAllowed, fingerprint]
+                    properties:
+                      kind: {type: string, enum: [tool, plugin, mcp, dataset, skill]}
+                      id: {type: string, minLength: 1, maxLength: 200}
+                      name: {type: string, minLength: 1, maxLength: 200}
+                      change: {type: string, enum: [added, removed, changed, unchanged]}
+                      approved: {type: boolean}
+                      externalAllowed: {type: boolean}
+                      fingerprint: {type: string, pattern: '^[a-f0-9]{64}$'}
+        calls30d:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [state, count, from, to, source]
+              properties:
+                state: {type: string, enum: [collected]}
+                count: {type: integer, minimum: 0}
+                from: {type: string, format: date-time}
+                to: {type: string, format: date-time, description: UTC窗口恰30天，结束不晚于capturedAt且相差最多5分钟}
+                source: {type: string, minLength: 1, maxLength: 200, description: 真实采集渠道及成功/失败/超时去重口径，禁止凭证}
+            - type: object
+              additionalProperties: false
+              required: [state, count, from, to, reasonCode]
+              properties:
+                state: {type: string, enum: [unavailable]}
+                count: {type: integer, nullable: true, enum: [null]}
+                from: {type: string, nullable: true, enum: [null]}
+                to: {type: string, nullable: true, enum: [null]}
+                reasonCode: {type: string, minLength: 1, maxLength: 200}
+    AgentImpactIds:
+      oneOf:
+        - $ref: '#/components/schemas/UncollectedAgentImpact'
+        - type: object
+          additionalProperties: false
+          required: [state, count, revision, items]
+          properties:
+            state: {type: string, enum: [collected]}
+            count: {type: integer, minimum: 0, description: 等于完整items长度，0只允许权威来源确认为空}
+            revision: {type: integer, minimum: 0}
+            items: {type: array, uniqueItems: true, items: {type: string, minLength: 1, maxLength: 200}, description: grants为有效授权登记ID，keys为有效密钥登记ID，禁止密钥原文/产品秘密}
+    UncollectedAgentImpact:
+      type: object
+      additionalProperties: false
+      required: [state, count, revision, items, reasonCode]
+      properties:
+        state: {type: string, enum: [unavailable]}
+        count: {type: integer, nullable: true, enum: [null]}
+        revision: {type: integer, nullable: true, enum: [null]}
+        items: {type: array, nullable: true, enum: [null], items: {}}
+        reasonCode: {type: string, minLength: 1, maxLength: 200}
+    AccountRecoveryBaseline:
+      type: object
+      additionalProperties: false
+      description: ACC execution-contexts可选返回recoveryBaseline；缺失时允许原流程但禁止安全解锁。提交与批准必须完全一致。只含脱敏原产品事实。
+      required: [ragflow, dify]
+      properties:
+        ragflow:
+          type: object
+          additionalProperties: false
+          required: [accountId, account, active, permission]
+          properties:
+            accountId: {type: string, nullable: true}
+            account: {type: string}
+            active: {type: boolean}
+            permission: {type: string, nullable: true, enum: ['个人', '团队成员', '管理员', null]}
+        dify:
+          type: object
+          additionalProperties: false
+          required: [accountId, workspaceId, account, active, role]
+          properties:
+            accountId: {type: string, nullable: true}
+            workspaceId: {type: string, nullable: true}
+            account: {type: string}
+            active: {type: boolean}
+            role: {type: string, nullable: true, enum: ['成员', '编辑', '管理员', null]}
+    AccountRestorationProof:
+      type: object
+      additionalProperties: false
+      required: [proofId, executionId, ticketNo, subjectId, identityRevision, productMappingRevision, executionStatus, sealed, outcome, checkedAt, products]
+      properties:
+        proofId: {type: string, minLength: 1, maxLength: 160}
+        executionId: {type: string}
+        ticketNo: {type: string}
+        subjectId: {type: string}
+        identityRevision: {type: integer}
+        productMappingRevision: {type: integer}
+        executionStatus: {type: string, enum: [failed, reconciling]}
+        sealed: {type: boolean}
+        outcome: {type: string, enum: [restored, partial, unknown]}
+        checkedAt: {type: string, format: date-time}
+        products:
+          $ref: '#/components/schemas/AccountRecoveryBaseline'
     ExecutionRequest:
       type: "object"
       required: ["executionId", "ticketNo", "ticketType", "ticketTypeVersion", "action", "resourceId", "account", "org", "payload"]
@@ -308,8 +1360,9 @@ components:
       properties: {"version": {"type": "string"}, "sha256": {"type": "string"}, "workspaceId": {"type": "string"}}
     BindPayload:
       type: "object"
+      description: 选择目标应用时必须同时传targetAppId和decisionRef；执行器按decisionRef读取获准输入及application_target前置条件，核对同一原生应用和工作区并原子复核后配置。省略目标应用保持仅绑定到工作区的既有语义。
       required: ["workspaceId", "startsAt", "expiresAt", "expectedUrlFingerprint"]
-      properties: {"workspaceId": {"type": "string"}, "startsAt": {"type": "string"}, "expiresAt": {"type": "string"}, "expectedUrlFingerprint": {"type": "string"}, "targetAppId": {"type": "string"}}
+      properties: {"workspaceId": {"type": "string"}, "startsAt": {"type": "string"}, "expiresAt": {"type": "string"}, "expectedUrlFingerprint": {"type": "string"}, "targetAppId": {"type": "string"}, "decisionRef": {"type": "string"}}
     PublishPayload:
       type: "object"
       required: ["snapshotId", "workspaceId", "publicationVersionId", "expectedRevision", "scope", "targetOrgs", "targetAccounts", "boundaryOrgs", "usages"]
@@ -325,18 +1378,23 @@ components:
           pattern: '^[a-f0-9]{64}$'
     ExecutionState:
       type: object
+      description: 严格结构与状态组合见execution-response.md。管理端不补猜执行ID/工单号/时间或结果；终态与交付绑定须匹配原冻结命令。
       required: [executionId, ticketNo, status, updatedAt, delivery, result]
       properties:
         executionId:
           type: string
+          minLength: 1
+          maxLength: 160
         ticketNo:
           type: string
+          minLength: 1
         status:
           type: string
           enum: [queued, running, awaiting_delivery, reconciling, succeeded, failed, cancelled]
         updatedAt:
           type: string
           format: date-time
+          description: UTC RFC3339，Z或+00:00，最多三位毫秒，不得相对已有有效状态倒退
         delivery:
           $ref: '#/components/schemas/Delivery'
         result:
@@ -348,16 +1406,25 @@ components:
       properties:
         resultId:
           type: string
+          minLength: 1
+          maxLength: 160
+          pattern: '^[A-Za-z0-9_-]+$'
         version:
           type: string
         sha256:
           type: string
         filename:
           type: string
+          minLength: 1
+          maxLength: 255
+          description: 不含路径分隔符和控制字符
         contentType:
           type: string
+          maxLength: 255
         sizeBytes:
           type: integer
+          minimum: 0
+          maximum: 9007199254740991
     ExecutionResult:
       nullable: true
       type: object
@@ -380,9 +1447,29 @@ components:
         details:
           type: object
           properties:
+            values:
+              type: object
+              description: Action-specific result fields; KB-04 must include the verified new catalogue state.
             deliveredAt:
               type: string
               format: date-time
+    KeyRegistrationMetadata:
+      type: object
+      additionalProperties: false
+      required: [registrationId, appId, workspaceId, lastFour, status, revision, actions]
+      properties:
+        registrationId: {type: string, minLength: 1, maxLength: 200}
+        appId: {type: string, minLength: 1, maxLength: 200}
+        workspaceId: {type: string, minLength: 1, maxLength: 200}
+        keyId: {type: string, minLength: 1, maxLength: 200}
+        lastFour: {type: string, minLength: 4, maxLength: 4}
+        status: {type: string, enum: [active, expired, revoked, rotated, reconciling]}
+        revision: {type: integer, minimum: 0}
+        actions: {type: array, uniqueItems: true, items: {type: string, enum: [rotate_key, revoke_key]}}
+        appName: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        callerName: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        callerOrg: {type: string, nullable: true, minLength: 1, maxLength: 200}
+        environment: {type: string, nullable: true, minLength: 1, maxLength: 200}
     CatalogPage:
       type: object
       required: [items, nextCursor]
@@ -392,29 +1479,45 @@ components:
         items:
           type: array
           items:
-            type: object
-            required: [resourceId, name, status, actions, data]
-            properties:
-              resourceId:
-                type: string
-              name:
-                type: string
-              status:
-                type: string
-              actions:
-                type: array
-                items:
-                  type: string
-              data:
-                type: object
-                required: [version, sha256, sizeBytes]
-                properties:
-                  version:
-                    type: string
-                  sha256:
-                    type: string
-                  sizeBytes:
-                    type: integer
+            $ref: '#/components/schemas/CatalogEntry'
+    CatalogEntry:
+      type: object
+      required: [resourceId, name, status, actions, data]
+      properties:
+        resourceId: {type: string, minLength: 1, maxLength: 200}
+        name: {type: string}
+        status: {type: string}
+        actions:
+          type: array
+          uniqueItems: true
+          description: 当前调用身份可用动作。智能体管理资格只接受明确的republish/withdraw_app；可见或可运行不代表有管理资格。
+          items: {type: string}
+        data:
+          type: object
+          description: 按能力组件开发第3节的种类结构返回；Skill仍须version/sha256/sizeBytes，智能体须appId/workspaceId，管理场景须原版本与流程依据。不得返回凭证。
+          anyOf:
+            - type: object
+              required: [version, sha256, sizeBytes]
+              properties:
+                version: {type: string}
+                sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+                sizeBytes: {type: integer, minimum: 0}
+            - type: object
+              required: [version, sha256, uniqueIdentifier]
+              properties:
+                version: {type: string}
+                sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+                uniqueIdentifier: {type: string}
+            - type: object
+              required: [transport, toolNames]
+              properties:
+                transport: {type: string}
+                toolNames: {type: array, items: {type: string}}
+            - type: object
+              required: [appId, workspaceId]
+              properties:
+                appId: {type: string}
+                workspaceId: {type: string}
     Receipt:
       type: object
       required: [sha256, bytesSent]

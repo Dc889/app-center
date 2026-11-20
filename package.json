@@ -6,10 +6,14 @@
   "scripts": {
     "dev": "vite",
     "service": "node dev/services.mjs",
-    "test:integration": "node --test tests/integration/*.test.mjs",
+    "test:integration": "node dev/test-modules.mjs integration",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:module": "node dev/test-modules.mjs module",
+    "test:browser": "node dev/test-modules.mjs browser",
+    "check:boundaries": "node dev/check-boundaries.mjs",
+    "check": "npm run check:boundaries && npm run lint && npm run build && npm run test:integration"
   },
   "dependencies": {
     "lucide-react": "^1.73.0",

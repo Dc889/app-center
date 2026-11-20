@@ -3,6 +3,7 @@
 | 提供方 | 调用方 | 接口与当前范围 |
 | --- | --- | --- |
 | 管理系统 | 能力组件 | [获准输入回调](management-api/openapi.json) |
+| 管理系统内部 | 业务模块 / 平台层 | [管理端内部跨模块契约](management-modules/README.md)与[模块清单](management-modules/module-manifest.md) |
 | 能力组件 | 管理系统 | [执行、查询、目录、取文件和回执](capability-api/openapi.yaml)，[动作登记](capability-api/actions.json)覆盖 27 种工单，EVT-01 对应空动作列表 |
 | Skill 仓库 | 能力组件 | [目录、预约交付、文件和回执](repository-api/skill.openapi.yaml) |
 | 其他三个仓库 | 能力组件 | [插件样例包](repository-api/plugin.openapi.json)、[MCP 只读目录](repository-api/mcp.openapi.json)、[智能体只读目录](repository-api/agent.openapi.json) |

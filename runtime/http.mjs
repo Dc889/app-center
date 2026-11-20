@@ -13,7 +13,7 @@ export class ApiError extends Error {
 export function check(condition, status, code, message = code) {
   if (!condition) throw new ApiError(status, code, message)
 }
-export function ledger(dir, name) {
+export function ledger(dir, name, actorSnapshot) {
   mkdirSync(dir, { recursive: true })
   const db = new DatabaseSync(join(dir, name + '.sqlite'))
   db.exec('PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, body TEXT NOT NULL)')
@@ -21,12 +21,35 @@ export function ledger(dir, name) {
   const write = db.prepare('INSERT INTO records VALUES (?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body')
   return {
     get(key) { const row = read.get(key); return row && JSON.parse(row.body) },
-    put(key, value) { write.run(key, JSON.stringify(value)); return value },
+    put(key, value) {
+      if(actorSnapshot && Array.isArray(value.history)) {
+        const previous=read.get(key)
+        const before=previous?JSON.parse(previous.body):null
+        const history=before?.history ?? []
+        check(value.history.length>=history.length && same(value.history.slice(0,history.length),history),409,'AUDIT_HISTORY_IMMUTABLE')
+        const summary=row=>{
+          const fields=Object.fromEntries(['status','revision','version','draft','enabled'].filter(k=>['string','number','boolean'].includes(typeof row?.[k])).map(k=>[k,row[k]]))
+          return Object.keys(fields).length?JSON.stringify(fields):null
+        }
+        value={...value,history:[...history,...value.history.slice(history.length).map(event=>({...event,beforeSummary:summary(before),afterSummary:summary(value),...actorSnapshot(event.actor)}))]}
+      }
+      write.run(key, JSON.stringify(value));return value
+    },
     all() { return db.prepare('SELECT body FROM records').all().map(row => JSON.parse(row.body)) },
+    transaction(fn) {
+      db.exec('BEGIN IMMEDIATE')
+      try {const value=fn();db.exec('COMMIT');return value}
+      catch(error){db.exec('ROLLBACK');throw error}
+    },
     close() { db.close() },
   }
 }
-export async function body(req) {
+const parsedBodies=new WeakMap()
+export function body(req) {
+  if(!parsedBodies.has(req))parsedBodies.set(req,readBody(req))
+  return parsedBodies.get(req)
+}
+async function readBody(req) {
   const chunks = []
   let length = 0
   for await (const chunk of req) {

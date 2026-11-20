@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { body, check, client, json, ledger, listen, prefix, same } from '../../runtime/http.mjs'
 import { installPlugin, installed } from '../adapters/dify-install.mjs'
+import {
+  createDifyApiKey,
+  rotateDifyApiKey,
+  revokeDifyApiKey,
+  syncDifyApp,
+  publishDifyApp,
+  withdrawDifyApp,
+} from '../adapters/dify-adapter.mjs'
 
 const actions = JSON.parse(readFileSync(new URL('../../contracts/capability-api/actions.json',import.meta.url),'utf8'))
 const stamp = () => new Date().toISOString()
@@ -37,6 +45,112 @@ export function startExecutor(options) {
         store.put(command.executionId,row)
         row.productTask = await installPlugin(command,plugin)
         // Acceptance alone does not establish that the specified version is installed.
+      } else if (command.action === 'create_key') {
+        const keyInfo = await createDifyApiKey(command)
+        state.status = 'succeeded'
+        state.result = {
+          ok: true,
+          failureCode: '',
+          failureReason: '',
+          retryable: false,
+          resultId: keyInfo.keyId,
+          version: '1',
+          sha256: '',
+          details: {
+            'Dify密钥ID': keyInfo.keyId,
+            '密钥后四位': keyInfo.lastFour,
+            'Dify API地址': keyInfo.apiBase,
+            '密钥登记ID': keyInfo.keyId,
+            'registrationId': keyInfo.keyId,
+            secret: keyInfo.secret,
+          },
+        }
+      } else if (command.action === 'rotate_key') {
+        const keyInfo = await rotateDifyApiKey(command)
+        state.status = 'succeeded'
+        state.result = {
+          ok: true,
+          failureCode: '',
+          failureReason: '',
+          retryable: false,
+          resultId: keyInfo.keyId,
+          version: '2',
+          sha256: '',
+          details: {
+            '新Dify密钥ID': keyInfo.keyId,
+            '新密钥后四位': keyInfo.lastFour,
+            '旧密钥撤销结果': '成功撤销',
+            'Dify API地址': keyInfo.apiBase,
+            '新密钥登记ID': keyInfo.keyId,
+            'registrationId': keyInfo.keyId,
+            secret: keyInfo.secret,
+          },
+        }
+      } else if (command.action === 'revoke_key') {
+        const revokeInfo = await revokeDifyApiKey(command)
+        state.status = 'succeeded'
+        state.result = {
+          ok: true,
+          failureCode: '',
+          failureReason: '',
+          retryable: false,
+          resultId: revokeInfo.keyId,
+          version: '',
+          sha256: '',
+          details: {
+            '旧密钥撤销结果': '成功撤销',
+            status: '已撤销',
+          },
+        }
+      } else if (command.action === 'sync_app') {
+        const appInfo = await syncDifyApp(command)
+        state.status = 'succeeded'
+        state.result = {
+          ok: true,
+          failureCode: '',
+          failureReason: '',
+          retryable: false,
+          resultId: appInfo.appId,
+          version: 'v1.0.0',
+          sha256: '',
+          details: {
+            appId: appInfo.appId,
+            name: appInfo.name,
+            status: '已纳管',
+          },
+        }
+      } else if (command.action === 'publish') {
+        const pubInfo = await publishDifyApp(command)
+        state.status = 'succeeded'
+        state.result = {
+          ok: true,
+          failureCode: '',
+          failureReason: '',
+          retryable: false,
+          resultId: pubInfo.resourceId,
+          version: pubInfo.versionId,
+          sha256: '',
+          details: {
+            status: '已发布',
+            scope: pubInfo.scope,
+          },
+        }
+      } else if (command.action === 'withdraw_app') {
+        const withdrawInfo = await withdrawDifyApp(command)
+        state.status = 'succeeded'
+        state.result = {
+          ok: true,
+          failureCode: '',
+          failureReason: '',
+          retryable: false,
+          resultId: withdrawInfo.resourceId,
+          version: '',
+          sha256: '',
+          details: {
+            status: '已下架',
+            withdrawnAt: withdrawInfo.withdrawnAt,
+          },
+        }
       } else {
         state.status = 'failed'
         state.result = failure('UPSTREAM_UNSUPPORTED','无法自动执行：此动作尚未接入')
