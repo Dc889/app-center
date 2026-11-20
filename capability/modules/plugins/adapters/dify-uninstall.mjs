@@ -1,5 +1,5 @@
 import {check} from '../../../../runtime/http.mjs'
-import {pluginConsole, listInstalledPlugins, verifyPluginWorkspace} from './dify-client.mjs'
+import {pluginConsole, listInstalledPlugins} from './dify-client.mjs'
 
 export async function uninstallDifyPlugin({productInstallationId, workspaceId, uniqueIdentifier}) {
   check(typeof productInstallationId === 'string' && productInstallationId && typeof uniqueIdentifier === 'string' && uniqueIdentifier,
@@ -19,14 +19,6 @@ export async function uninstallDifyPlugin({productInstallationId, workspaceId, u
 }
 
 export async function setDifyPluginState({productInstallationId, workspaceId, action}) {
-  check(productInstallationId && ['disable_plugin', 'restore_plugin'].includes(action), 501, 'UPSTREAM_UNSUPPORTED', '缺少已核验的原生状态切换支持')
-  await verifyPluginWorkspace(workspaceId)
-  try {
-    const result = await pluginConsole('/plugin/' + (action === 'disable_plugin' ? 'disable' : 'enable'), {method: 'POST', body: {plugin_installation_id: productInstallationId}})
-    check(result.success === true, 502, 'PLUGIN_STATE_CHANGE_FAILED', '产品没有确认插件状态变化')
-  } catch (error) {
-    if ([404, 405].includes(error.status)) check(false, 501, 'UPSTREAM_UNSUPPORTED', '当前 Dify 版本没有通用插件停用/恢复接口')
-    throw error
-  }
-  return {productInstallationId, workspaceId, state: action === 'disable_plugin' ? '已禁用' : '已启用', mode: 'dify'}
+  check(productInstallationId && workspaceId && ['disable_plugin', 'restore_plugin'].includes(action), 501, 'UPSTREAM_UNSUPPORTED', '缺少已核验的原生状态切换支持')
+  check(false, 501, 'UPSTREAM_UNSUPPORTED', 'Dify 1.7.1 没有通用插件停用/恢复接口，实际调用阻断适配器尚未实现')
 }

@@ -171,7 +171,7 @@ test('plugins 资源候选与目录读取', async () => {
   assert.equal(detailResult.resourceId, 'document-parser')
 })
 
-test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更再审、升级对账、禁用恢复与卸载', async t => {
+test('PLG-01~03生命周期与PLG-04未实现状态控制的明确拒绝', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'plugins-lifecycle-'))
   seedRepositoryFixtures(dir)
   const pluginRepo = await startPlugin({dir, token: 'tok'})
@@ -413,10 +413,10 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
   assert.equal(upgDone.status, 'succeeded')
   assert.equal(upgDone.result.version, '2.0.0')
 
-  // 6. CAP-PLG-06: PLG-04 禁用与恢复
+  // 6. PLG-04 未实现真实调用控制，不能以模拟端点或本地状态冒充成功
   const disCtx = await (await fetch(server.url + '/internal/v1/execution-contexts/PLG-04?action=disable_plugin&resourceId=chart-gen&workspaceId=ws-p', {headers: hdr()})).json()
-  assert.equal(disCtx.fields['定向操作能力'], 'verified')
-  assert.equal(disCtx.fields['实例状态'], '已启用')
+  assert.equal(disCtx.fields['定向操作能力'], 'unsupported')
+  assert.equal(disCtx.fields['实例状态'], '未知')
   approvedInputs.set('exec-plg-dis', {
     decisionRef: 'dec-plg-dis',
     ticketType: 'PLG-04',
@@ -436,11 +436,10 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     org: '系统服务',
     payload: {decisionRef: 'dec-plg-dis'},
   })
-  assert.equal(disRes.status, 'succeeded')
-  assert.equal(disRes.result.details.values['插件状态'], '已禁用')
+  assert.equal(disRes.status, 'failed')
 
   const restCtx = await (await fetch(server.url + '/internal/v1/execution-contexts/PLG-04?action=restore_plugin&resourceId=chart-gen&workspaceId=ws-p', {headers: hdr()})).json()
-  assert.equal(restCtx.fields['实例状态'], '已禁用')
+  assert.equal(restCtx.fields['实例状态'], '未知')
   approvedInputs.set('exec-plg-rest', {
     decisionRef: 'dec-plg-rest',
     ticketType: 'PLG-04',
@@ -460,8 +459,7 @@ test('PLG-01~04 全生命周期：上传解析、上架、安装对账、变更�
     org: '系统服务',
     payload: {decisionRef: 'dec-plg-rest'},
   })
-  assert.equal(restRes.status, 'succeeded')
-  assert.equal(restRes.result.details.values['插件状态'], '已启用')
+  assert.equal(restRes.status, 'failed')
 
   // 7. CAP-PLG-05: PLG-03 卸载
   const unCtx = await (

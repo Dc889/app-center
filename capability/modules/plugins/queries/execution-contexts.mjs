@@ -115,8 +115,9 @@ export async function plg04Context({res, query, openLedger}) {
 
   const instDb = openLedger('installations')
   const inst = findInstallation(instDb, {resourceId, workspaceId})
-  const capable = Boolean(inst && inst.status !== '已卸载')
-  const preconditions = capable ? [{kind: 'plugin_installation', id: inst.installationId, revision: inst.revision}] : []
+  // An installed package is not evidence of an invocation control mechanism.
+  // No supported generic state-control adapter exists for this Dify deployment yet.
+  const preconditions = []
   const nowIso = new Date().toISOString()
 
   const fields = {
@@ -124,21 +125,19 @@ export async function plg04Context({res, query, openLedger}) {
     '插件名称': inst?.pluginName ?? resourceId,
     '版本号': inst?.version ?? 'unknown',
     '禁用周期ID': inst?.disableCycleId ?? `cycle-${workspaceId}-${resourceId}`,
-    '定向操作能力': capable ? 'verified' : 'unsupported',
-    '实例状态': capable ? inst.status : '未知',
-    '安装实例ID': capable ? inst.installationId : null,
+    '定向操作能力': 'unsupported',
+    '实例状态': '未知',
+    '安装实例ID': null,
   }
   if (sourceEventId) {
     const alert = openLedger('alerts').get(sourceEventId)
-    if (alert) Object.assign(fields, alert)
+    check(alert, 404, 'PLUGIN_ALERT_NOT_FOUND', '没有本次告警的实际采集记录')
+    check(alert.resourceId === resourceId && alert.workspaceId === workspaceId, 409, 'PLUGIN_ALERT_SCOPE_MISMATCH')
+    for (const key of ['触发规则', '统计窗口', '统计数据完整', '证据日志']) if (Object.hasOwn(alert, key)) fields[key] = alert[key]
     fields['告警ID'] = sourceEventId
   }
   if (observationExecutionId) {
-    fields['观察执行ID'] = observationExecutionId
-    fields['观察区间开始'] = query.get('observeFrom') || nowIso
-    fields['观察覆盖截止'] = query.get('observeUntil') || nowIso
-    fields['观察结论'] = '通过'
-    fields['观察数据完整'] = true
+    check(false, 503, 'PLUGIN_OBSERVATION_UNAVAILABLE', '尚无实际恢复后观察采集，查询参数不能生成观察通过结论')
   }
 
   return json(res, {
@@ -146,6 +145,8 @@ export async function plg04Context({res, query, openLedger}) {
     ticketType: 'PLG-04',
     action,
     resourceId,
+    eligible: false,
+    reasonCode: 'PLUGIN_STATE_CONTROL_UNIMPLEMENTED',
     capturedAt: nowIso,
     fields,
     preconditions,
