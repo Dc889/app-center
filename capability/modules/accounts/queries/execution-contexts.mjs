@@ -54,13 +54,14 @@ export async function accountContext(ctx, ticketType) {
   })
 
   const currentAccount = profile.account
-  check([ragAccount, difyAccount].every(row => !row || !row.account || row.account === currentAccount),
-    409, 'ACCOUNT_NAME_DRIFT', '产品账户名与可信人员目录不一致')
   const resolvedWorkspaceId = effectiveWorkspaceId ?? difyAccount?.workspaceId ?? null
 
-  const candidateName = ticketType === 'ACC-02' ? newAccount : currentAccount
-  const ragUnique = isNameUnique(ragUsers, candidateName, ragAccount?.accountId ?? null)
-  const difyUnique = isNameUnique(difyMembers, candidateName, difyAccount?.accountId ?? null)
+  const ragUnique = ticketType === 'ACC-02'
+    ? Boolean(ragAccount?.accountId)
+    : isNameUnique(ragUsers, ragAccount?.account ?? currentAccount, ragAccount?.accountId ?? null)
+  const difyUnique = ticketType === 'ACC-02'
+    ? Boolean(difyAccount?.accountId)
+    : isNameUnique(difyMembers, difyAccount?.account ?? currentAccount, difyAccount?.accountId ?? null)
 
   const baseline = buildBaselineFact({
     ragAccount,
@@ -69,10 +70,10 @@ export async function accountContext(ctx, ticketType) {
     workspaceId: resolvedWorkspaceId,
   })
 
-  const hasConsistentNames = baseline.ragflow.account === baseline.dify.account && Boolean(baseline.ragflow.account)
+  const hasProductAccounts = Boolean(baseline.ragflow.account) && Boolean(baseline.dify.account)
   const ragKnown = baseline.ragflow.accountId === null ? baseline.ragflow.active === false : Boolean(baseline.ragflow.permission)
   const difyKnown = baseline.dify.accountId === null ? baseline.dify.active === false : Boolean(baseline.dify.role)
-  const recoveryBaseline = hasConsistentNames && ragKnown && difyKnown ? baseline : undefined
+  const recoveryBaseline = hasProductAccounts && ragKnown && difyKnown ? baseline : undefined
 
   const fields = {
     目标人员ID: subjectId,

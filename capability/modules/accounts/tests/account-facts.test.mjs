@@ -72,14 +72,19 @@ test('Dify必须GET核对实际工作区，不能把错误工作区参数盖在�
   actual = 'ws'; assert.deepEqual(await listDifyMembers('ws'), []); assert.equal(reads, 1)
 })
 
-test('原生显示名/邮箱与产品账户名分开；映射不能制造产品当前账户名', async t => {
-  await upstream(t, (_req, res, path) => json(res, path.endsWith('/current') ? {id: 'ws'}
-    : {accounts: [{id: 'native-person', name: 'display-name', email: 'login@example.invalid', status: 'active', role: 'normal'}]}))
+test('原生登录邮箱作为产品登录标识；显示名与映射不能制造产品登录标识', async t => {
+  let rows = [{id: 'native-person', name: 'display-name', email: 'login@example.invalid', status: 'active', role: 'normal'}]
+  await upstream(t, (_req, res, path) => json(res, path.endsWith('/current') ? {id: 'ws'} : {accounts: rows}))
   process.env.DIFY_ACCOUNT_IDENTITY_MAP = JSON.stringify({'native-person': {subjectId: 'stable-person', account: 'fabricated'}})
-  const [row] = await listDifyMembers('ws')
-  assert.equal(row.subjectId, 'stable-person'); assert.equal(row.account, null)
-  assert.equal(row.displayName, 'display-name'); assert.equal(row.loginEmail, 'login@example.invalid')
-  assert.throws(() => buildBaselineFact({difyAccount: row, workspaceId: 'ws'}), {code: 'INCOMPLETE_ACCOUNT_FACTS'})
+  const [withEmail] = await listDifyMembers('ws')
+  assert.equal(withEmail.subjectId, 'stable-person'); assert.equal(withEmail.account, 'login@example.invalid')
+  assert.equal(withEmail.displayName, 'display-name'); assert.equal(withEmail.loginEmail, 'login@example.invalid')
+  assert.equal(buildBaselineFact({difyAccount: withEmail, workspaceId: 'ws'}).dify.account, 'login@example.invalid')
+
+  rows = [{id: 'native-person', name: 'display-name', status: 'active', role: 'normal'}]
+  const [noEmail] = await listDifyMembers('ws')
+  assert.equal(noEmail.subjectId, 'stable-person'); assert.equal(noEmail.account, null)
+  assert.throws(() => buildBaselineFact({difyAccount: noEmail, workspaceId: 'ws'}), {code: 'INCOMPLETE_ACCOUNT_FACTS'})
 })
 
 test('可能已写入的超时/5xx不能因当前读回等于基线就自动补偿或封存', async t => {

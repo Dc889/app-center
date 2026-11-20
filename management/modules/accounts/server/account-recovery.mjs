@@ -4,10 +4,9 @@ import {check,same} from '../../../../runtime/http.mjs'
 export function recoveryBaseline(value,fields) {
   if(value===undefined)return null // Old deployments remain usable, but cannot unlock.
   const r=value?.ragflow,d=value?.dify
-  const valid=(p,permission,allowed)=>p && typeof p.account==='string' && typeof p.active==='boolean' &&
+  const valid=(p,permission,allowed)=>p && typeof p.account==='string' && p.account.trim().length>0 && typeof p.active==='boolean' &&
     (p.accountId===null? p.active===false && p[permission]===null:typeof p.accountId==='string' && p.accountId && allowed.includes(p[permission]))
   check(valid(r,'permission',['个人','团队成员','管理员']) && valid(d,'role',['成员','编辑','管理员']) &&
-    r.account===fields['当前账户名'] && d.account===r.account &&
     r.accountId===fields['RAGFlow账户ID'] && d.accountId===fields['Dify账户ID'] && d.workspaceId===fields['Dify workspace ID'] &&
     (r.accountId===null || r.permission===fields['当前RAGFlow权限']) && (d.accountId===null || d.role===fields['当前Dify workspace角色']),409,'INVALID_RECOVERY_BASELINE')
   return {ragflow:{accountId:r.accountId,account:r.account,active:r.active,permission:r.permission},

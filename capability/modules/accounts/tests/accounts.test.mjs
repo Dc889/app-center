@@ -56,7 +56,7 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
       const user = {
         id: `rag-u-${nextId++}`,
         subjectId: payload.subjectId,
-        account: payload.account,
+        email: `${payload.account}@local.dev`,
         permission: payload.permission,
         active: payload.active ?? true,
       }
@@ -91,7 +91,7 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
       const member = {
         id: `dify-u-${nextId++}`,
         subjectId: payload.subjectId,
-        account: payload.account,
+        email: `${payload.account}@local.dev`,
         workspaceId: payload.workspaceId,
         role: payload.role,
         active: payload.active ?? true,
@@ -241,30 +241,33 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   const detailRes = await (await call('/catalog/account/person-chen')).json()
   assert.equal(detailRes.data.ragflowPermission, '团队成员')
 
-  // 3. ACC-02 改名上下文（获取最新审批前基线）
+  // 3. ACC-02 改名上下文（获取最新审批前基线：产品侧保留登录邮箱，不要求等于平台账户名）
   const ctxRename = await (
     await call('/execution-contexts/ACC-02?action=rename_account&resourceId=person-chen&workspaceId=ws-1&newAccount=chen.yu2')
   ).json()
   assert.equal(ctxRename.eligible, true)
   assert.equal(ctxRename.fields['当前账户名'], 'chen.yu')
   assert.equal(ctxRename.fields['待校验新账户名'], 'chen.yu2')
+  assert.equal(ctxRename.recoveryBaseline.ragflow.account, 'chen.yu@local.dev')
+  assert.equal(ctxRename.recoveryBaseline.dify.account, 'chen.yu@local.dev')
   assert.equal(ctxRename.recoveryBaseline.ragflow.permission, '团队成员')
   assert.equal(ctxRename.recoveryBaseline.dify.role, '编辑')
   assert.equal(ctxRename.preconditions[0].revision, 1)
 
-  // 4. 模拟 ACC-02 部分失败（RAGFlow 改名成功、Dify 改名失败）-> 触发补偿与封存
+  // 4. 模拟 ACC-01 角色变更部分失败（RAGFlow 成功、Dify 409 拒绝）-> 触发补偿与封存
   failDifyPatch = true
-  approvedInputs.set('exec-acc-rename-fail', {
+  approvedInputs.set('exec-acc-role-fail', {
     recoveryBaseline: ctxRename.recoveryBaseline,
-    decisionRef: 'dec-rename-fail',
-    ticketType: 'ACC-02',
-    action: 'rename_account',
+    decisionRef: 'dec-role-fail',
+    ticketType: 'ACC-01',
+    action: 'apply_account_change',
     resourceId: 'person-chen',
     fields: {
-      操作类型: '账户名变更',
+      操作类型: '角色变更',
       目标人员ID: 'person-chen',
-      原账户名: 'chen.yu',
-      新账户名: 'chen.yu2',
+      唯一账户名: 'chen.yu',
+      RAGFlow目标权限: '管理员',
+      'Dify目标workspace角色': '管理员',
       'Dify workspace ID': 'ws-1',
     },
     preconditions: [
@@ -276,35 +279,35 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
     await call('/executions', {
       method: 'POST',
       payload: {
-        executionId: 'exec-acc-rename-fail',
-        ticketNo: 'ACC-02-fail',
-        ticketType: 'ACC-02',
+        executionId: 'exec-acc-role-fail',
+        ticketNo: 'ACC-01-fail',
+        ticketType: 'ACC-01',
         ticketTypeVersion: '1',
-        action: 'rename_account',
+        action: 'apply_account_change',
         resourceId: 'person-chen',
         account: 'admin-1',
         org: '系统管理组',
-        payload: {decisionRef: 'dec-rename-fail'},
+        payload: {decisionRef: 'dec-role-fail'},
       },
     })
   ).json()
   assert.equal(failRes.status, 'failed')
   assert.equal(failRes.result.details.compensated, true)
   assert.equal(failRes.result.details.sealed, true)
-  assert.equal(commits.has('exec-acc-rename-fail'), false)
+  assert.equal(commits.has('exec-acc-role-fail'), false)
 
-  // 确认 RAGFlow 真实状态已被补偿回滚到 chen.yu
-  assert.equal([...ragUsers.values()][0].account, 'chen.yu')
+  // 确认 RAGFlow 真实状态已被补偿回滚到 team
+  assert.equal([...ragUsers.values()][0].permission, 'team')
 
   // 5. 重启能力服务后，调用只读 account-consistency 接口仍可稳定核验封存恢复证明
   await server.close()
   server = await startExecutionServer({dir, token: 'tok', management: mgmt.url}, makeRegistry())
 
-  const proofRes = await call('/executions/exec-acc-rename-fail/account-consistency')
+  const proofRes = await call('/executions/exec-acc-role-fail/account-consistency')
   assert.equal(proofRes.status, 200)
   const proof = await proofRes.json()
-  assert.equal(proof.executionId, 'exec-acc-rename-fail')
-  assert.equal(proof.ticketNo, 'ACC-02-fail')
+  assert.equal(proof.executionId, 'exec-acc-role-fail')
+  assert.equal(proof.ticketNo, 'ACC-01-fail')
   assert.equal(proof.subjectId, 'person-chen')
   assert.equal(proof.identityRevision, 2)
   assert.equal(proof.productMappingRevision, 1)
@@ -313,7 +316,7 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
   assert.equal(proof.outcome, 'restored')
   assert.deepEqual(proof.products, ctxRename.recoveryBaseline)
 
-  // 6. 恢复 Dify 正常后再次执行 ACC-02 改名成功并回调管理端 commit
+  // 6. ACC-02 改名：只改平台账户名，不对 Dify/RAGFlow 发起写请求，两端保留登录邮箱并按稳定用户ID关联
   failDifyPatch = false
   approvedInputs.set('exec-acc-rename-ok', {
     recoveryBaseline: ctxRename.recoveryBaseline,
@@ -333,6 +336,7 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
       {kind: 'identity_mapping', id: 'person-chen', revision: 2},
     ],
   })
+  const writesBeforeRename = productWrites
   const okRes = await (
     await call('/executions', {
       method: 'POST',
@@ -350,14 +354,16 @@ test('ACC-01/ACC-02 全生命周期：开通、角色变更、改名部分失败
     })
   ).json()
   assert.equal(okRes.status, 'succeeded')
+  assert.equal(productWrites, writesBeforeRename)
   assert.ok(commits.has('exec-acc-rename-ok'))
-  assert.equal([...ragUsers.values()][0].account, 'chen.yu2')
-  assert.equal([...difyMembers.values()][0].account, 'chen.yu2')
+  assert.equal([...ragUsers.values()][0].email, 'chen.yu@local.dev')
+  assert.equal([...difyMembers.values()][0].email, 'chen.yu@local.dev')
+  assert.equal((await (await call('/catalog/account/person-chen')).json()).name, 'chen.yu2')
 
-  // A successful HTTP acknowledgement without the requested effect cannot commit platform identity.
+  // 7. 平台改名后，后续 ACC-01 角色变更按稳定ID与保留的登录邮箱工作；响应丢失可只读恢复
   const change = executionId => ({executionId, ticketNo: 'ACC-01-' + executionId, ticketType: 'ACC-01', ticketTypeVersion: '1',
     action: 'apply_account_change', resourceId: 'person-chen', account: 'admin-1', org: '系统管理组', payload: {decisionRef: 'dec-' + executionId}})
-  const approval = executionId => ({recoveryBaseline: {ragflow: {accountId: [...ragUsers.values()][0].id, account: 'chen.yu2', active: true, permission: '团队成员'}, dify: {accountId: [...difyMembers.values()][0].id, workspaceId: 'ws-1', account: 'chen.yu2', active: true, role: '编辑'}}, decisionRef: 'dec-' + executionId, ticketType: 'ACC-01', action: 'apply_account_change', resourceId: 'person-chen',
+  const approval = executionId => ({recoveryBaseline: {ragflow: {accountId: [...ragUsers.values()][0].id, account: 'chen.yu@local.dev', active: true, permission: '团队成员'}, dify: {accountId: [...difyMembers.values()][0].id, workspaceId: 'ws-1', account: 'chen.yu@local.dev', active: true, role: '编辑'}}, decisionRef: 'dec-' + executionId, ticketType: 'ACC-01', action: 'apply_account_change', resourceId: 'person-chen',
     fields: {操作类型: '角色变更', 目标人员ID: 'person-chen', 唯一账户名: 'chen.yu2', RAGFlow目标权限: '管理员', 'Dify目标workspace角色': '管理员', 'Dify workspace ID': 'ws-1'},
     preconditions: [{kind: 'product_account_mapping', id: 'person-chen', revision: 2}, {kind: 'identity_mapping', id: 'person-chen', revision: 3}]})
   const stale = approval('stale-approved')

@@ -47,8 +47,7 @@ export async function execute(context) {
   })
   check(approved.recoveryBaseline, 501, 'RECOVERY_BASELINE_REQUIRED', '缺少审批时冻结的产品基线，禁止写入')
   check(same(approved.recoveryBaseline, baseline), 409, 'STALE_ACCOUNT_BASELINE', '审批后的真实产品状态已变化，禁止用新读值覆盖冻结基线')
-  if (operation !== '开通') check(baseline.ragflow.account === targetAccount && baseline.dify.account === targetAccount &&
-    baseline.ragflow.active === baseline.dify.active, 409, 'STALE_ACCOUNT_FACTS', '两端账户名或可用状态不一致')
+  if (operation !== '开通') check(baseline.ragflow.active === baseline.dify.active, 409, 'STALE_ACCOUNT_FACTS', '两端可用状态不一致')
 
   const recoveryRecord = {
     executionId: command.executionId,
@@ -73,6 +72,8 @@ export async function execute(context) {
   let createdDifyId = null
   let finalRagId = baseline.ragflow.accountId
   let finalDifyId = baseline.dify.accountId
+  let finalRagAccount = baseline.ragflow.account
+  let finalDifyAccount = baseline.dify.account
   let finalActive = baseline.ragflow.active
   let finalRagPerm = baseline.ragflow.permission
   let finalDifyRole = baseline.dify.role
@@ -83,11 +84,13 @@ export async function execute(context) {
       const createdRag = await write('ragflow', 'create', () => createRagflowUser({subjectId, account: targetAccount, permission: targetRagPermission}))
       createdRagId = createdRag.accountId
       finalRagId = createdRag.accountId
+      finalRagAccount = createdRag.account ?? targetAccount
       ragMutated = true
 
       const createdDify = await write('dify', 'create', () => createDifyMember({subjectId, account: targetAccount, workspaceId, role: targetDifyRole}))
       createdDifyId = createdDify.accountId
       finalDifyId = createdDify.accountId
+      finalDifyAccount = createdDify.account ?? targetAccount
       difyMutated = true
 
       finalActive = true
@@ -114,8 +117,8 @@ export async function execute(context) {
 
     const nextRevision = productMappingRevision + 1
     await commitVerifiedAccount(context, recoveryRecord, {
-      expected: {ragflow: {accountId: finalRagId, account: targetAccount, active: finalActive, permission: finalRagPerm},
-        dify: {accountId: finalDifyId, workspaceId, account: targetAccount, active: finalActive, role: finalDifyRole}},
+      expected: {ragflow: {accountId: finalRagId, account: finalRagAccount, active: finalActive, permission: finalRagPerm},
+        dify: {accountId: finalDifyId, workspaceId, account: finalDifyAccount, active: finalActive, role: finalDifyRole}},
       mapping: {subjectId, account: targetAccount, ragflowAccountId: finalRagId, difyAccountId: finalDifyId, workspaceId,
         active: finalActive, ragflowPermission: finalRagPerm, difyRole: finalDifyRole, revision: nextRevision,
         updatedAt: new Date().toISOString()},

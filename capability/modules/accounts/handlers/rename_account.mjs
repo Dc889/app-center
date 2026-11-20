@@ -2,11 +2,8 @@ import {check, id, same} from '../../../../runtime/http.mjs'
 import {
   requireDualAccountUpstreams,
   fetchApprovedAccountInputs,
-  updateRagflowUser,
-  updateDifyMember,
-  assertUniqueProductAccount,
 } from '../adapters/account-products.mjs'
-import {beginAccountTransaction, productStep, commitVerifiedAccount} from '../adapters/account-transaction.mjs'
+import {beginAccountTransaction, commitVerifiedAccount} from '../adapters/account-transaction.mjs'
 import {readLiveAccountFacts, extractPreconditionRevision, sealFailedAccountExecution} from '../adapters/compensation.mjs'
 
 export async function execute(context) {
@@ -42,9 +39,6 @@ export async function execute(context) {
   check(approved.recoveryBaseline, 501, 'RECOVERY_BASELINE_REQUIRED', '缺少审批时冻结的产品基线，禁止写入')
   check(same(approved.recoveryBaseline, baseline), 409, 'STALE_ACCOUNT_BASELINE', '审批后的真实产品状态已变化，禁止用新读值覆盖冻结基线')
   check(baseline.ragflow.accountId && baseline.dify.accountId, 409, 'ACCOUNT_NOT_FOUND', '双端账号不存在，无法改名')
-  check(baseline.ragflow.account === oldAccount && baseline.dify.account === oldAccount, 409, 'STALE_SNAPSHOT', '产品端当前账户名已漂移')
-  await assertUniqueProductAccount({account: newAccount, workspaceId,
-    ragflowAccountId: baseline.ragflow.accountId, difyAccountId: baseline.dify.accountId})
 
   const recoveryRecord = {
     executionId: command.executionId,
@@ -61,26 +55,19 @@ export async function execute(context) {
     updatedAt: new Date().toISOString(),
   }
   beginAccountTransaction(context, recoveryRecord)
-  const write = (product, fn) => productStep(recoveryLedger, recoveryRecord, product, 'rename', fn)
-
-  let ragMutated = false
-  let difyMutated = false
 
   try {
-    await write('ragflow', () => updateRagflowUser({accountId: baseline.ragflow.accountId, account: newAccount}))
-    ragMutated = true
-
-    await write('dify', () => updateDifyMember({accountId: baseline.dify.accountId, workspaceId, account: newAccount}))
-    difyMutated = true
-
+    // ACC-02 only renames the platform account; Dify and RAGFlow retain their login emails and stay linked by stable user ID.
     const nextRevision = productMappingRevision + 1
     await commitVerifiedAccount(context, recoveryRecord, {
-      expected: {ragflow: {...baseline.ragflow, account: newAccount}, dify: {...baseline.dify, account: newAccount}},
+      expected: baseline,
       mapping: {subjectId, account: newAccount, ragflowAccountId: baseline.ragflow.accountId, difyAccountId: baseline.dify.accountId,
         workspaceId, active: baseline.ragflow.active, ragflowPermission: baseline.ragflow.permission, difyRole: baseline.dify.role,
         revision: nextRevision, updatedAt: new Date().toISOString()},
       details: {目标人员ID: subjectId, 原账户名: oldAccount, 新账户名: newAccount,
-        RAGFlow账户ID: baseline.ragflow.accountId, Dify账户ID: baseline.dify.accountId},
+        RAGFlow账户ID: baseline.ragflow.accountId, RAGFlow登录标识: baseline.ragflow.account,
+        Dify账户ID: baseline.dify.accountId, Dify登录标识: baseline.dify.account,
+        两端登录邮箱策略: '保留原登录邮箱并按稳定用户ID关联'},
     })
   } catch (err) {
     const sealedInfo = await sealFailedAccountExecution({
@@ -90,14 +77,14 @@ export async function execute(context) {
       baseline,
       createdRagId: null,
       createdDifyId: null,
-      ragMutated,
-      difyMutated,
+      ragMutated: false,
+      difyMutated: false,
     })
     state.status = 'failed'
     state.result = {
       ok: false,
       failureCode: err.code ?? 'UPSTREAM_ERROR',
-      failureReason: err.message ?? '双端账号改名失败',
+      failureReason: err.message ?? '平台账户名变更失败',
       retryable: false,
       resultId: '',
       version: '',

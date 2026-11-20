@@ -14,7 +14,7 @@
 {"ragflow":{"accountId":"rag-person-chen-yu","account":"chen.yu","active":true,"permission":"个人"},"dify":{"accountId":"dify-person-chen-yu","workspaceId":"ws","account":"chen.yu","active":true,"role":"成员"}}
 ```
 
-管理端只冻结这些白名单字段，同时核对原账户名、产品ID、workspace及原权限与上下文fields一致。批准时重读且完全一致。原产品账户不存在时accountId为null、active为false、权限/角色为null，account仍为原申请账户名。已存在账户必须有实际权限。Dify工作区无适用值传null。产品端“active”必须表示实际可用/停用状态，不能只证明账户对象存在。若部署无法查清这些事实，省略recoveryBaseline并阻止后续解锁；不能生成假基线。
+管理端只冻结这些白名单字段，同时核对产品ID、workspace及原权限与上下文fields一致。`ragflow.account` 与 `dify.account` 表示产品侧登录标识（Dify、RAGFlow 原生为登录邮箱），不要求等于本平台账户名；`ACC-02` 仅修改本平台账户名，两端保留原登录邮箱并按稳定用户 ID 关联，不向 Dify/RAGFlow 发起改名写请求。批准时重读且完全一致。原产品账户不存在时accountId为null、active为false、权限/角色为null，account仍为原申请账户名或待开通标识。已存在账户必须有实际权限。Dify工作区无适用值传null。产品端“active”必须表示实际可用/停用状态，不能只证明账户对象存在。若部署无法查清这些事实，省略recoveryBaseline并阻止后续解锁；不能生成假基线。
 
 ## 恢复证明及执行封存
 

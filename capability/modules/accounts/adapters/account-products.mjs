@@ -91,8 +91,9 @@ function identityFor(product, raw, accountId) {
     check((!raw.subjectId || raw.subjectId === mapped.subjectId),
       409, 'IDENTITY_MAPPING_CONFLICT', '产品身份与显式 UUID 映射不一致')
   }
-  // The mapping identifies a person; it cannot manufacture a current product login name.
-  return {account: raw.account ?? raw.username ?? null,
+  // The mapping identifies a person; it cannot manufacture a current product login email/name.
+  // Dify and RAGFlow authenticate by email; display names/nicknames never substitute for login identifiers.
+  return {account: raw.email ?? raw.account ?? raw.username ?? null,
     subjectId: mapped?.subjectId ?? raw.subjectId ?? raw.subject_id ?? raw.external_id ?? null}
 }
 
