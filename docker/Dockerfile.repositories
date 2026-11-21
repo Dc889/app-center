@@ -1,7 +1,7 @@
-# 镜像 3：app-center-repositories（四大自建仓库：skill / plugin / mcp / agent，零外部子系统耦合）
+# 镜像 3：app-center-repositories（四大自建仓库：skill / plugin / mcp / agent，仅含服务端依赖，零外部耦合）
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY server/package.json server/package-lock.json ./
 RUN npm ci --omit=dev
 
 FROM node:22-alpine
@@ -9,7 +9,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0
 
-COPY package.json ./
+COPY server/package.json ./package.json
 COPY --from=deps /app/node_modules ./node_modules
 COPY runtime ./runtime
 COPY contracts ./contracts

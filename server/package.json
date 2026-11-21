@@ -1,0 +1,11 @@
+{
+  "name": "app-center-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "fflate": "0.8.3",
+    "mysql2": "^3.24.6",
+    "yaml": "2.9.1"
+  }
+}

@@ -1,7 +1,7 @@
-# 镜像 4：app-center-executor（能力执行与治理编排核心，经独立 Connector 调用外部产品，不持有外部凭据）
+# 镜像 4：app-center-executor（能力执行与治理编排核心，仅含服务端依赖，不持有外部产品凭据）
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY server/package.json server/package-lock.json ./
 RUN npm ci --omit=dev
 
 FROM node:22-alpine
@@ -11,7 +11,7 @@ ENV NODE_ENV=production \
     PORT=4310 \
     APP_DATA_DIR=/data/executor
 
-COPY package.json ./
+COPY server/package.json ./package.json
 COPY --from=deps /app/node_modules ./node_modules
 COPY runtime ./runtime
 COPY contracts ./contracts
