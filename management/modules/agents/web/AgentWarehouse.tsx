@@ -164,15 +164,11 @@ export function AgentWarehouse({
 
   return (
     <div data-testid="warehouse-page">
-      <header className="page-header" style={{ marginBottom: 16 }}>
+      <header className="page-header" >
         <div>
           <span className="page-eyebrow">工单应用 · 智能体目录</span>
-          <h2 className="page-title" style={{ margin: '4px 0 0' }}>智能体仓库</h2>
-          <p className="page-desc" style={{ margin: '4px 0 0', color: '#64748b' }}>
-            {role === 'user'
-              ? '查看已经审核生效的智能体。普通用户只展示当前账号有权使用的应用与成功调用排行。'
-              : '查看已经生效的智能体资产。支持全量应用状态查看、迭代历史、工单穿透与下架/再发布工单联动。'}
-          </p>
+          <h1 className="page-title" >智能体仓库</h1>
+          
         </div>
       </header>
 
@@ -246,7 +242,7 @@ export function AgentWarehouse({
         <div className="panel-title">
           <div>
             <h3><Trophy size={15} /> {role === 'user' ? '可用条目使用排行' : '使用排行榜'}</h3>
-            <p>只按成功调用次数排列。点击一行，定位到对应智能体。</p>
+            <p>按成功调用次数排序</p>
           </div>
         </div>
         <div className="ranking-list">
@@ -442,7 +438,7 @@ export function AgentWarehouse({
 
             <div className="detail-block">
               <h4>使用方式</h4>
-              <p>与 Dify 发布菜单一致，一共三种：运行、嵌入网站、访问 API。</p>
+              
               {!selected.directlyUsable && (
                 <div className="method-block-note">{selected.unavailableReason}</div>
               )}
@@ -483,7 +479,7 @@ export function AgentWarehouse({
 
             <div className="detail-block">
               <h4><History size={14} /> 迭代记录</h4>
-              <p>每次再发布保留版本号、发布时间和更改时间。</p>
+              
               <div className="table-wrap">
                 <table className="release-table" data-testid="release-table">
                   <thead>

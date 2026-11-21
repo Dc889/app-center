@@ -39,7 +39,7 @@ export function PublishResource({onMeta,ticketType='AG-02'}:{ticketType?:'AG-01'
       if(verified)void resource.read('dify_app',value.resourceId,value.workspaceId).then(snapshot=>{if(snapshot)onMeta({name:snapshot.resourceId,level:'',line:''})})
     }}/>
     {snapshot && <div><p>资源 · {snapshot.resourceId}</p><p>快照 · {snapshot.snapshotId} · {snapshot.capturedAt}</p>
-      <pre>{JSON.stringify(snapshot.data,null,2)}</pre></div>}
+      <details className="technical-details"><summary>详细信息</summary><pre>{JSON.stringify(snapshot.data,null,2)}</pre></details></div>}
     {snapshot && ticketType==='AG-01' && <button className="primary-button" disabled={busy || draft.controller.busy} onClick={submit}>提交本人纳管同步</button>}
     {snapshot && ticketType==='AG-02' && <fieldset disabled={busy || draft.controller.busy}><legend>发布申请</legend>
       {(['scenario','instructions','businessLine','boundaryOrgs'] as const).map((key,i)=><label key={key}>{['业务场景','使用说明','业务线','组织边界（逗号分隔）'][i]}<input value={fields[key]} onChange={e=>setFields({...fields,[key]:e.target.value})}/></label>)}

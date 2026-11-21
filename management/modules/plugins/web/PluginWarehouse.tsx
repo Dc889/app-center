@@ -97,13 +97,13 @@ export function PluginWarehouse({role}: {role: Role}) {
       {error && <p role="alert">{error}</p>}
       <label className="catalog-search"><Search size={16} /><input aria-label="搜索插件" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索插件" /></label>
       <div className="agent-grid">
-        {filtered.map(item => <article key={item.resourceId} role="button" tabIndex={0} className={'agent-card' + (selected?.resourceId === item.resourceId ? ' active' : '')} data-testid={'plugin-card-' + item.resourceId} onClick={() => setSelectedId(item.resourceId)}><div className="agent-card-top"><PackageCheck size={16} /><div><strong>{item.name}</strong><small>{item.resourceId}</small></div><em>{item.install}</em></div><p>{item.status}</p></article>)}
+        {filtered.map(item => <article key={item.resourceId} role="button" tabIndex={0} className={'agent-card' + (selected?.resourceId === item.resourceId ? ' active' : '')} data-testid={'plugin-card-' + item.resourceId} onClick={() => setSelectedId(item.resourceId)} onKeyDown={event => {if(event.key === 'Enter' || event.key === ' '){event.preventDefault();event.currentTarget.click()}}}><div className="agent-card-top"><PackageCheck size={16} /><div><strong>{item.name}</strong><small>{item.resourceId}</small></div><em>{item.install}</em></div><p>{item.status}</p></article>)}
         {filtered.length === 0 && !loading && <div className="agent-empty">这个工作区没有已加载的插件。</div>}
       </div>
       {selected && <aside className="panel" data-testid="plugin-detail">
         <h3>{selected.name}</h3>
         <p>安装状态 · {selected.install}</p>
-        <p>未采集不等于未安装。切换工作区会清空上一区的目录和迟到响应。</p>
+        
         <label>操作<select aria-label="仓库插件操作" value={operation} onChange={event => setOperation(event.target.value)}><option>安装</option><option>升级</option><option>卸载</option></select></label>
         <label>使用目的<textarea aria-label="插件仓库使用目的" value={purpose} onChange={event => setPurpose(event.target.value)} /></label>
         <button className="primary-button" disabled={busy} onClick={() => void submit()}>提交 PLG-03</button>

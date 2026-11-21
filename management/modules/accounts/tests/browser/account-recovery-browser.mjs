@@ -87,6 +87,7 @@ try {
   assert.deepEqual(resolved.execution,failed.execution);assert.ok(resolved.recovery.sealed)
   await page.getByRole('button',{name:'工单查询',exact:true}).click()
   await refresh(first.ticketNo,'已终止')
+  await desk.locator('details.technical-details > summary').first().click()
   assert.ok((await desk.innerText()).includes('恢复核验证明'))
   assert.equal(await desk.getByRole('button',{name:'重试执行',exact:true}).count(),0)
   unknown=true

@@ -35,7 +35,7 @@ export function KnowledgeSync() {
     }}/>
     {source==='RAGFlow' && <label>tenant ID<input aria-label="tenant ID" value={context} readOnly/></label>}
     {resource.snapshot && <p>快照 · {resource.snapshot.snapshotId} · {resource.snapshot.capturedAt}</p>}
-    <p>同步至仅本人可见的个人目录</p>
+    <p>同步范围：仅本人</p>
     <button className="primary-button" disabled={!resourceId} onClick={submit}>提交知识库同步</button>
     <button className="secondary-button" onClick={()=>setMessage(gaps() || readyToSubmit)}>检查</button>
     <ApplicationDrafts draft={draft.controller}/><p role="status">{resource.error || message}</p>

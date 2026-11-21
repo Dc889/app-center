@@ -1,3 +1,4 @@
+import {seedRepositoryFixtures} from '../../../../../tests/fixtures/repository-data.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
@@ -7,6 +8,7 @@ import { chromium } from '@playwright/test'
 import { createServer } from 'vite'
 
 const dir = await mkdtemp(join(tmpdir(), 'skill-browser-'))
+seedRepositoryFixtures(dir) // Explicit browser fixture; production services start empty.
 process.env.APP_DATA_DIR = dir
 delete process.env.CAPABILITY_URL
 let server, browser
@@ -20,6 +22,7 @@ try {
   const directory=page.waitForResponse(r=>r.url().includes('/api/catalog?kind=skill'))
   await page.getByRole('button',{name:'Skill仓库',exact:true}).click()
   const visible=(await(await directory).json()).items
+  await page.getByRole('combobox',{name:'下载版本',exact:true}).getByRole('option',{name:'v2.1.0',exact:true}).waitFor({state:'attached'})
   await page.locator('[data-testid="catalog-warehouse"] .agent-card').first().waitFor()
   assert.equal(await page.locator('[data-testid="catalog-warehouse"] .agent-card').count(),visible.length)
   for(const item of visible)assert.ok(await page.locator('[data-testid="catalog-warehouse"] .agent-card').filter({hasText:item.name}).count()>0)

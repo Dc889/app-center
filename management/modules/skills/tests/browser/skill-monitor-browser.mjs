@@ -76,7 +76,7 @@ try {
   await expect(root).toBeVisible()
 
   // 验证标题与来源说明
-  await expect(root.getByText(/实际生效目录版本、存储量统计、真实下载结算流水与组织去重审计/)).toBeVisible()
+  await expect(root.getByRole('heading',{name:'Skill 监控',exact:true})).toBeVisible()
   await expect(root.getByText(/目录数据源：已采集 \(真实Skill仓库\)/)).toBeVisible()
 
   // 验证指标卡数值
@@ -99,8 +99,10 @@ try {
   const admin = await login('系统管理员')
   await admin.getByRole('button', { name: 'Skill监控', exact: true }).click()
   const adminRoot = admin.getByTestId('real-skill-monitor')
-  await expect(adminRoot.getByText(/当前为系统管理员全量审计视角/)).toBeVisible()
+  await expect(adminRoot.getByRole('heading', { name: 'Skill 监控', exact: true })).toBeVisible()
   await expect(adminRoot.getByText(/共 12 条交付记录/)).toBeVisible()
+  await expect(adminRoot.getByText('业务一部').first()).toBeVisible()
+  await expect(adminRoot.getByText('平台运营组').first()).toBeVisible()
 
   // 管理员分页测试：12 条记录分 2 页
   await expect(adminRoot.getByRole('button', { name: '下一页' })).toBeVisible()

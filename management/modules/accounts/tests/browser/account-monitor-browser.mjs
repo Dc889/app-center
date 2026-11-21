@@ -44,8 +44,7 @@ try {
   await expect(root).toBeVisible()
 
   // 验证标题与视角徽章
-  await expect(root.getByText(/核对平台、RAGFlow 与 Dify 三方身份一致性/)).toBeVisible()
-  await expect(root.getByText(/运维视角（所属组织隔离）/)).toBeVisible()
+  await expect(root.getByRole('heading',{name:'账号与集成监控',exact:true})).toBeVisible()
 
   // 验证五大指标卡
   const metricGrid = root.getByTestId('account-metric-grid')
@@ -100,7 +99,6 @@ try {
 
   const adminRoot = admin.getByTestId('account-monitor')
   await expect(adminRoot).toBeVisible()
-  await expect(adminRoot.getByText(/系统管理员视角（全量审计）/)).toBeVisible()
 
   // 系统管理员可查全量组织人员：孙宁、唐雨、高峰等跨组织账户
   const adminMappingsTable = adminRoot.getByTestId('account-mappings-table')

@@ -20,7 +20,7 @@ export function SkillCancellationDesk() {
   return <section className="panel list-panel"><h3>Skill文件执行待办</h3>
     <button disabled={busy} onClick={()=>{setError('');setReload(v=>v+1)}}>刷新文件待办</button>
     {rows.map(r=><button key={r.ticketNo} disabled={busy} onClick={()=>{setSelected(r.ticketNo);setNote('');setError('')}}>{r.ticketNo} · {r.status} · {r.cancelStatus ?? '尚未取消'}</button>)}
-    {row && <div className="editor-section"><p>执行编号 · {row.executionId}</p><p>仅在没有在途或未知交付时申请取消，实际终态由能力组件查证。</p>
+    {row && <div className="editor-section"><p>执行编号 · {row.executionId}</p><p>在途或未知交付须先查证，再申请取消。</p>
       {row.cancelError && <p>取消等待查证 · {row.cancelError}</p>}
       <label>文件办理意见<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>
       <button disabled={busy || !note.trim()} onClick={()=>act('reconcile')}>查证文件原执行</button>

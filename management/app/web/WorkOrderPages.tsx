@@ -79,22 +79,22 @@ export function RecordedBoundary({ role, resourceLevel, resourceLine, choose }: 
   return (
     <div className="form-row">
       {level ? (
-        <FormField label="密级" source={resourceLevel ? '资源' : '本平台'}><input value={level} readOnly /></FormField>
+        <div className="context-fact"><span>密级</span><strong>{level}</strong></div>
       ) : choose ? (
         <FormField label="密级" source="用户" required>
           <select defaultValue=""><option value="" disabled>请选择</option><option>公开</option><option>内部</option><option>敏感</option><option>机密</option></select>
         </FormField>
       ) : (
-        <FormField label="密级" source="本平台"><input value="未登记" readOnly /></FormField>
+        <div className="context-fact"><span>密级</span><strong>未登记</strong></div>
       )}
       {line ? (
-        <FormField label="业务线" source={resourceLine ? '资源' : '本平台'}><input value={line} readOnly /></FormField>
+        <div className="context-fact"><span>业务线</span><strong>{line}</strong></div>
       ) : choose ? (
         <FormField label="业务线" source="用户" required>
           <select defaultValue=""><option value="" disabled>请选择</option><option>刑侦</option><option>网安</option><option>经侦</option><option>治安</option></select>
         </FormField>
       ) : (
-        <FormField label="业务线" source="本平台"><input value="未登记" readOnly /></FormField>
+        <div className="context-fact"><span>业务线</span><strong>未登记</strong></div>
       )}
     </div>
   )
@@ -113,7 +113,7 @@ export function ManualApplication({ role }: { role: Role }) {
   const [category, setCategory] = useState('全部')
   const [selected, setSelected] = useState(availableTypes[0])
   const [path, setPath] = useState(defaultPath(availableTypes[0][0]))
-  const opening = resourceChoices(availableTypes[0][0])[0]
+  const opening = hasRegisteredTicketForm(availableTypes[0][0]) ? {name:'',level:'',line:''} : resourceChoices(availableTypes[0][0])[0]
   const [resourceName, setResourceName] = useState(opening.name)
   const [resourceLevel, setResourceLevel] = useState(opening.level)
   const [resourceLine, setResourceLine] = useState(opening.line)
@@ -127,7 +127,7 @@ export function ManualApplication({ role }: { role: Role }) {
     setExecution(null)
     setCheckNote('')
     setPath(defaultPath(item[0]))
-    if (specializedCodes.includes(item[0])) {
+    if (hasRegisteredTicketForm(item[0]) || specializedCodes.includes(item[0])) {
       setResourceName('')
       setResourceLevel('')
       setResourceLine('')
@@ -171,9 +171,9 @@ export function ManualApplication({ role }: { role: Role }) {
           <div className="category-tabs">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)}>{item}</button>)}</div>
           <div className="type-list">
             {filtered.map((item) => (
-              <button key={item[0]} className={selected[0] === item[0] ? 'active' : ''} onClick={() => chooseType(item)}>
+              <button key={item[0]} data-ticket-type={item[0]} className={selected[0] === item[0] ? 'active' : ''} onClick={() => chooseType(item)}>
                 <span className="type-code">{item[0]}</span>
-                <span><strong>{item[1]}</strong><small>{item[4]}</small></span>
+                <span><strong>{item[1]}</strong></span>
                 <em className={item[3] === '即办' ? 'instant' : ''}>{item[3]}</em>
               </button>
             ))}
@@ -181,18 +181,17 @@ export function ManualApplication({ role }: { role: Role }) {
         </aside>
         <section className="manual-form">
           <div className="form-title">
-            <div><span className="type-code large">{selected[0]}</span><div><h3>{selected[1]}</h3><p>{selected[4]}</p></div></div>
+            <div><span className="type-code large">{selected[0]}</span><div><h3>{selected[1]}</h3></div></div>
             <span className={mode === '即办' ? 'approval instant' : 'approval'}>{mode === '即办' ? <Zap size={14} /> : <Clock3 size={14} />}{mode}</span>
           </div>
-          <div className="stepper"><span className="active"><b>1</b>申请对象</span><i /><span><b>2</b>业务信息</span><i /><span><b>3</b>检查提交</span></div>
           <div className="form-section">
-            <div className="section-heading"><span>01</span><div><h4>基本信息</h4><p>{note ? '标题由系统生成。这张单要人审批，请写一句申请说明。' : selected[0] === 'EVT-01' ? '标题由系统生成。这里写一句人工事实说明。' : '标题由系统生成。这张单即办，不收集申请说明。'}</p></div></div>
-            <FormField label="工单标题" source="本平台"><input value={`${selected[1]} · ${resourceName || '未选择资源'}`} readOnly /></FormField>
-            <div className="form-row">
-              <FormField label="申请人" source="本平台"><input value={`${person.name} · ${person.account}`} readOnly /></FormField>
-              <FormField label="申请组织" source="本平台"><input value={person.org} readOnly /></FormField>
-            </div>
-            <RecordedBoundary key={`${selected[0]}-${path}-${resourceName}`} role={role} resourceLevel={resourceLevel} resourceLine={resourceLine} choose={chooseLevel} />
+            <div className="section-heading"><span>01</span><div><h4>基本信息</h4></div></div>
+            <dl className="application-context">
+              <div className="context-title"><dt>工单标题</dt><dd>{selected[1]} · {resourceName || '未选择资源'}</dd></div>
+              <div><dt>申请人</dt><dd>{person.name} · {person.account}</dd></div>
+              <div><dt>申请组织</dt><dd>{person.org}</dd></div>
+            </dl>
+            <RecordedBoundary key={`${selected[0]}-${path}-${resourceName}`} role={role} resourceLevel={resourceLevel} resourceLine={resourceLine} choose={chooseLevel && !hasRegisteredTicketForm(selected[0])} />
             {selected[0] === 'EVT-01' ? (
               <FormField label="人工事实说明" source="用户" required><textarea value={facts} onChange={e=>setFacts(e.target.value)} placeholder="写一句看到的事实" /></FormField>
             ) : note ? (
@@ -201,7 +200,7 @@ export function ManualApplication({ role }: { role: Role }) {
           </div>
           {renderTicketForm(selected[0], {account: person.account, onMeta}) ?? (
           <div className="form-section">
-            <div className="section-heading"><span>02</span><div><h4>申请对象</h4><p>{selected[2] === '知识库' && (selected[0] === 'KB-01' || selected[0] === 'KB-02') ? '知识库来自 RAGFlow 或 Dify。' : '来源按这张工单的设计读取，选中后刷新只读字段。'}</p></div></div>
+            <div className="section-heading"><span>02</span><div><h4>申请对象</h4></div></div>
             {selected[0] === 'KEY-01' && (
               <FormField label="调用方" source="用户" required>
                 <select value={path} onChange={(event) => setPath(event.target.value)}><option>本人</option><option>对外</option></select>

@@ -114,12 +114,9 @@ export function SkillMonitor({ role }: { role: 'user' | 'ops' | 'admin' }) {
     <div className="skill-monitor-page" data-testid="real-skill-monitor">
       <div className="page-header">
         <div>
-          <span className="eyebrow">运行态资产监控</span>
-          <h2>Skill 监控</h2>
-          <p className="desc">
-            实际生效目录版本、存储量统计、真实下载结算流水与组织去重审计。
-            {role === 'admin' ? '（当前为系统管理员全量审计视角）' : '（当前为运维人员管理视角）'}
-          </p>
+          
+          <h1>Skill 监控</h1>
+          
         </div>
         <div className="monitor-actions">
           <div className="time-filter">

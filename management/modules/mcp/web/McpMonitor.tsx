@@ -77,7 +77,6 @@ type McpMonitorModel = {
 }
 
 export function McpMonitor({
-  role,
   onWorkOrder,
 }: {
   role: 'user' | 'ops' | 'admin'
@@ -151,23 +150,10 @@ export function McpMonitor({
             <span className="page-eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Network size={14} /> MCP 监控 · 调用与绑定明细
             </span>
-            <span
-              className="badge"
-              style={{
-                fontSize: 11,
-                padding: '2px 8px',
-                borderRadius: 4,
-                background: role === 'admin' ? '#e0e7ff' : '#fef3c7',
-                color: role === 'admin' ? '#3730a3' : '#92400e',
-              }}
-            >
-              {role === 'admin' ? '系统管理员视角（全量审计）' : '运维视角（所属组织隔离）'}
-            </span>
+            
           </div>
-          <h2 className="page-title" style={{ margin: '4px 0 0' }}>MCP 监控</h2>
-          <p className="page-desc" style={{ margin: '4px 0 0', color: '#64748b' }}>
-            查看全量 MCP 目录状态、各工作区绑定分布、实时调用与超时趋势、异常排行及安全隔离处置记录。
-          </p>
+          <h1 className="page-title" >MCP 监控</h1>
+          
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div className="segmented-control" role="group" aria-label="统计时间范围">
@@ -202,7 +188,7 @@ export function McpMonitor({
       )}
 
       {/* 指标卡（五项指标） */}
-      <div className="metrics-grid" data-testid="mcp-metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+      <div className="metrics-grid" data-testid="mcp-metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
         <div className="metric-card">
           <div className="metric-header" style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: 13 }}>
             <span>目录总数</span>

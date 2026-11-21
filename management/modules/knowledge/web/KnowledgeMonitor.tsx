@@ -145,14 +145,9 @@ export function KnowledgeMonitor({
     <div className="monitor-container" data-testid="knowledge-monitor">
       <header className="page-header">
         <div>
-          <span className="eyebrow">RAGFlow & Dify 真实盘点</span>
-          <h2>知识库监控</h2>
-          <p className="page-desc">
-            盘点底层两产品库、解析切片索引构建任务、嵌入模型核对与逐文档审查确认台账。
-            <span className="role-tag" style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 4, background: '#eef2ff', color: '#4338ca', fontSize: 12 }}>
-              {role === 'admin' ? '系统管理员视角（全量审计）' : '运维视角（所属组织隔离）'}
-            </span>
-          </p>
+          
+          <h1>知识库监控</h1>
+          
         </div>
         <div className="header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div className="filter-group" style={{ display: 'flex', gap: 4 }}>
@@ -185,7 +180,7 @@ export function KnowledgeMonitor({
       )}
 
       {/* 五大指标卡 */}
-      <div className="metric-grid five" data-testid="knowledge-metric-grid" style={{ marginBottom: 20 }}>
+      <div className="metric-grid five" data-testid="knowledge-metric-grid" >
         <article className="metric-card">
           <div className="metric-icon tone-1"><Database size={19} /></div>
           <span>纳入管理库</span>
@@ -228,7 +223,7 @@ export function KnowledgeMonitor({
 
       {/* 嵌入模型核对与失败分类横幅 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-        <section className="panel" style={{ padding: 14 }}>
+        <section className="panel" >
           <h4 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
             <Layers size={15} color="#4f46e5" /> 嵌入模型核对
           </h4>
@@ -245,7 +240,7 @@ export function KnowledgeMonitor({
           </div>
         </section>
 
-        <section className="panel" style={{ padding: 14 }}>
+        <section className="panel" >
           <h4 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
             <AlertTriangle size={15} color="#dc2626" /> 构建失败分类
           </h4>
@@ -261,12 +256,12 @@ export function KnowledgeMonitor({
       </div>
 
       {/* 双列图表 */}
-      <div className="dashboard-grid two-column" style={{ marginBottom: 20 }}>
+      <div className="dashboard-grid two-column" >
         <section className="panel chart-panel wide">
           <div className="panel-title">
             <div>
               <h3>构建任务趋势</h3>
-              <p>解析 / 切片 / 索引 / 向量化连续时间桶监控</p>
+              
             </div>
           </div>
           <div className="chart-body" style={{ height: 220 }}>

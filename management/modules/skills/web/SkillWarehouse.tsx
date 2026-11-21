@@ -118,7 +118,7 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
       {(staff ? [['已上架', visible.filter(item => item.status === '可下载').length], ['已下架', catalog.filter(item => item.status === '已下架').length], ['可见 Skill', visible.length], ['成功下载', ranked.length ? ranked.reduce((sum, item) => sum + (item.successCount ?? 0), 0) : '未采集']] : [['可下载', visible.filter(item => item.downloadable).length], ['可见 Skill', visible.length], ['成功下载', ranked.length ? ranked.reduce((sum, item) => sum + (item.successCount ?? 0), 0) : '未采集'], ['版本', visible.filter(item => item.version).length]]).map(([label, value]) => <article className="metric-card" key={String(label)}><div className="metric-icon"><PackageCheck size={19} /></div><span>{label}</span><strong>{value}</strong></article>)}
     </div>
     <section className="panel ranking-panel" data-testid="usage-ranking">
-      <div className="panel-title"><div><h3><Trophy size={15} /> {staff ? '下载排行榜' : '可下载条目排行'}</h3><p>只按成功交付的下载次数排列，未采集不记为 0。</p></div></div>
+      <div className="panel-title"><div><h3><Trophy size={15} /> {staff ? '下载排行榜' : '可下载条目排行'}</h3><p>按成功下载次数排序</p></div></div>
       {ranked.length === 0 ? <div className="agent-empty">未采集</div> : <div className="ranking-list">{ranked.map((item, index) => <button key={item.id} className={selected?.id === item.id ? 'active' : ''} onClick={() => setSelectedId(item.id)}><b>{index + 1}</b><span><strong>{item.name}</strong></span><i><em style={{width: Math.max(8, Math.round((item.successCount ?? 0) / maxCount * 100)) + '%'}} /></i><em>{item.successCount} 次</em></button>)}</div>}
     </section>
     <div className="warehouse-toolbar">
@@ -128,14 +128,14 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
     <div className="warehouse-layout">
       <div className="agent-grid">
         {filtered.length === 0 && <div className="agent-empty">没有符合当前筛选的条目。</div>}
-        {filtered.map(item => <article key={item.id} role="button" tabIndex={0} className={'agent-card ' + (selected?.id === item.id ? 'active ' : '') + (item.downloadable ? 'usable' : 'blocked')} data-testid={'catalog-card-' + item.id} onClick={() => { setSelectedId(item.id); setVersion(undefined) }}><div className="agent-card-top"><span className="agent-emoji">📄</span><div><strong>{item.name}</strong><small>{item.version}</small></div><em className={item.downloadable ? 'yes' : 'no'}>{item.status}</em></div><p>{item.summary}</p><div className="agent-version"><span>{item.successCount === null ? '未采集' : item.successCount + ' 次'}</span><small>成功下载</small></div></article>)}
+        {filtered.map(item => <article key={item.id} role="button" tabIndex={0} className={'agent-card ' + (selected?.id === item.id ? 'active ' : '') + (item.downloadable ? 'usable' : 'blocked')} data-testid={'catalog-card-' + item.id} onClick={() => { setSelectedId(item.id); setVersion(undefined) }} onKeyDown={event => {if(event.key === 'Enter' || event.key === ' '){event.preventDefault();event.currentTarget.click()}}}><div className="agent-card-top"><span className="agent-emoji">📄</span><div><strong>{item.name}</strong><small>{item.version}</small></div><em className={item.downloadable ? 'yes' : 'no'}>{item.status}</em></div><p>{item.summary}</p><div className="agent-version"><span>{item.successCount === null ? '未采集' : item.successCount + ' 次'}</span><small>成功下载</small></div></article>)}
       </div>
       {selected && <aside className="panel agent-detail" data-testid="catalog-detail">
         <div className="agent-detail-head"><span className="agent-emoji">📄</span><div><span className="mini-label">{selected.status}</span><h3>{selected.name}</h3><p>{selected.summary}</p></div></div>
         <div className="detail-block">
           <h4><History size={14} /> 版本与下载</h4>
           <SkillVersions key={selected.id} resourceId={selected.id} onSelect={setVersion} />
-          <p>下载只生成 SKL-03，文件回执在领取完成后登记。</p>
+          <p>下载记录可在“我的申请”查看。</p>
           {!selected.downloadable && <div className="method-block-note">{selected.status}，不能发起新的下载。</div>}
           <button className="primary-button" disabled={!selected.downloadable || reserving} onClick={() => void download()}>下载</button>
           {notice && <div className="method-block-note" data-testid="catalog-notice">{notice}</div>}

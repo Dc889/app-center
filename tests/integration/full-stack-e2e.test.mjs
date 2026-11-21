@@ -390,45 +390,49 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
     active: true,
   })
 
+  // 5a. ACC-01 角色变更：Dify 明确拒绝时触发 RAGFlow 自动补偿，并通过真实管理端核验恢复并解锁
   failDifyMemberPatch = true
-  const acc02Sub = await reqApi('/api/account-applications', adminCookie, {
-    ticketNo: 'ACC-02-e2e-fail',
-    ticketType: 'ACC-02',
+  const acc01Sub = await reqApi('/api/account-applications', adminCookie, {
+    ticketNo: 'ACC-01-e2e-fail',
+    ticketType: 'ACC-01',
     subjectId: targetSubject.subjectId,
     fields: {
-      newAccount: 'chen.yu.renamed',
+      operation: '角色变更',
+      roles: ['operator'],
       workspaceId: 'ws-1',
+      ragflowPermission: '管理员',
+      difyRole: '管理员',
       effectiveAt: new Date(Date.now() - 1000).toISOString(),
       reason: '全栈联调测试部分失败补偿与解锁',
     },
   })
-  assert.equal(acc02Sub.status, 201, `ACC-02 submit failed: ${await acc02Sub.clone().text()}`)
-  const acc02App = await acc02Sub.json()
+  assert.equal(acc01Sub.status, 201, `ACC-01 submit failed: ${await acc01Sub.clone().text()}`)
+  const acc01App = await acc01Sub.json()
 
-  const acc02Approve = await reqApi('/api/account-applications/transition', adminCookie, {
-    ticketNo: 'ACC-02-e2e-fail',
-    revision: acc02App.revision,
+  const acc01Approve = await reqApi('/api/account-applications/transition', adminCookie, {
+    ticketNo: 'ACC-01-e2e-fail',
+    revision: acc01App.revision,
     action: '批准',
-    note: '同意改名',
+    note: '同意角色变更',
   })
-  assert.equal(acc02Approve.status, 200, `ACC-02 approve failed: ${await acc02Approve.clone().text()}`)
+  assert.equal(acc01Approve.status, 200, `ACC-01 approve failed: ${await acc01Approve.clone().text()}`)
 
-  const acc02Failed = await waitUntil(async () => {
+  const acc01Failed = await waitUntil(async () => {
     const list = await (await reqApi('/api/account-applications?view=query', adminCookie)).json()
-    const item = list.items.find(r => r.ticketNo === 'ACC-02-e2e-fail')
+    const item = list.items.find(r => r.ticketNo === 'ACC-01-e2e-fail')
     return item?.status === '执行失败' ? item : null
   })
-  assert.ok(acc02Failed, 'ACC-02 应进入执行失败状态并完成 RAGFlow 自动补偿')
-  assert.equal(ragUsers.get('rag-chen').account, 'chen.yu')
+  assert.ok(acc01Failed, 'ACC-01 应进入执行失败状态并完成 RAGFlow 自动补偿')
+  assert.equal(ragUsers.get('rag-chen').permission, 'team')
 
   // 真实管理端调用真实能力端 GET /internal/v1/executions/:id/account-consistency 并原子解锁！
   const unlockRes = await reqApi('/api/account-applications/transition', adminCookie, {
-    ticketNo: 'ACC-02-e2e-fail',
-    revision: acc02Failed.revision,
+    ticketNo: 'ACC-01-e2e-fail',
+    revision: acc01Failed.revision,
     action: '核验恢复并解锁',
     note: '核验双端一致性封存证明并释放目标锁',
   })
-  assert.equal(unlockRes.status, 200, `ACC-02 unlock failed: ${await unlockRes.clone().text()}`)
+  assert.equal(unlockRes.status, 200, `ACC-01 unlock failed: ${await unlockRes.clone().text()}`)
   const unlocked = await unlockRes.json()
   assert.equal(unlocked.status, '已终止')
   assert.equal(unlocked.recovery.sealed, true)
@@ -705,6 +709,8 @@ test('全栈跨端联调：真实管理系统 + 真实能力组件 + 4 真实仓
     return item?.status === '待结果确认' ? item : null
   })
   assert.ok(acc02OkDone, 'ACC-02 成功改名应完成真实管理端 commit 并进入待结果确认')
-  assert.equal(ragUsers.get('rag-chen').account, 'chen.yu.v2')
-  assert.equal(difyMembers.get('dify-chen').account, 'chen.yu.v2')
+  const updatedDir = await (await reqApi('/api/subjects', adminCookie)).json()
+  assert.equal(updatedDir.items.find(p => p.subjectId === targetSubject.subjectId)?.account, 'chen.yu.v2')
+  assert.equal(ragUsers.get('rag-chen').account, 'chen.yu')
+  assert.equal(difyMembers.get('dify-chen').account, 'chen.yu')
 })

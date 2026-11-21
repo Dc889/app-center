@@ -30,7 +30,7 @@ export function PluginPublication() {
   }
   return <fieldset className="form-section" disabled={busy || uploadBusy || draft.controller.busy}><legend>插件上架申请</legend>
     <UploadIntake kind="plugin" key={restoreKey} initialReference={restoredReference} onReference={setIntakeId} onBusyChange={setUploadBusy} onReady={setUpload}/>
-    {upload?.packageMetadata && <div><p>插件 · {upload.packageMetadata.name} · {upload.packageMetadata.uniqueIdentifier} · {upload.packageMetadata.version}</p><pre>{JSON.stringify(upload.packageMetadata.dependencies,null,2)}</pre></div>}
+    {upload?.packageMetadata && <div><p>插件 · {upload.packageMetadata.name} · {upload.packageMetadata.uniqueIdentifier} · {upload.packageMetadata.version}</p><details className="technical-details"><summary>详细信息</summary><pre>{JSON.stringify(upload.packageMetadata.dependencies,null,2)}</pre></details></div>}
     {(['description','instructions','permissions'] as const).map((key,i)=><label key={key}>{['功能说明','使用说明','权限声明（逗号分隔）'][i]}<input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}
     <label>公开方式<select value={form.accessMode} onChange={e=>setForm({...form,accessMode:e.target.value})}><option>公开免审安装</option><option>受限安装</option></select></label>
     {form.accessMode==='受限安装' && <label>可见组织<input value={form.visibleOrgs} onChange={e=>setForm({...form,visibleOrgs:e.target.value})}/></label>}

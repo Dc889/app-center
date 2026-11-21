@@ -141,14 +141,9 @@ export function PluginMonitor({
     <div className="monitor-container" data-testid="plugin-monitor">
       <header className="page-header">
         <div>
-          <span className="eyebrow">容器 & Daemon 真实监控</span>
-          <h2>插件监控</h2>
-          <p className="page-desc">
-            插件安装实例、容器内存与调用趋势、失败超时排行、Daemon 探测与自动禁用记录。
-            <span className="role-tag" style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 4, background: '#eef2ff', color: '#4338ca', fontSize: 12 }}>
-              {role === 'admin' ? '系统管理员视角（全量审计）' : '运维视角（所属组织隔离）'}
-            </span>
-          </p>
+          
+          <h1>插件监控</h1>
+          
         </div>
         <div className="header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div className="time-filter">
@@ -169,7 +164,7 @@ export function PluginMonitor({
       )}
 
       {/* 六大指标卡 */}
-      <div className="metric-grid six" data-testid="plugin-metric-grid" style={{ marginBottom: 20 }}>
+      <div className="metric-grid six" data-testid="plugin-metric-grid" >
         <article className="metric-card">
           <div className="metric-icon tone-1"><PlugZap size={19} /></div>
           <span>已上架插件</span>
@@ -232,12 +227,12 @@ export function PluginMonitor({
       </div>
 
       {/* 双列图表 */}
-      <div className="dashboard-grid two-column" style={{ marginBottom: 20 }}>
+      <div className="dashboard-grid two-column" >
         <section className="panel chart-panel wide">
           <div className="panel-title">
             <div>
               <h3>容器内存与调用趋势</h3>
-              <p>容器已用内存 / 上限及调用失败超时监控</p>
+              
             </div>
           </div>
           <div className="chart-body" style={{ height: 220 }}>

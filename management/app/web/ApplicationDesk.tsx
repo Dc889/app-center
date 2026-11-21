@@ -3,6 +3,7 @@ import type {AgentImpact} from '../../modules/agents/public.web'
 import {KnowledgeChangesReviewFieldset, KnowledgeDispositionFieldset, KnowledgeSecurityReviewFieldset} from '../../modules/knowledge/public.web'
 import {PluginRestoreForm} from '../../modules/plugins/public.web'
 import {useEffect,useState} from 'react'
+import {RecordDetails} from '../../shared-ui/RecordDetails'
 type Application={agentImpact?:AgentImpact;approvedImpact?:AgentImpact;canQueryExecution?:boolean;ticketNo:string;ticketType:string;account:string;status:string;revision:number;isApplicant?:boolean;restoreRequest?:{reason:string;repairInfo:string;minutes:number};observeFrom?:string;observeUntil?:string;observation?:{verdict:string;complete:boolean};observationError?:{code:string};urgentEventNo?:string;alertEvidence?:unknown[];deliveryBlocked?:boolean;lastError?:{code:string};linkedDispositionTicketNo?:string;linkedReviewDispositionTicketNo?:string;relatedTicketNos?:string[];linkError?:{code:string};creationMode?:string;node?:string;evidenceRefs?:{evidenceId:string;filename?:string}[];attempts?:{command:{executionId:string;action:string};execution?:{status:string}}[];revealState?:string;command?:{action:string};approvedFields?:{文档确认记录?:{documentId:string;sha256:string;verdict:string;actor:string;at:string}[]};execution?:{status:string;result?:{failureCode?:string;failureReason?:string;retryable?:boolean;details?:unknown}};submission:{resourceId:string;fields:Record<string,unknown>};snapshot:{snapshotId:string;fields?:{文档审查明细?:{documentId:string;sha256:string;autoVerdict:string}[]};data?:{dependencies?:{name:string;approved:boolean;externalAllowed:boolean}[]}};history:{at:string;actor:string;action:string;note?:string}[]}
 export function ApplicationDesk({view,account}:{view:string;account:string}) {
   const [items,setItems]=useState<Application[]>([])
@@ -74,11 +75,11 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
       {['KB-05','PLG-04'].includes(row.ticketType) && <div><p>创建方式 · {row.creationMode}</p>
         {row.evidenceRefs?.filter(e=>e.filename).map(e=><p key={e.evidenceId}><a href={'/api/evidence/'+e.evidenceId+'/file'}>{e.filename}</a></p>)}
         {row.attempts?.map(a=><p key={a.command.executionId}>执行节点 · {a.command.action} · {a.execution?.status ?? '等待结果'} · {a.command.executionId}</p>)}
-        {!!row.execution?.result?.details && <pre>{JSON.stringify(row.execution.result.details,null,2)}</pre>}
+        {!!row.execution?.result?.details && <details className="technical-details"><summary>详细信息</summary><pre>{JSON.stringify(row.execution.result.details,null,2)}</pre></details>}
       </div>}
       {row.ticketType==='PLG-04' && <div>
-        <pre>{JSON.stringify(row.alertEvidence,null,2)}</pre>
-        {row.restoreRequest && <pre>{JSON.stringify(row.restoreRequest,null,2)}</pre>}
+        <details className="technical-details"><summary>详细信息</summary><pre>{JSON.stringify(row.alertEvidence,null,2)}</pre></details>
+        {row.restoreRequest && <details className="technical-details"><summary>详细信息</summary><pre>{JSON.stringify(row.restoreRequest,null,2)}</pre></details>}
         {row.observeUntil && <p>恢复观察 · {row.observeFrom} 至 {row.observeUntil} · {row.observation?.verdict ?? '尚未采集'}</p>}
         {row.observationError && <p role="status">观察等待核对 · {row.observationError.code}</p>}
         {row.urgentEventNo && <p>关联紧急事件 · {row.urgentEventNo}</p>}
@@ -89,9 +90,10 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
       {row.relatedTicketNos?.map(number=><p key={number}>关联来源工单 · {number}</p>)}
       {row.linkError && <p role="status">处置工单关联等待重试 · {row.linkError.code}</p>}
       {(row.approvedImpact ?? row.agentImpact) && <AgentImpactPanel impact={(row.approvedImpact ?? row.agentImpact)!}/>}
-      <pre>{JSON.stringify(row.submission.fields,null,2)}</pre>
-      {['SKL-01','PLG-01','SKL-02','PLG-02'].includes(row.ticketType) && <pre>{JSON.stringify(row.snapshot.data,null,2)}</pre>}
-      {row.snapshot.fields && <pre>{JSON.stringify(row.snapshot.fields,null,2)}</pre>}
+      <RecordDetails title="申请信息" values={row.submission.fields}/>
+      <details className="technical-details"><summary>完整申请记录</summary><pre>{JSON.stringify(row.submission.fields,null,2)}</pre></details>
+      {['SKL-01','PLG-01','SKL-02','PLG-02'].includes(row.ticketType) && <details className="technical-details"><summary>详细信息</summary><pre>{JSON.stringify(row.snapshot.data,null,2)}</pre></details>}
+      {row.snapshot.fields && <><RecordDetails title="资源核验" values={row.snapshot.fields}/><details className="technical-details"><summary>完整核验记录</summary><pre>{JSON.stringify(row.snapshot.fields,null,2)}</pre></details></>}
       {row.ticketType === 'KB-02' && (
         <KnowledgeSecurityReviewFieldset
           documents={documents}

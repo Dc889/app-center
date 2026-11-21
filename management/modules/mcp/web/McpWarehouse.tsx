@@ -118,12 +118,12 @@ export function McpWarehouse({role}: {role: Role}) {
       {error && <p role="alert">{error}</p>}
       <label className="catalog-search"><Search size={16} /><input aria-label="搜索MCP" value={keyword} onChange={event => setKeyword(event.target.value)} /></label>
       <div className="agent-grid">
-        {filtered.map(item => <article key={item.resourceId} role="button" tabIndex={0} className={'agent-card' + (selected?.resourceId === item.resourceId ? ' active' : '')} data-testid={'mcp-card-' + item.resourceId} onClick={() => setSelectedId(item.resourceId)}><div className="agent-card-top"><Network size={16} /><div><strong>{item.name}</strong><small>{item.resourceId}</small></div><em>{item.bind}</em></div></article>)}
+        {filtered.map(item => <article key={item.resourceId} role="button" tabIndex={0} className={'agent-card' + (selected?.resourceId === item.resourceId ? ' active' : '')} data-testid={'mcp-card-' + item.resourceId} onClick={() => setSelectedId(item.resourceId)} onKeyDown={event => {if(event.key === 'Enter' || event.key === ' '){event.preventDefault();event.currentTarget.click()}}}><div className="agent-card-top"><Network size={16} /><div><strong>{item.name}</strong><small>{item.resourceId}</small></div><em>{item.bind}</em></div></article>)}
       </div>
       {selected && <aside className="panel" data-testid="mcp-detail">
         <h3>{selected.name}</h3>
         <p>绑定状态 · {selected.bind}</p>
-        <p>仓库不展示统一 URL 原文{staff ? '。' : '，也不展示 provider。'}</p>
+        
         {visibleFacts(selected.data, staff).map(([key, value]) => <p key={key}>{key} · {typeof value === 'string' ? value : JSON.stringify(value)}</p>)}
         <label>说明<textarea aria-label="MCP仓库说明" value={purpose} onChange={event => setPurpose(event.target.value)} /></label>
         <label>开始<input aria-label="MCP绑定开始" type="datetime-local" value={startsAt} onChange={event => setStartsAt(event.target.value)} /></label>

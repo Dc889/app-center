@@ -131,7 +131,7 @@ export function ChatApplication({ role, account, catalog }: { role: Role; accoun
     finally { setBusy(false) }
   }
   return <>
-    <div className="page-header"><div><span className="eyebrow">智能填单</span><h1>对话申请</h1><p>描述要办理的事项。匹配结果只生成可编辑草稿，提交仍走原申请接口。</p></div></div>
+    <div className="page-header"><div><h1>对话申请</h1></div></div>
     <div className="application-split">
       <section className="chat-pane">
         <div className="pane-head"><div><span className="assistant-avatar"><Sparkles size={17} /></span><div><strong>申请助手</strong><small>仅匹配和填表，不代替审批 · {role === 'admin' ? '含账号类工单' : '不含账号类工单'}</small></div></div>
@@ -152,8 +152,8 @@ export function ChatApplication({ role, account, catalog }: { role: Role; accoun
           {key === 'objectType' ? <select aria-label="事件对象类型" value={fields.objectType ?? ''} onChange={event => setFields({ ...fields, objectType: event.target.value })}>{objectTypes.map(item => <option key={item}>{item}</option>)}</select>
             : (schemas[selected.code].dates ?? '').split(' ').includes(key) ? <input aria-label={labels[key] ?? key} type="datetime-local" value={fields[key] ?? ''} onChange={event => setFields({ ...fields, [key]: event.target.value })} />
               : <input aria-label={labels[key] ?? key} value={fields[key] ?? ''} onChange={event => setFields({ ...fields, [key]: event.target.value })} />}</label>)}
-          <p>来源字段和产品快照不从对话带入，提交前由原接口重新读取。</p></div>
-          : <div className="draft-empty"><div><WandSparkles size={28} /></div><strong>从一句话开始</strong><p>确认类型后，这里只显示你可以编辑的申请字段。</p></div>}
+          </div>
+          : <div className="draft-empty"><div><WandSparkles size={28} /></div><strong>从一句话开始</strong></div>}
         <div className="draft-actions">
           <button className="secondary-button" disabled={!selected || busy || !!submitted} onClick={save}>保存草稿</button>
           <button className="secondary-button" disabled={!selected || busy} onClick={check}>检查</button>

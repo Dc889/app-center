@@ -74,7 +74,7 @@ export function DatasetPublicationContext() {
       {sourceSystem==='RAGFlow' && <label>tenant ID<input aria-label="tenant ID" readOnly value={workspaceId}/></label>}
       <button className="secondary-button" disabled={!resource.snapshot} onClick={read}>读取文档审查与模型核对</button>
     </fieldset>
-    {context && <div><p>依据快照 {context.snapshotId} · {context.capturedAt}</p><pre>{JSON.stringify(context.fields,null,2)}</pre></div>}
+    {context && <div><p>依据快照 {context.snapshotId} · {context.capturedAt}</p><details className="technical-details"><summary>详细信息</summary><pre>{JSON.stringify(context.fields,null,2)}</pre></details></div>}
     {context && <fieldset disabled={submitted}><legend>知识库分享申请</legend>
       <label>分享方式<select aria-label="分享方式" value={form.shareMode} onChange={e=>{setForm({...form,shareMode:e.target.value});setAssociationVerified(false);setAssociationKey(key=>key+1)}}>{['共享目录','指定组织','指定人员','随应用发布'].map(s=><option key={s}>{s}</option>)}</select></label>
       {(['purpose','boundaryOrgs','businessLine','name','description','tags'] as const).map((key,i)=><label key={key}>{['业务用途','组织边界（逗号分隔）','业务线','目录展示名称','目录简介','目录标签（逗号分隔）'][i]}<input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}

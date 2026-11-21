@@ -131,7 +131,6 @@ function InvocationTrace({ log, onClose }: { log: InvocationLog; onClose: () => 
 }
 
 export function AgentMonitor({
-  role,
   onWorkOrder: _onWorkOrder,
 }: {
   role: 'user' | 'ops' | 'admin'
@@ -237,26 +236,11 @@ export function AgentMonitor({
   return (
     <div data-testid="agent-monitor">
       {/* 头部与角色标识 */}
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="page-header">
+        <div>
           <span className="page-eyebrow">Dify 全量</span>
-          <span
-            className="badge"
-            style={{
-              fontSize: 11,
-              padding: '2px 8px',
-              borderRadius: 4,
-              background: role === 'admin' ? '#e0e7ff' : '#fef3c7',
-              color: role === 'admin' ? '#3730a3' : '#92400e',
-            }}
-          >
-            {role === 'admin' ? '系统管理员视角（全量审计）' : '运维视角（所属组织隔离）'}
-          </span>
+          <h1 className="page-title">智能体监控</h1>
         </div>
-        <h2 className="page-title" style={{ margin: '4px 0 0' }}>智能体监控</h2>
-        <p className="page-desc" style={{ margin: '4px 0 0', color: '#64748b' }}>
-          按账户查看 Dify 上的全部智能体、应用数量和调用记录。调用次数含成功和失败，可筛选并逐条溯源。
-        </p>
       </div>
 
       {error && (
@@ -300,7 +284,7 @@ export function AgentMonitor({
           <div className="panel-title">
             <div>
               <h3>账户 / 应用</h3>
-              <p>先看账户下有几个应用，再看每个应用用了多少次。</p>
+              
             </div>
           </div>
           <button className={`account-all ${account === '全部账户' ? 'active' : ''}`} onClick={() => chooseAccount('全部账户')}>
@@ -334,7 +318,7 @@ export function AgentMonitor({
           <div className="panel-title">
             <div>
               <h3>调用记录</h3>
-              <p>一行一次调用。筛选后仍保留原来的序号，点「溯源」查看这次用了什么。</p>
+              
             </div>
             <button className="secondary-button compact" onClick={clearFilters}>清空筛选</button>
           </div>

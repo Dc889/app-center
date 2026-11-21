@@ -39,7 +39,7 @@ try {
   browser=await chromium.launch({channel:'msedge',headless:true})
   async function login(role,account) {
     const page=await browser.newPage();await page.goto(base)
-    if(account)await page.getByLabel('演示登录账户（留空使用所选身份）',{exact:true}).fill(account)
+    if(account)await page.getByLabel('指定账户（可选）',{exact:true}).fill(account)
     await page.getByRole('button',{name:new RegExp('^'+role)}).click()
     await page.locator('.app-shell').waitFor();return page
   }

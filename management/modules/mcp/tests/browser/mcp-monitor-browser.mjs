@@ -99,8 +99,7 @@ try {
   await expect(root).toBeVisible()
 
   // 验证标题与视角徽章
-  await expect(root.getByText(/查看全量 MCP 目录状态、各工作区绑定分布/)).toBeVisible()
-  await expect(root.getByText(/运维视角（所属组织隔离）/)).toBeVisible()
+  await expect(root.getByRole('heading',{name:'MCP 监控',exact:true})).toBeVisible()
 
   // 验证五大指标卡
   const metricGrid = root.getByTestId('mcp-metric-grid')
@@ -140,7 +139,6 @@ try {
 
   const adminRoot = admin.getByTestId('mcp-monitor')
   await expect(adminRoot).toBeVisible()
-  await expect(adminRoot.getByText(/系统管理员视角（全量审计）/)).toBeVisible()
 
   // 验证全量审计下的调用与绑定展示
   const adminCallsTable = adminRoot.getByTestId('mcp-calls-table')

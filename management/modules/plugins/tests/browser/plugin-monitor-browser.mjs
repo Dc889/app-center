@@ -108,8 +108,7 @@ try {
   await expect(root).toBeVisible()
 
   // 验证标题与视角徽章
-  await expect(root.getByText(/插件安装实例、容器内存与调用趋势、失败超时排行、Daemon 探测与自动禁用记录/)).toBeVisible()
-  await expect(root.getByText(/运维视角（所属组织隔离）/)).toBeVisible()
+  await expect(root.getByRole('heading',{name:'插件监控',exact:true})).toBeVisible()
 
   // 验证六大指标卡
   const metricGrid = root.getByTestId('plugin-metric-grid')
@@ -147,7 +146,6 @@ try {
 
   const adminRoot = admin.getByTestId('plugin-monitor')
   await expect(adminRoot).toBeVisible()
-  await expect(adminRoot.getByText(/系统管理员视角（全量审计）/)).toBeVisible()
 
   // 验证全量 4 条禁用记录
   await expect(adminRoot.getByText(/自动禁用记录 \(4\)/)).toBeVisible()

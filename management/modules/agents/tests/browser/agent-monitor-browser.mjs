@@ -44,8 +44,7 @@ try {
   await expect(root).toBeVisible()
 
   // 验证标题与视角徽章
-  await expect(root.getByText(/按账户查看 Dify 上的全部智能体、应用数量和调用记录/)).toBeVisible()
-  await expect(root.getByText(/运维视角（所属组织隔离）/)).toBeVisible()
+  await expect(root.getByRole('heading',{name:'智能体监控',exact:true})).toBeVisible()
 
   // 验证四大指标卡
   const metricGrid = root.locator('.metric-grid')
@@ -85,7 +84,6 @@ try {
 
   const adminRoot = admin.getByTestId('agent-monitor')
   await expect(adminRoot).toBeVisible()
-  await expect(adminRoot.getByText(/系统管理员视角（全量审计）/)).toBeVisible()
 
   // 验证跨组织全量开发账户（陈宇、郑毅等）
   const adminTree = adminRoot.getByTestId('account-tree')

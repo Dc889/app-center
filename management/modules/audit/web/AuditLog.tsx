@@ -125,9 +125,9 @@ export function AuditLog({role}:{role:'user'|'ops'|'admin'}) {
   return <div data-testid="audit-report">
     <div className="page-header">
       <div>
-        <span className="eyebrow">全程留痕</span>
+        
         <h1>审计追踪</h1>
-        <p>{role==='admin'?'当前权限：系统管理员（本网络分区全部审计，含账号类配置工单）。':'当前权限：运维人员（仅本组织且排除账号类配置工单）。'}页面汇总、趋势、分布、排行、明细与导出使用同一权限范围与筛选条件。</p>
+        
       </div>
       <div className="time-filter">
         {[['today','今日'],['1h','近 1 小时'],['24h','近 24 小时'],['7d','近 7 天']].map(([key,label])=>
@@ -145,7 +145,7 @@ export function AuditLog({role}:{role:'user'|'ops'|'admin'}) {
         <label>结束时间<input type="datetime-local" value={until} onChange={e=>updateFilter(()=>setUntil(e.target.value))}/></label>
       </div>
       {invalidWindow && <p role="alert">时间范围无效：开始时间必须早于结束时间。</p>}
-      {report && <p>统计窗口：{date(report.filter.from)} — {date(report.filter.to)}（{report.timezone}） · 采集时间：{date(report.capturedAt)} · 来源状态：管理台账（已采集）、目录变更（未采集）、{(['execution','skill_delivery','dify_run','external_api'] as const).map(k=>`${nativeNames[k]}（${availabilityLabels[report.sources[k].availability]}${report.sources[k].asOf?' · '+date(report.sources[k].asOf):''}）`).join('、')}</p>}
+      {report && <details className="technical-details"><summary>数据来源</summary><p>统计窗口：{date(report.filter.from)} — {date(report.filter.to)}（{report.timezone}） · 采集时间：{date(report.capturedAt)} · 来源状态：管理台账（已采集）、目录变更（未采集）、{(['execution','skill_delivery','dify_run','external_api'] as const).map(k=>`${nativeNames[k]}（${availabilityLabels[report.sources[k].availability]}${report.sources[k].asOf?' · '+date(report.sources[k].asOf):''}）`).join('、')}</p></details>}
     </section>
 
     {loading && !invalidWindow && <p role="status">正在读取审计追踪…</p>}
@@ -183,7 +183,7 @@ export function AuditLog({role}:{role:'user'|'ops'|'admin'}) {
 
       <section className="panel overview-block" data-testid="audit-trend">
         <h3>审计事件趋势</h3>
-        <p>粒度：{report.bucketMs/60000} 分钟{report.partialBoundaryBuckets?'；首尾为部分时间桶':''}。未采集序列不绘制零曲线（目录变更：未采集；API：{availabilityLabels[metrics.api.availability]}；下载：{availabilityLabels[metrics.download.availability]}；访问：{availabilityLabels[metrics.access.availability]}）。</p>
+        <p>粒度：{report.bucketMs/60000} 分钟{report.partialBoundaryBuckets?'；首尾为部分时间桶':''} · API：{availabilityLabels[metrics.api.availability]}；下载：{availabilityLabels[metrics.download.availability]} · 访问：{availabilityLabels[metrics.access.availability]}</p>
         <div style={{height:260}}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={report.trend}>
@@ -203,7 +203,7 @@ export function AuditLog({role}:{role:'user'|'ops'|'admin'}) {
 
       <section className="panel overview-block" data-testid="audit-distribution">
         <h3>操作类型分布</h3>
-        <p>创建、提交、审批、补偿及其他来自管理台账；执行、下载、访问仅取对应能力观测源，未采集不填 0。</p>
+        <details className="technical-details"><summary>统计口径</summary><p>创建、提交、审批、补偿及其他来自管理台账；执行、下载、访问仅取对应能力观测源，未采集不填 0。</p></details>
         <div style={{height:260}}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={distChartData}>
@@ -220,7 +220,7 @@ export function AuditLog({role}:{role:'user'|'ops'|'admin'}) {
 
       <section className="panel overview-block" data-testid="audit-ranking">
         <h3>操作者排行</h3>
-        <p>仅统计当前筛选范围内管理台账的人工操作（前 20 名）；后台任务与运行调用不计入管理操作排行。</p>
+        <details className="technical-details"><summary>统计口径</summary><p>仅统计当前筛选范围内管理台账的人工操作（前 20 名）；后台任务与运行调用不计入管理操作排行。</p></details>
         {report.ranking.length?<div style={{height:Math.max(180,report.ranking.length*32+40)}}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={report.ranking} layout="vertical" margin={{left:24,right:24}}>
@@ -282,7 +282,7 @@ export function AuditLog({role}:{role:'user'|'ops'|'admin'}) {
           <h3>访问审计记录</h3>
           <button className="secondary-button" disabled={!!error || invalidWindow || exporting==='access'} onClick={()=>exportTable('access')}>{exporting==='access'?'正在导出…':'导出访问审计'}</button>
         </div>
-        <p>广场Web：{availabilityLabels[report.sources.dify_run.availability]} · 外部API：{availabilityLabels[report.sources.external_api.availability]}。广场Web行的密钥字段为“—”；外部API行的账户名和用户组织为“—”；不包含模型中心身份和traceId。</p>
+        <p>广场Web：{availabilityLabels[report.sources.dify_run.availability]} · 外部API：{availabilityLabels[report.sources.external_api.availability]}</p>
         <p>共 {report.accessTotal} 条访问记录 · 第 {report.filter.accessPage} 页</p>
         <div className="table-scroll">
           <table>

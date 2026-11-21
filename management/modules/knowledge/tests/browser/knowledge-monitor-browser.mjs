@@ -126,8 +126,7 @@ try {
   await expect(root).toBeVisible()
 
   // 验证标题与视角徽章
-  await expect(root.getByText(/盘点底层两产品库、解析切片索引构建任务、嵌入模型核对与逐文档审查确认台账/)).toBeVisible()
-  await expect(root.getByText(/运维视角（所属组织隔离）/)).toBeVisible()
+  await expect(root.getByRole('heading',{name:'知识库监控',exact:true})).toBeVisible()
 
   // 验证五大指标卡存在
   await expect(root.getByText('纳入管理库')).toBeVisible()
@@ -171,7 +170,6 @@ try {
 
   const adminRoot = admin.getByTestId('knowledge-monitor')
   await expect(adminRoot).toBeVisible()
-  await expect(adminRoot.getByText(/系统管理员视角（全量审计）/)).toBeVisible()
 
   // 验证全量 12 条构建任务追踪
   await expect(adminRoot.getByText(/构建任务追踪 \(12\)/)).toBeVisible()

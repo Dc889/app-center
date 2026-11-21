@@ -5,9 +5,9 @@ export function PageHeader({ view, action }: { view: View; action?: React.ReactN
   return (
     <div className="page-header">
       <div>
-        <span className="eyebrow">{meta.eyebrow}</span>
+        
         <h1>{meta.title}</h1>
-        <p>{meta.desc}</p>
+        
       </div>
       {action}
     </div>

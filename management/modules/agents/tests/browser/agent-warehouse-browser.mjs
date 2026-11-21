@@ -44,7 +44,7 @@ try {
   await expect(whPage).toBeVisible()
 
   // 验证用户视角描述与指标卡
-  await expect(whPage.getByText(/普通用户只展示当前账号有权使用的应用与成功调用排行/)).toBeVisible()
+  await expect(whPage.getByRole('heading',{name:'智能体仓库',exact:true})).toBeVisible()
   const userMetrics = whPage.locator('.metric-grid')
   await expect(userMetrics.getByText('可用应用')).toBeVisible()
   await expect(userMetrics.getByText('三种方式齐全')).toBeVisible()

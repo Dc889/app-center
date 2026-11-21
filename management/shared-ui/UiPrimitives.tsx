@@ -4,8 +4,7 @@ export function ChartPanel({ title, subtitle, wide, children }: { title: string;
   return (
     <section className={`panel chart-panel ${wide ? 'wide' : ''}`}>
       <div className="panel-title">
-        <div><h3>{title}</h3><p>{subtitle}</p></div>
-        <button className="more-button">•••</button>
+        <div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div>
       </div>
       <div className="chart-body">{children}</div>
     </section>
@@ -42,7 +41,7 @@ export function DataTable({ columns, rows, onAction }: { columns: string[]; rows
 export function FormField({ label, source, required, children }: { label: string; source: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="form-field">
-      <span>{label}{required && <b>*</b>}<em>{source}</em></span>
+      <span title={`来源：${source}`}>{label}{required && <b>*</b>}</span>
       {children}
     </label>
   )

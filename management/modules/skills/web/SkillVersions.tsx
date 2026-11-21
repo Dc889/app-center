@@ -13,9 +13,22 @@ export function SkillVersions({resourceId,onSelect}:{resourceId:string;onSelect:
     fetch('/api/catalog/skill/'+encodeURIComponent(resourceId)+'/versions?'+params).then(async response=>{
       const data=await response.json()
       if(!response.ok)throw Error(data.error?.message ?? '版本读取失败')
+      const native = data.resourceId === resourceId && Array.isArray(data.versions)
+      const raw: Record<string,unknown>[] = Array.isArray(data.items) ? data.items : native ? data.versions : null
+      if (!Array.isArray(raw)) throw Error('版本数据格式异常，请刷新重试')
+      const ids = new Set<string>()
+      const page: Version[] = raw.map(item => {
+        if (!item || typeof item.version !== 'string' || !item.version || ids.has(item.version)) throw Error('版本数据不完整，请刷新重试')
+        ids.add(item.version)
+        return {version:item.version, downloadable:native ? item.status === 'available' : item.downloadable === true,
+          sha256:typeof item.sha256 === 'string' ? item.sha256 : '',
+          changedAt:typeof item.changedAt === 'string' ? item.changedAt : typeof item.publishedAt === 'string' ? item.publishedAt : '',
+          changeNote:typeof item.changeNote === 'string' ? item.changeNote : ''}
+      })
+      if (data.nextCursor != null && (typeof data.nextCursor !== 'string' || !data.nextCursor || data.nextCursor === cursor)) throw Error('版本游标异常，请刷新重试')
       if(active) {
-        setItems(previous=>[...previous.filter(p=>!data.items.some((i:Version)=>i.version===p.version)),...data.items])
-        setNext(data.nextCursor && data.nextCursor!==cursor?data.nextCursor:null)
+        setItems(previous=>[...previous.filter(p=>!ids.has(p.version)),...page])
+        setNext(data.nextCursor ?? null)
         setError('')
       }
     }).catch(e=>{if(active)setError(e.message)})
@@ -25,7 +38,7 @@ export function SkillVersions({resourceId,onSelect}:{resourceId:string;onSelect:
     <option key="current" value="">当前生效版本</option>
     {items.map(item=><option key={item.version} value={item.version} disabled={!item.downloadable}>{item.version}{item.downloadable?'':' · 不可下载'}</option>)}
   </select></label>
-    {items.filter(i=>i.version===selected).map(item=><p key={item.version}>{item.changedAt} · {item.changeNote} · {item.sha256}</p>)}
+    {items.filter(i=>i.version===selected).map(item=><p className="version-meta" key={item.version}>{[item.changedAt,item.changeNote,item.sha256].filter(Boolean).join(' · ')}</p>)}
     {next && <button className="secondary-button" onClick={()=>setCursor(next)}>加载更多版本</button>}
     {error && <p role="status">{error}</p>}
   </div>

@@ -51,7 +51,7 @@ export function App() {
       <Sidebar identity={identity} view={safeView} onNavigate={setView} collapsed={collapsed} onCollapse={() => setCollapsed(!collapsed)} />
       <div className={`app-main ${collapsed ? 'sidebar-collapsed' : ''}`}>
         <Topbar identity={identity} onNavigate={setView} onLogout={async () => { const r=await fetch('/api/demo-session',{method:'DELETE'}); if(r.ok){setRole(null);setView('overview')} }} />
-        <main className="page-content">{content}</main>
+        <main className="page-content" data-view={safeView}><div className="page-layout">{content}</div></main>
       </div>
       {drawer && <WorkOrderDrawer title={drawer} role={role} onClose={() => setDrawer('')} />}
     </div>
