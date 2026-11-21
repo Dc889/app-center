@@ -1,6 +1,6 @@
 import {check} from '../../../../runtime/http.mjs'
 import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
-import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
+import {getRagflowConfig, ragflowFetch} from '../../../platform/ragflow/public.mjs'
 
 const DIFY_TO_ROLE = {
   normal: '成员',
@@ -44,16 +44,13 @@ export function requireDualAccountUpstreams() {
   return {dify, ragflow}
 }
 
-async function fetchJson(url, {method = 'GET', token, body, product} = {}) {
+async function fetchJson(url, {method = 'GET', body, product} = {}) {
   const res = product === 'ragflow'
-    ? await fetch(url, {
+    ? await ragflowFetch(url, {
         method,
-        headers: {
-          authorization: `Bearer ${token}`,
-          ...(body !== undefined ? {'content-type': 'application/json'} : {}),
-        },
+        headers: body !== undefined ? {'content-type': 'application/json'} : {},
         body: body !== undefined ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(15000),
+        timeoutMs: 15000,
       })
     : await difyConsoleFetch(url, {
         method,

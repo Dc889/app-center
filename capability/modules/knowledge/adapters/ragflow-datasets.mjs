@@ -1,19 +1,16 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
+import {getRagflowConfig, ragflowFetch as platformRagflowFetch} from '../../../platform/ragflow/public.mjs'
 import {resolveProductOwner} from '../../../platform/dify/public.mjs'
 import {computeManifest} from './knowledge-store.mjs'
 
 async function ragflowFetch(path, {method = 'GET', body} = {}) {
   const cfg = getRagflowConfig()
   check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
-  const res = await fetch(`${cfg.base}${path}`, {
+  const res = await platformRagflowFetch(path, {
     method,
-    headers: {
-      authorization: `Bearer ${cfg.token}`,
-      ...(body !== undefined ? {'content-type': 'application/json'} : {}),
-    },
+    headers: body !== undefined ? {'content-type': 'application/json'} : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(15000),
+    timeoutMs: 15000,
   })
   const text = await res.text()
   let data = null
@@ -39,7 +36,8 @@ async function ragflowFetch(path, {method = 'GET', body} = {}) {
 export function getRagflowExternalEndpoint() {
   const cfg = getRagflowConfig()
   check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 RAGFlow 连接凭证')
-  const parsed = new URL(process.env.RAGFLOW_EXTERNAL_ENDPOINT || '/api/v1/dify', process.env.RAGFLOW_EXTERNAL_ENDPOINT ? undefined : cfg.base)
+  const rawEndpoint = process.env.RAGFLOW_EXTERNAL_ENDPOINT || cfg.externalEndpoint
+  const parsed = new URL(rawEndpoint || '/api/v1/dify', rawEndpoint ? undefined : cfg.base)
   parsed.username = ''
   parsed.password = ''
   parsed.search = ''

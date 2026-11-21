@@ -1,0 +1,28 @@
+# 镜像 4：app-center-executor（能力执行与治理编排核心，经独立 Connector 调用外部产品，不持有外部凭据）
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=4310 \
+    APP_DATA_DIR=/data/executor
+
+COPY package.json ./
+COPY --from=deps /app/node_modules ./node_modules
+COPY runtime ./runtime
+COPY contracts ./contracts
+COPY capability/app ./capability/app
+COPY capability/platform ./capability/platform
+COPY capability/modules ./capability/modules
+COPY server/lifecycle.mjs server/start-executor.mjs ./server/
+
+RUN mkdir -p /data/executor
+EXPOSE 4310
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:4310/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "server/start-executor.mjs"]

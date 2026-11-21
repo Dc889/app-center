@@ -1,0 +1,16 @@
+.git
+.gitignore
+.local-data
+node_modules
+dist
+browser-results
+test-results
+*.log
+*.sqlite*
+docs
+分工文档
+验收记录
+tests
+management/**/tests
+capability/**/tests
+dev

@@ -1,5 +1,5 @@
 import {check, digest} from '../../../../runtime/http.mjs'
-import {getDifyPluginDaemonConfig} from '../../../platform/dify/public.mjs'
+import {getDifyPluginDaemonConfig, difyPluginDaemonFetch} from '../../../platform/dify/public.mjs'
 import {inspectPluginArchive} from './package-archive.mjs'
 import {pluginConsole, verifyPluginWorkspace, listInstalledPlugins} from './dify-client.mjs'
 
@@ -31,10 +31,11 @@ export async function upgradePlugin(command, plugin, existing) {
   const current = await findInstalledPlugin({pluginUniqueIdentifier: existing.uniqueIdentifier, workspaceId: existing.workspaceId})
   check(current && current.id === existing.productInstallationId, 409, 'PLUGIN_INSTALLATION_CHANGED', '原生安装实例已变化')
   const pluginUniqueIdentifier = await uploadApprovedPlugin(command, plugin)
-  const res = await fetch(`${daemon.base.replace(/\/$/, '')}/plugin/${encodeURIComponent(existing.workspaceId)}/management/install/upgrade`, {
-    method: 'POST', headers: {'X-Api-Key': daemon.token, 'content-type': 'application/json'},
+  const res = await difyPluginDaemonFetch(`/plugin/${encodeURIComponent(existing.workspaceId)}/management/install/upgrade`, {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
     body: JSON.stringify({original_plugin_unique_identifier: existing.uniqueIdentifier, new_plugin_unique_identifier: pluginUniqueIdentifier, source: 'package', meta: {}}),
-    signal: AbortSignal.timeout(15000),
+    timeoutMs: 15000,
   })
   const response = await res.json().catch(() => null)
   check(res.ok && response?.code === 0 && typeof response?.data?.task_id === 'string', 502, 'UPSTREAM_ERROR', 'Plugin Daemon 未确认原生升级任务')

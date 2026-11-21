@@ -13,7 +13,7 @@ export function boundaryViolation(from,to) {
   if(f.startsWith('management/modules/') && t.startsWith('management/app/'))return '业务模块禁止依赖应用装配'
   if(b && (!a || a[0]!==b[0]) && !/^public\.(server\.mjs|web\.ts)$/.test(t.split('/').at(-1)))return '跨模块只能使用 public.server/public.web 入口'
   if(t.startsWith('management/api/') || t.startsWith('management/web/src/'))return '旧目录已停用'
-  if(f.startsWith('management/') && t.startsWith('capability/'))return '管理系统只能通过能力接口调用，不可导入能力实现'
+  if(f.startsWith('management/') && (t.startsWith('capability/') || t.startsWith('connectors/')))return '管理系统只能通过能力接口调用，不可导入能力实现或连接器'
   return null
 }
 function walk(dir){return readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)])}

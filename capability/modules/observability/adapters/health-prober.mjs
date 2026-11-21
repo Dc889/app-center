@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {storageBackend} from '../../../../runtime/http.mjs'
+import {getDifyConfig, getDifyPluginDaemonConfig} from '../../../platform/dify/public.mjs'
 import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
 
 export const SERVICE_KEYS = ['management', 'ragflow', 'dify', 'plugin_daemon', 'object_store', 'database']
@@ -84,6 +85,7 @@ async function probeHttpService({key, urls, token, instance, defaultVersion, his
 export async function collectServiceHealth({openLedger, now = Date.now}) {
   const historyLedger = openLedger('health_history')
   const dify = getDifyConfig()
+  const difyDaemon = getDifyPluginDaemonConfig()
   const ragflow = getRagflowConfig()
   const results = []
   let probedCount = 0
@@ -94,10 +96,12 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
       results.push(
         await probeHttpService({
           key,
-          urls: [`${dify.base}/console/api/setup`, `${dify.base}/health`],
+          urls: dify.mode === 'connector'
+            ? [`${dify.connectorUrl}/connector/v1/health`]
+            : [`${dify.base}/console/api/setup`, `${dify.base}/health`],
           token: dify.token,
-          instance: 'dify-api',
-          defaultVersion: process.env.DIFY_VERSION ?? 'dify-1.7.1',
+          instance: dify.mode === 'connector' ? 'connector-dify' : 'dify-api',
+          defaultVersion: process.env.DIFY_VERSION ?? `dify-${dify.adapterVersion ?? '1.7.1'}`,
           historyLedger,
           now,
         }),
@@ -107,21 +111,25 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
       results.push(
         await probeHttpService({
           key,
-          urls: [`${ragflow.base}/v1/system/healthz`, `${ragflow.base}/api/v1/system/health`],
+          urls: ragflow.mode === 'connector'
+            ? [`${ragflow.connectorUrl}/connector/v1/health`]
+            : [`${ragflow.base}/v1/system/healthz`, `${ragflow.base}/api/v1/system/health`],
           token: ragflow.token,
-          instance: 'ragflow-api',
-          defaultVersion: process.env.RAGFLOW_VERSION ?? 'ragflow-0.22.1',
+          instance: ragflow.mode === 'connector' ? 'connector-ragflow' : 'ragflow-api',
+          defaultVersion: process.env.RAGFLOW_VERSION ?? `ragflow-${ragflow.adapterVersion ?? '0.22.1'}`,
           historyLedger,
           now,
         }),
       )
-    } else if (key === 'plugin_daemon' && process.env.DIFY_PLUGIN_DAEMON_URL) {
+    } else if (key === 'plugin_daemon' && (difyDaemon.mode === 'connector' || process.env.DIFY_PLUGIN_DAEMON_URL)) {
       probedCount += 1
       results.push(
         await probeHttpService({
           key,
-          urls: [`${process.env.DIFY_PLUGIN_DAEMON_URL}/health/check`],
-          token: process.env.DIFY_PLUGIN_DAEMON_KEY ?? '',
+          urls: difyDaemon.mode === 'connector'
+            ? [`${difyDaemon.connectorUrl}/connector/v1/plugin-daemon/health`]
+            : [`${process.env.DIFY_PLUGIN_DAEMON_URL}/health/check`],
+          token: difyDaemon.mode === 'connector' ? difyDaemon.token : (process.env.DIFY_PLUGIN_DAEMON_KEY ?? ''),
           instance: 'plugin-daemon',
           defaultVersion: process.env.DIFY_PLUGIN_DAEMON_VERSION ?? 'daemon',
           historyLedger,
@@ -157,6 +165,9 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
     } else if (key === 'database') {
       const started = Date.now()
       const checkedAt = new Date(now()).toISOString()
+      const backend = storageBackend()
+      const dbInstance = backend === 'mysql' ? 'capability-mysql' : 'capability-sqlite'
+      const dbVersion = backend === 'mysql' ? 'mysql-8.0' : 'node-sqlite'
       try {
         historyLedger.all()
         const latencyMs = Math.max(0, Date.now() - started)
@@ -164,8 +175,8 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
         probedCount += 1
         results.push({
           key: 'database',
-          instance: 'capability-sqlite',
-          version: 'node-sqlite',
+          instance: dbInstance,
+          version: dbVersion,
           status: 'healthy',
           checkedAt,
           latencyMs,
@@ -177,8 +188,8 @@ export async function collectServiceHealth({openLedger, now = Date.now}) {
         probedCount += 1
         results.push({
           key: 'database',
-          instance: 'capability-sqlite',
-          version: 'node-sqlite',
+          instance: dbInstance,
+          version: dbVersion,
           status: 'failed',
           checkedAt,
           latencyMs: Math.max(0, Date.now() - started),

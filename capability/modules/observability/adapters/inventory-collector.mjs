@@ -1,5 +1,5 @@
 import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
-import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
+import {getRagflowConfig, ragflowFetch} from '../../../platform/ragflow/public.mjs'
 
 export const RESOURCE_KEYS = ['agents', 'datasets', 'tools', 'plugins', 'skills', 'mcp', 'keys']
 
@@ -19,12 +19,9 @@ async function fetchRepoItems(client, path) {
   }
 }
 
-async function fetchJsonSafe(url, token) {
+async function fetchRagflowSafe(path) {
   try {
-    const res = await fetch(url, {
-      headers: {authorization: `Bearer ${token}`},
-      signal: AbortSignal.timeout(3000),
-    })
+    const res = await ragflowFetch(path, {timeoutMs: 3000})
     if (!res.ok) return null
     return await res.json()
   } catch {
@@ -73,7 +70,7 @@ export async function collectResourceInventory({clients, openLedger, now = Date.
     ])
     let datasetCount = Array.isArray(difyDs?.data) ? difyDs.data.length : null
     if (ragflow.isReal) {
-      const ragDs = await fetchJsonSafe(`${ragflow.base}/api/v1/datasets?page_size=100`, ragflow.token)
+      const ragDs = await fetchRagflowSafe('/api/v1/datasets?page_size=100')
       if (Array.isArray(ragDs?.data)) {
         datasetCount = (datasetCount ?? 0) + ragDs.data.length
       }
@@ -86,7 +83,7 @@ export async function collectResourceInventory({clients, openLedger, now = Date.
       counts.keys = difyKeys.activeCount
     }
   } else if (ragflow.isReal) {
-    const ragDs = await fetchJsonSafe(`${ragflow.base}/api/v1/datasets?page_size=100`, ragflow.token)
+    const ragDs = await fetchRagflowSafe('/api/v1/datasets?page_size=100')
     if (Array.isArray(ragDs?.data)) counts.datasets = ragDs.data.length
   }
 

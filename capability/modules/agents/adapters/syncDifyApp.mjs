@@ -1,14 +1,11 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
 export async function syncDifyApp(command) {
-  const { base, token, isReal } = getDifyConfig()
+  const { isReal } = getDifyConfig()
   check(isReal, 501, 'UPSTREAM_UNSUPPORTED', '无法自动执行：未配置已核验的 Dify 访问身份')
 
   const appId = command.resourceId
-  const response = await fetch(`${base}/console/api/apps/${encodeURIComponent(appId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(15000),
-  })
+  const response = await difyConsoleFetch(`/console/api/apps/${encodeURIComponent(appId)}`)
 
   if (!response.ok) {
     throw Error(`Dify 同步应用失败: HTTP ${response.status}`)

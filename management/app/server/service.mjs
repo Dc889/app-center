@@ -379,7 +379,7 @@ export function managementApi(options) {
           if (!identity?.active) return json(res,{active:false})
           const profile=directory.get(identity.subjectId)
           if (!directory.isActive(profile)) return json(res,{active:false})
-          return json(res,{active:true,account:profile.account,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.actingRole,subjectId:profile.subjectId})
+          return json(res,{active:true,account:profile.account,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.roles?.[0] ?? profile.roles[0],subjectId:profile.subjectId})
         }
         if (req.method==='DELETE') {
           if (identity) identities.put(digest(token),{active:false})
@@ -569,10 +569,20 @@ export function managementApi(options) {
       res.end(bytes)
     } catch(error) {interrupted();throw error}
   }
+  function clientIp(req) {
+    if (options.resolveSourceIp) return options.resolveSourceIp(req)
+    if (process.env.TRUST_PROXY === '1') {
+      const forwarded = req.headers?.['x-forwarded-for']
+      if (typeof forwarded === 'string' && forwarded.trim()) return forwarded.split(',')[0].trim()
+      const realIp = req.headers?.['x-real-ip']
+      if (typeof realIp === 'string' && realIp.trim()) return realIp.trim()
+    }
+    return req.socket?.remoteAddress
+  }
   function handle(req,res,path) {
     const token=/(?:^|; *)management_identity=([a-f0-9-]{36})(?:;|$)/.exec(req.headers.cookie ?? '')?.[1]
     const identity=directory.session(token && identities.get(digest(token)))
-    const address=options.resolveSourceIp?options.resolveSourceIp(req):req.socket?.remoteAddress
+    const address=clientIp(req)
     return auditContext.run(identity?{...identity,sourceIp:isIP(address ?? '')?address:null}:identity,()=>drafts.withSubmission(req,res,identity,path,target=>dispatch(req,target,path)))
   }
   return {handle,close}

@@ -5,6 +5,10 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 export function capabilityBoundaryViolation(from,to) {
   if(from.includes('/tests/') || from.startsWith('tests/'))return null
   if(to.startsWith('management/'))return '能力组件不得导入管理系统实现，回调使用HTTP契约'
+  if(from.startsWith('capability/') && to.startsWith('connectors/'))return '能力组件只能经HTTP调用独立连接器服务，不得导入连接器源码'
+  if(from.startsWith('connectors/') && (to.startsWith('management/') || to.startsWith('capability/')))return '独立连接器服务不得导入管理系统或能力组件'
+  const connUnit=p=>/^connectors\/([^/]+)/.exec(p)?.[1]
+  if(connUnit(from) && connUnit(to) && connUnit(from)!==connUnit(to))return '不同子系统连接器必须保持独立，不得相互导入'
   if(from.startsWith('capability/platform/') && (to.startsWith('capability/modules/') || to.startsWith('capability/app/') || to.startsWith('capability/repositories/')))return '平台依赖通过注入，不得反向引用业务或仓库'
   const unit=p=>/^capability\/(modules|platform|repositories)\/([^/]+)/.exec(p)?.[0]
   if(from.startsWith('capability/modules/') && to.startsWith('capability/app/'))return '业务模块不得导入应用装配'
@@ -15,7 +19,8 @@ export function capabilityBoundaryViolation(from,to) {
 }
 function walk(dir){return readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)])}
 export function checkCapabilityBoundaries() {
-  const failures=[],files=walk(resolve(root,'capability')).filter(f=>f.endsWith('.mjs')),edges=new Map()
+  const connectorFiles=existsSync(resolve(root,'connectors'))?walk(resolve(root,'connectors')).filter(f=>f.endsWith('.mjs')):[]
+  const failures=[],files=[...walk(resolve(root,'capability')).filter(f=>f.endsWith('.mjs')),...connectorFiles],edges=new Map()
   const moduleNames=readdirSync(resolve(root,'capability/modules'),{withFileTypes:true}).filter(e=>e.isDirectory()).map(e=>e.name)
   for(const name of moduleNames)for(const required of ['public.mjs','README.md','handlers','adapters','queries','tests'])if(!existsSync(resolve(root,'capability/modules',name,required)))failures.push(`${name}: missing ${required}`)
   for(const file of files) {

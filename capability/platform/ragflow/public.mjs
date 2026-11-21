@@ -1,1 +1,6 @@
-export {getRagflowConfig} from './config.mjs'
+export {
+  getRagflowConfig,
+  ragflowFetch,
+  hydrateRagflowConnector,
+  setRagflowConnectorMeta,
+} from './config.mjs'
