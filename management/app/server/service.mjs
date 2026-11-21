@@ -375,6 +375,12 @@ export function managementApi(options) {
     if (path==='/api/demo-session' || path.startsWith('/api/types')) {
       check(!req.headers.origin || new URL(req.headers.origin).host===req.headers.host,403,'ACCESS_DENIED')
       if (path==='/api/demo-session') {
+        if (req.method==='GET') {
+          if (!identity?.active) return json(res,{active:false})
+          const profile=directory.get(identity.subjectId)
+          if (!directory.isActive(profile)) return json(res,{active:false})
+          return json(res,{active:true,account:profile.account,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.actingRole,subjectId:profile.subjectId})
+        }
         if (req.method==='DELETE') {
           if (identity) identities.put(digest(token),{active:false})
           res.setHeader('set-cookie','management_identity=; Path=/api; Max-Age=0; HttpOnly; SameSite=Strict')

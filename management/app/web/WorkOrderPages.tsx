@@ -107,22 +107,31 @@ function manualSources(code: string, category: string) {
   return ['Dify', '本平台']
 }
 
-export function ManualApplication({ role }: { role: Role }) {
+export function ManualApplication({ role, ticketType, onSelectTicketType }: { role: Role; ticketType?: string | null; onSelectTicketType?: (code: string) => void }) {
   const availableTypes = role === 'admin' ? [...ticketTypes, ...adminTicketTypes] : ticketTypes
+  const initialSelected = (ticketType ? availableTypes.find(item => item[0] === ticketType) : null) ?? availableTypes[0]
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('全部')
-  const [selected, setSelected] = useState(availableTypes[0])
-  const [path, setPath] = useState(defaultPath(availableTypes[0][0]))
-  const opening = hasRegisteredTicketForm(availableTypes[0][0]) ? {name:'',level:'',line:''} : resourceChoices(availableTypes[0][0])[0]
+  const [selected, setSelected] = useState(initialSelected)
+  const [syncedTicketType, setSyncedTicketType] = useState(ticketType ?? null)
+  const [path, setPath] = useState(defaultPath(initialSelected[0]))
+  const opening = hasRegisteredTicketForm(initialSelected[0]) ? {name:'',level:'',line:''} : resourceChoices(initialSelected[0])[0]
   const [resourceName, setResourceName] = useState(opening.name)
   const [resourceLevel, setResourceLevel] = useState(opening.level)
   const [resourceLine, setResourceLine] = useState(opening.line)
+  const person = personOf(role)
+  const [execution, setExecution] = useState<TicketResult | null>(null)
+  const [facts,setFacts]=useState('')
+  const [eventKind,setEventKind]=useState('插件')
+  const [eventObject,setEventObject]=useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [checkNote,setCheckNote]=useState('')
   const onMeta = useCallback((meta: ResourceStamp) => {
     setResourceName(meta.name)
     setResourceLevel(meta.level)
     setResourceLine(meta.line)
   }, [])
-  const chooseType = (item: typeof availableTypes[number]) => {
+  const applyTypeSelection = (item: typeof availableTypes[number]) => {
     setSelected(item)
     setExecution(null)
     setCheckNote('')
@@ -137,7 +146,16 @@ export function ManualApplication({ role }: { role: Role }) {
     setResourceName(first.name)
     setResourceLevel(first.level)
     setResourceLine(first.line)
-    setExecution(null)
+  }
+  if ((ticketType ?? null) !== syncedTicketType) {
+    setSyncedTicketType(ticketType ?? null)
+    const target = ticketType ? availableTypes.find(item => item[0] === ticketType) : availableTypes[0]
+    if (target && target[0] !== selected[0]) applyTypeSelection(target)
+  }
+  const chooseType = (item: typeof availableTypes[number]) => {
+    setSyncedTicketType(item[0])
+    applyTypeSelection(item)
+    onSelectTicketType?.(item[0])
   }
   const applyResource = (name: string) => {
     const found = resourceChoices(selected[0]).find((item) => item.name === name)
@@ -146,13 +164,6 @@ export function ManualApplication({ role }: { role: Role }) {
     setResourceLevel(found.level)
     setResourceLine(found.line)
   }
-  const person = personOf(role)
-  const [execution, setExecution] = useState<TicketResult | null>(null)
-  const [facts,setFacts]=useState('')
-  const [eventKind,setEventKind]=useState('插件')
-  const [eventObject,setEventObject]=useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [checkNote,setCheckNote]=useState('')
   const eventDraft=useApplicationDraft('EVT-01',{resourceId:eventObject,facts,objectType:eventKind},value=>{setEventObject(value.resourceId);setFacts(value.facts);setEventKind(value.objectType);setExecution(null)})
   const note = needsApplicationNote(selected[0], path)
   const chooseLevel = needsLevelPick(selected[0], path)
