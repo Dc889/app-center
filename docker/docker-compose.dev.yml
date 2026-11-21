@@ -1,0 +1,80 @@
+# ==============================================================================
+# Docker 容器热更新开发覆写配置（免重新编译镜像！）
+# 用法：npm run docker:dev
+# 原理：将宿主机源码目录直接挂载进容器，并用 Node 22 原生 --watch 自动热重启后端，
+#       同时把本地 dist/ 挂载进 Nginx，改代码无需 docker compose build！
+# ==============================================================================
+
+services:
+  connector-dify:
+    command: ["node", "--watch", "server/start-connector-dify.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../connectors/dify:/app/connectors/dify:ro
+      - ../server:/app/server:ro
+
+  connector-ragflow:
+    command: ["node", "--watch", "server/start-connector-ragflow.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../connectors/ragflow:/app/connectors/ragflow:ro
+      - ../server:/app/server:ro
+
+  repo-skill:
+    command: ["node", "--watch", "server/start-repository.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../contracts:/app/contracts:ro
+      - ../capability/platform/catalog:/app/capability/platform/catalog:ro
+      - ../capability/repositories:/app/capability/repositories:ro
+      - ../server:/app/server:ro
+
+  repo-plugin:
+    command: ["node", "--watch", "server/start-repository.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../contracts:/app/contracts:ro
+      - ../capability/platform/catalog:/app/capability/platform/catalog:ro
+      - ../capability/repositories:/app/capability/repositories:ro
+      - ../server:/app/server:ro
+
+  repo-mcp:
+    command: ["node", "--watch", "server/start-repository.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../contracts:/app/contracts:ro
+      - ../capability/platform/catalog:/app/capability/platform/catalog:ro
+      - ../capability/repositories:/app/capability/repositories:ro
+      - ../server:/app/server:ro
+
+  repo-agent:
+    command: ["node", "--watch", "server/start-repository.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../contracts:/app/contracts:ro
+      - ../capability/platform/catalog:/app/capability/platform/catalog:ro
+      - ../capability/repositories:/app/capability/repositories:ro
+      - ../server:/app/server:ro
+
+  executor:
+    command: ["node", "--watch", "server/start-executor.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../contracts:/app/contracts:ro
+      - ../capability/app:/app/capability/app:ro
+      - ../capability/platform:/app/capability/platform:ro
+      - ../capability/modules:/app/capability/modules:ro
+      - ../server:/app/server:ro
+
+  management:
+    command: ["node", "--watch", "server/start-management.mjs"]
+    volumes:
+      - ../runtime:/app/runtime:ro
+      - ../contracts:/app/contracts:ro
+      - ../management:/app/management:ro
+      - ../server:/app/server:ro
+
+  web:
+    volumes:
+      - ../dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

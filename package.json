@@ -17,7 +17,11 @@
     "check": "npm run check:boundaries && npm run lint && npm run build && npm run test:integration",
     "check:capability-boundaries": "node dev/check-capability-boundaries.mjs",
     "test:capability": "node dev/test-capability.mjs",
-    "accept:work-orders": "node dev/run-acceptance.mjs"
+    "accept:work-orders": "node dev/run-acceptance.mjs",
+    "docker:build": "docker compose -f docker/docker-compose.yml --env-file docker/.env build",
+    "docker:up": "docker compose -f docker/docker-compose.yml --env-file docker/.env up -d",
+    "docker:dev": "npm run build && docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml --env-file docker/.env up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml --env-file docker/.env down"
   },
   "dependencies": {
     "fflate": "0.8.3",

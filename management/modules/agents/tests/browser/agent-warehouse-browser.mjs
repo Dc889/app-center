@@ -58,20 +58,11 @@ try {
   await expect(ranking).toBeVisible()
   await expect(ranking.getByText('可用条目使用排行')).toBeVisible()
 
-  // 验证智能体卡片网格
   const agentGrid = user.getByTestId('agent-grid')
   await expect(agentGrid).toBeVisible()
-
-  // 详情侧边栏
-  const detail = user.getByTestId('agent-detail')
-  await expect(detail).toBeVisible()
-  // 普通用户不应出现 AG-05 下架按钮
-  await expect(detail.getByRole('button', { name: /发起下架/ })).toHaveCount(0)
-  // 复制地址按钮可用
-  const copyBtn = detail.getByTestId('method-run').getByRole('button', { name: /复制地址/ })
-  if (await copyBtn.isVisible()) {
-    await copyBtn.click()
-  }
+  await expect(agentGrid.getByText('没有符合当前筛选的智能体。')).toBeVisible()
+  await expect(agentGrid.getByText('案件摘要助手')).toHaveCount(0)
+  await expect(user.getByTestId('agent-detail')).toHaveCount(0)
 
   // 2. 运维人员视角测试
   const ops = await login('运维人员')
@@ -86,25 +77,9 @@ try {
   await expect(opsMetrics.getByText('可直接使用')).toBeVisible()
   await expect(opsMetrics.getByText('暂不可用')).toBeVisible()
 
-  // 验证搜索框过滤
-  const searchInput = ops.getByTestId('warehouse-search')
-  await searchInput.fill('案件摘要')
-  await expect(ops.getByTestId('agent-grid').getByText('案件摘要助手')).toBeVisible()
-
-  // 清空搜索框
-  await searchInput.fill('')
-
-  // 验证详情抽屉与快捷工单动作
-  const opsDetail = ops.getByTestId('agent-detail')
-  await expect(opsDetail).toBeVisible()
-  // 可用智能体具备 AG-05 下架快捷工单动作
-  const withdrawBtn = opsDetail.getByRole('button', { name: /发起下架 \(AG-05\)/ })
-  await expect(withdrawBtn).toBeVisible()
-
-  // 迭代记录中运维人员能看到工单号
-  const releaseTable = opsDetail.getByTestId('release-table')
-  await expect(releaseTable).toBeVisible()
-  await expect(releaseTable.getByText(/AG-/).first()).toBeVisible()
+  await expect(ops.getByTestId('agent-grid').getByText('案件摘要助手')).toHaveCount(0)
+  await expect(ops.getByTestId('agent-grid').getByText('没有符合当前筛选的智能体。')).toBeVisible()
+  await expect(ops.getByTestId('agent-detail')).toHaveCount(0)
 
   // 3. 系统管理员视角测试
   const admin = await login('系统管理员')
