@@ -162,7 +162,7 @@ export async function skillMonitorReport({
 
     const deliveryId = row.resultId || row.delivery?.transferId || (row.command?.executionId ? 'DL-' + row.command.executionId : '')
     const skillId = row.command?.resourceId || ''
-    const skillName = catalogItems?.find(i => i.resourceId === skillId)?.name || skillId || '公文摘要 Skill'
+    const skillName = catalogItems?.find(i => i.resourceId === skillId)?.name || skillId || '未采集'
     const version = row.command?.payload?.version || row.delivery?.version || '-'
     const sha256 = row.command?.payload?.sha256 || row.delivery?.sha256 || ''
 

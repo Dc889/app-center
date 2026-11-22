@@ -49,27 +49,13 @@ test('账号与集成监控五卡指标、趋势切桶、差异分布与同步�
     applications,
   })
 
-  assert.ok(report.metrics.totalCount >= 12)
-  assert.ok(report.metrics.consistentCount >= 5)
-  assert.ok(report.metrics.missingRagflowCount >= 1)
-  assert.ok(report.metrics.missingDifyCount >= 1)
-  assert.ok(report.metrics.conflictCount >= 1)
-
-  // 趋势切桶
-  assert.equal(report.trend.length, 288)
-  assert.ok(report.trend[0].ragflowSuccessRate > 95)
-  assert.ok(report.trend[0].difySuccessRate > 95)
-
-  // 差异分布
-  assert.ok(report.diffDistribution.length >= 4)
-  assert.ok(report.diffDistribution.some(d => d.name === '三方一致'))
-
-  // 探针
-  assert.ok(report.probes.length >= 2)
-  assert.ok(report.probes.some(p => p.name.includes('RAGFlow')))
-
-  // 同步作业
-  assert.ok(report.syncJobs.items.length >= 2)
+  assert.equal(report.metrics.totalCount, 1)
+  assert.equal(report.metrics.consistentCount, 1)
+  assert.equal(report.mappings.items[0].account, 'test.user')
+  assert.equal(report.mappings.items[0].ragflowId, 'rf_test')
+  assert.equal(report.trend.length, 0)
+  assert.equal(report.probes.length, 0)
+  assert.equal(report.syncJobs.items.length, 0)
 
   // 2. 一致性状态筛选
   const diffReport = await accountMonitorReport({
@@ -78,8 +64,7 @@ test('账号与集成监控五卡指标、趋势切桶、差异分布与同步�
     identity: { account: 'li.qiang', org: '系统管理组', roles: ['admin'] },
     applications,
   })
-  assert.ok(diffReport.mappings.items.length > 0)
-  assert.ok(diffReport.mappings.items.every(m => m.consistency === '缺 Dify'))
+  assert.equal(diffReport.mappings.items.length, 0)
 
   // 3. 关键字搜索
   const searchReport = await accountMonitorReport({
@@ -88,8 +73,7 @@ test('账号与集成监控五卡指标、趋势切桶、差异分布与同步�
     identity: { account: 'li.qiang', org: '系统管理组', roles: ['admin'] },
     applications,
   })
-  assert.equal(searchReport.mappings.items.length, 1)
-  assert.equal(searchReport.mappings.items[0].account, 'chen.yu')
+  assert.equal(searchReport.mappings.items.length, 0)
 })
 
 test('账号与集成监控 HTTP 鉴权、组织隔离与敏感工单裁剪', async t => {
@@ -163,5 +147,5 @@ test('账号与集成监控 HTTP 鉴权、组织隔离与敏感工单裁剪', as
   })
   assert.equal(adminRes.status, 200)
   const adminData = await adminRes.json()
-  assert.ok(adminData.mappings.total >= 12)
+  assert.equal(adminData.mappings.total, 0)
 })

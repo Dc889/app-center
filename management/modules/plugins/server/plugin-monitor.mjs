@@ -74,15 +74,15 @@ export async function pluginMonitorReport({
 
   for (const app of plgApps) {
     const time = app.history?.[0]?.at || app.createdAt || new Date(now).toISOString()
-    const pluginName = app.snapshot?.fields?.['插件名称'] || app.submission?.fields?.name || app.resourceId || 'document-parser'
-    const version = app.snapshot?.fields?.['版本号'] || app.submission?.fields?.version || '1.0.0'
-    const wsId = app.workspaceId || app.snapshot?.fields?.['workspace ID'] || 'ws_default'
+    const pluginName = app.snapshot?.fields?.['插件名称'] || app.submission?.fields?.name || app.resourceId || '未采集'
+    const version = app.snapshot?.fields?.['版本号'] || app.submission?.fields?.version || ''
+    const wsId = app.workspaceId || app.snapshot?.fields?.['workspace ID'] || ''
 
     // PLG-04 自动禁用记录
     if (app.ticketType === 'PLG-04') {
-      const rule = app.snapshot?.fields?.['触发规则'] || '失败率'
-      const threshold = rule === '失败率' ? '30%' : '20%'
-      const actualValue = app.snapshot?.fields?.['实测值'] || (rule === '失败率' ? '46.8%' : '28.4%')
+      const rule = app.snapshot?.fields?.['触发规则'] || ''
+      const threshold = app.snapshot?.fields?.['阈值'] || ''
+      const actualValue = app.snapshot?.fields?.['实测值'] || ''
       let recoveryStatus = '待确认'
       if (app.status === '已完成' || app.status === '已恢复') recoveryStatus = '已恢复'
       else if (app.status === '观察中') recoveryStatus = '观察中'
@@ -124,8 +124,8 @@ export async function pluginMonitorReport({
         pluginName,
         version,
         workspaceId: wsId,
-        account: app.account || 'chen.yu',
-        org: app.org || '业务一部',
+        account: app.account || '',
+        org: app.org || '',
         status,
         ticketNo: app.ticketNo,
         installedAt: time,
@@ -158,8 +158,8 @@ export async function pluginMonitorReport({
       : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     trendBuckets.push({
       time: timeLabel,
-      memoryUsedMb: 380 + Math.floor(Math.sin(i / 5) * 60 + 60),
-      memoryLimitMb: 1024,
+      memoryUsedMb: null,
+      memoryLimitMb: null,
       calls: 0,
       failures: 0,
       timeouts: 0,
@@ -184,10 +184,6 @@ export async function pluginMonitorReport({
     value: count,
     reason: count > 1 ? '多次触发禁用阈值' : '失败率告警',
   }))
-  if (errorRanking.length === 0) {
-    errorRanking.push({ name: 'document-parser', value: 0, reason: '暂无异常' })
-  }
-
   // 7. 分页处理
   const totalDisables = allDisables.length
   const startD = (page - 1) * pageSize

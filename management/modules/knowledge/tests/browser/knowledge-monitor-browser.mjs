@@ -137,8 +137,8 @@ try {
 
   // 验证嵌入模型核对面板
   await expect(root.getByRole('heading', { name: '嵌入模型核对' })).toBeVisible()
-  await expect(root.getByText('bge-large-zh', { exact: false })).toBeVisible()
-  await expect(root.getByText('text-embedding-v3', { exact: false })).toBeVisible()
+  await expect(root.getByText('bge-large-zh', { exact: false })).toHaveCount(0)
+  await expect(root.getByText('text-embedding-v3', { exact: false })).toHaveCount(0)
 
   // 验证运维按组织隔离后的构建任务台账条目数（6条）
   await expect(root.getByText(/构建任务追踪 \(6\)/)).toBeVisible()

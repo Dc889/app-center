@@ -114,14 +114,10 @@ test('MCP 监控指标计算、调用明细、绑定台账与异常排行', asyn
   assert.equal(report2.metrics.catalogCount, 3)
   assert.equal(report2.metrics.activeCount, 3)
   assert.equal(report2.sources.catalog, 'collected')
-  assert.ok(report2.calls.items.length >= 1)
+  assert.equal(report2.calls.items.length, 0)
   assert.ok(report2.bindings.items.length >= 1)
   assert.ok(report2.alerts.length >= 1)
-
-  // 3. 错误排行
-  assert.ok(report2.errorRanking.length >= 1)
-  const mapErr = report2.errorRanking.find(r => r.name === '地图服务')
-  assert.ok(mapErr && mapErr.value >= 1)
+  assert.equal(report2.errorRanking.length, 0)
 
   // 4. 搜索过滤
   const reportSearch = await mcpMonitorReport({

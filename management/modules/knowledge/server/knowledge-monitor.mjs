@@ -172,9 +172,9 @@ export async function knowledgeMonitorReport({
       statusText = '进度停滞'
     }
 
-    const duration = '12分 38秒'
+    const duration = app.snapshot?.fields?.['耗时'] || ''
     const taskItem = {
-      taskId: `JOB-${app.ticketNo.replace(/[^0-9]/g, '').slice(-5) || '88401'}`,
+      taskId: app.ticketNo,
       source: src,
       datasetName: name,
       stage,
@@ -269,21 +269,8 @@ export async function knowledgeMonitorReport({
     })
   }
 
-  // 9. 嵌入模型核对与失败分类（严格联调模式下不输出静态虚构模型）
-  const strictUpstream = process.env.CAPABILITY_STRICT_UPSTREAM === '1'
-  const embeddingModels = strictUpstream
-    ? []
-    : [
-        { modelName: 'bge-large-zh', sourceSystem: 'RAGFlow', status: '正常', datasetsCount: ragflowCount || 1 },
-        { modelName: 'text-embedding-v3', sourceSystem: 'Dify', status: '正常', datasetsCount: difyCount || 1 },
-      ]
-
-  const failureCategories = [
-    { category: '解析失败', code: 'parse_error', count: allTasks.filter(t => t.status === '进度停滞').length },
-    { category: '切片异常', code: 'chunk_error', count: 0 },
-    { category: '向量化超时', code: 'embedding_timeout', count: 0 },
-    { category: '存储超限', code: 'storage_exceeded', count: 0 },
-  ]
+  const embeddingModels = []
+  const failureCategories = []
 
   // 分页截取 tasks
   const totalTasks = allTasks.length
