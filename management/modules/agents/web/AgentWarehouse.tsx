@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  Bot, Check, ChevronRight, Code2, Copy, History, Play,
-  Search, Tag, Terminal, Trophy, X, ArrowUpRight, ShieldAlert
+  Bot, ChevronRight, Code2, Copy, History, Play,
+  Search, Tag, Terminal, Trophy, ArrowUpRight, ShieldAlert
 } from 'lucide-react'
 
 type Role = 'user' | 'ops' | 'admin'
@@ -164,11 +164,22 @@ export function AgentWarehouse({
 
   return (
     <div data-testid="warehouse-page">
-      <header className="page-header" >
+      <header className="page-header">
         <div>
           <span className="page-eyebrow">工单应用 · 智能体目录</span>
-          <h1 className="page-title" >智能体仓库</h1>
-          
+          <h1 className="page-title">智能体仓库</h1>
+        </div>
+        <div className="warehouse-kpi-strip" data-testid="agent-warehouse-kpis">
+          <div className="warehouse-kpi-pill">
+            <Bot size={15} />
+            <span>可用应用</span>
+            <strong>{metrics.total}</strong>
+          </div>
+          <div className="warehouse-kpi-pill">
+            <Play size={15} />
+            <span>可运行</span>
+            <strong>{metrics.runCount}</strong>
+          </div>
         </div>
       </header>
 
@@ -177,65 +188,6 @@ export function AgentWarehouse({
           {error}
         </div>
       )}
-
-      {/* 四大指标卡 */}
-      <div className="metric-grid four">
-        {role === 'user' ? (
-          <>
-            <article className="metric-card">
-              <div className="metric-icon tone-1"><Bot size={19} /></div>
-              <span>可用应用</span>
-              <strong>{metrics.total}</strong>
-              <small>当前账号有权使用</small>
-            </article>
-            <article className="metric-card">
-              <div className="metric-icon tone-2"><Check size={19} /></div>
-              <span>三种方式齐全</span>
-              <strong>{metrics.fullMethodCount}</strong>
-              <small>运行、嵌入、API 都已开通</small>
-            </article>
-            <article className="metric-card">
-              <div className="metric-icon tone-5"><Play size={19} /></div>
-              <span>可运行</span>
-              <strong>{metrics.runCount}</strong>
-              <small>已开通运行</small>
-            </article>
-            <article className="metric-card">
-              <div className="metric-icon tone-3"><Terminal size={19} /></div>
-              <span>可访问 API</span>
-              <strong>{metrics.apiCount}</strong>
-              <small>已开通访问 API</small>
-            </article>
-          </>
-        ) : (
-          <>
-            <article className="metric-card">
-              <div className="metric-icon tone-1"><Bot size={19} /></div>
-              <span>已生效应用</span>
-              <strong>{metrics.total}</strong>
-              <small>不含尚未通过的首次发布</small>
-            </article>
-            <article className="metric-card">
-              <div className="metric-icon tone-2"><Check size={19} /></div>
-              <span>可直接使用</span>
-              <strong>{metrics.usableCount}</strong>
-              <small>至少开通一种使用方式</small>
-            </article>
-            <article className="metric-card">
-              <div className="metric-icon tone-5"><Play size={19} /></div>
-              <span>三种方式齐全</span>
-              <strong>{metrics.fullMethodCount}</strong>
-              <small>运行、嵌入、API 都已开通</small>
-            </article>
-            <article className="metric-card">
-              <div className="metric-icon tone-4"><X size={19} /></div>
-              <span>暂不可用</span>
-              <strong>{metrics.unavailableCount}</strong>
-              <small>已下架或方式全部关闭</small>
-            </article>
-          </>
-        )}
-      </div>
 
       {/* 使用排行榜 */}
       <section className="panel ranking-panel" data-testid="usage-ranking">
@@ -281,7 +233,7 @@ export function AgentWarehouse({
           />
         </label>
         <div className="usable-switch" data-testid="warehouse-usable">
-          {(role === 'user' ? (['全部', '三种方式齐全'] as const) : (['全部', '可直接使用', '暂不可用'] as const)).map((item) => (
+          {(role === 'user' ? (['全部', '可直接使用'] as const) : (['全部', '可直接使用', '暂不可用'] as const)).map((item) => (
             <button
               key={item}
               type="button"

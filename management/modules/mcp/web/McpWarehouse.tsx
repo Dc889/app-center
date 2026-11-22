@@ -33,7 +33,7 @@ export function McpWarehouse({role}: {role: Role}) {
   const [items, setItems] = useState<Array<CatalogItem & {bind: string}>>([])
   const [cursor, setCursor] = useState('')
   const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
   const [selectedId, setSelectedId] = useState('')
@@ -47,21 +47,27 @@ export function McpWarehouse({role}: {role: Role}) {
   useEffect(() => {
     let active = true
     const controller = new AbortController()
-    readDirectoryPages('/api/workspaces?product=dify', isWorkspace, controller.signal).then(rows => { if (active) setWorkspaces(rows) }).catch(reason => { if (active && !controller.signal.aborted) setError(reason instanceof Error ? reason.message : '工作区读取失败') })
+    readDirectoryPages('/api/workspaces?product=dify', isWorkspace, controller.signal).then(rows => {
+      if (!active) return
+      setWorkspaces(rows)
+      if (rows.length > 0) setWorkspaceId(prev => prev || rows[0].workspaceId)
+    }).catch(() => {
+      // Workspaces are optional for browsing the public MCP catalog
+    })
     return () => { active = false; controller.abort() }
   }, [])
   useEffect(() => {
-    if (!workspaceId) return
     const token = ++request.current
     const controller = new AbortController()
-    const params = new URLSearchParams({kind: 'mcp', workspaceId})
+    const params = new URLSearchParams({kind: 'mcp'})
+    if (workspaceId) params.set('workspaceId', workspaceId)
     if (cursor) params.set('cursor', cursor)
     fetch('/api/catalog?' + params, {signal: controller.signal}).then(async response => {
       const data = await response.json()
       if (!response.ok) throw Error(data.error?.message ?? '目录读取失败')
       if (token !== request.current) return
       const page = (data.items as CatalogItem[]).map(item => ({...item, bind: bindState(item.data)}))
-      setItems(previous => [...previous.filter(item => !page.some(row => row.resourceId === item.resourceId)), ...page])
+      setItems(previous => (cursor ? [...previous.filter(item => !page.some(row => row.resourceId === item.resourceId)), ...page] : page))
       setNextCursor(data.nextCursor ?? null)
       setError('')
     }).catch(reason => {
@@ -79,12 +85,13 @@ export function McpWarehouse({role}: {role: Role}) {
     setSelectedId('')
     setNotice('')
     setError('')
-    if (next) setLoading(true)
+    setLoading(true)
   }
+  const availableCount = items.filter(item => !['withdrawn', 'unavailable', 'quarantined', 'isolated'].includes(item.status)).length
   const filtered = items.filter(item => !keyword.trim() || (item.name + item.resourceId).toLowerCase().includes(keyword.trim().toLowerCase()))
   const selected = filtered.find(item => item.resourceId === selectedId) ?? filtered[0]
   async function bind() {
-    if (!selected || !purpose.trim() || !startsAt || !expiresAt) { setNotice('请填写绑定目的和期限'); return }
+    if (!selected || !workspaceId || !purpose.trim() || !startsAt || !expiresAt) { setNotice(!workspaceId ? '请先选择目标工作区' : '请填写绑定目的和期限'); return }
     setBusy(true)
     try {
       const ticketNo = 'MCP-02-' + crypto.randomUUID()
@@ -109,22 +116,36 @@ export function McpWarehouse({role}: {role: Role}) {
   }
   return <div data-testid="mcp-warehouse">
     <PageHeader view="mcpWarehouse" />
-    <label>目标工作区<select aria-label="MCP仓库工作区" value={workspaceId} onChange={event => chooseWorkspace(event.target.value)}><option value="">请选择工作区</option>{workspaces.map(row => <option key={row.workspaceId} value={row.workspaceId}>{row.name} · {row.workspaceId}</option>)}</select></label>
-    {!workspaceId && <p role="status">选择工作区查看</p>}
-    {workspaceId && <>
-      <button className="secondary-button" disabled={loading} onClick={() => { setItems([]); setCursor(''); setNextCursor(null); setLoading(true); setReload(value => value + 1) }}>刷新目录</button>
-      {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多目录</button>}
-      <p>工作区 {workspaceId} · 已加载 {items.length} 个 MCP</p>
-      {error && <p role="alert">{error}</p>}
-      <label className="catalog-search"><Search size={16} /><input aria-label="搜索MCP" value={keyword} onChange={event => setKeyword(event.target.value)} /></label>
+    <div className="warehouse-top-bar">
+      <div className="warehouse-kpi-strip" data-testid="mcp-warehouse-kpis">
+        <div className="warehouse-kpi-pill">
+          <Network size={15} />
+          <span>MCP 服务总数</span>
+          <strong>{items.length}</strong>
+        </div>
+        <div className="warehouse-kpi-pill">
+          <Network size={15} />
+          <span>可用 MCP 服务</span>
+          <strong>{availableCount}</strong>
+        </div>
+      </div>
+      <div className="warehouse-actions">
+        <label className="catalog-search"><Search size={16} /><input aria-label="搜索MCP" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索 MCP 服务" /></label>
+        <button className="secondary-button" disabled={loading} onClick={() => { setItems([]); setCursor(''); setNextCursor(null); setLoading(true); setReload(value => value + 1) }}>刷新目录</button>
+        {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多目录</button>}
+      </div>
+    </div>
+    {error && <p role="alert">{error}</p>}
+    <div className="warehouse-layout">
       <div className="agent-grid">
-        {filtered.map(item => <article key={item.resourceId} role="button" tabIndex={0} className={'agent-card' + (selected?.resourceId === item.resourceId ? ' active' : '')} data-testid={'mcp-card-' + item.resourceId} onClick={() => setSelectedId(item.resourceId)} onKeyDown={event => {if(event.key === 'Enter' || event.key === ' '){event.preventDefault();event.currentTarget.click()}}}><div className="agent-card-top"><Network size={16} /><div><strong>{item.name}</strong><small>{item.resourceId}</small></div><em>{item.bind}</em></div></article>)}
+        {filtered.map(item => <article key={item.resourceId} role="button" tabIndex={0} className={'agent-card' + (selected?.resourceId === item.resourceId ? ' active' : '')} data-testid={'mcp-card-' + item.resourceId} onClick={() => setSelectedId(item.resourceId)} onKeyDown={event => {if(event.key === 'Enter' || event.key === ' '){event.preventDefault();event.currentTarget.click()}}}><div className="agent-card-top"><Network size={16} /><div><strong>{item.name}</strong><small>{item.resourceId}</small></div><em>{item.bind}</em></div><p>{typeof item.data?.description === 'string' && item.data.description ? item.data.description : item.status}</p></article>)}
+        {filtered.length === 0 && !loading && <div className="agent-empty">当前仓库暂无已注册的 MCP 服务。</div>}
       </div>
       {selected && <aside className="panel" data-testid="mcp-detail">
         <h3>{selected.name}</h3>
-        <p>绑定状态 · {selected.bind}</p>
-        
+        <p>状态 · {selected.status} · {selected.bind}</p>
         {visibleFacts(selected.data, staff).map(([key, value]) => <p key={key}>{key} · {typeof value === 'string' ? value : JSON.stringify(value)}</p>)}
+        {workspaces.length > 0 && <label>目标工作区<select aria-label="MCP仓库工作区" value={workspaceId} onChange={event => chooseWorkspace(event.target.value)}>{workspaces.map(row => <option key={row.workspaceId} value={row.workspaceId}>{row.name}</option>)}</select></label>}
         <label>说明<textarea aria-label="MCP仓库说明" value={purpose} onChange={event => setPurpose(event.target.value)} /></label>
         <label>开始<input aria-label="MCP绑定开始" type="datetime-local" value={startsAt} onChange={event => setStartsAt(event.target.value)} /></label>
         <label>截止<input aria-label="MCP绑定截止" type="datetime-local" value={expiresAt} onChange={event => setExpiresAt(event.target.value)} /></label>
@@ -132,6 +153,6 @@ export function McpWarehouse({role}: {role: Role}) {
         {staff && <button className="secondary-button" disabled={busy} onClick={() => void disposition()}>提交 MCP-03 目录隔离</button>}
         {notice && <p role="status" data-testid="mcp-notice">{notice}</p>}
       </aside>}
-    </>}
+    </div>
   </div>
 }

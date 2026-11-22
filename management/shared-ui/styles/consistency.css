@@ -367,3 +367,43 @@ input[type='checkbox'], input[type='radio'] {
   font-size: 13px;
   font-weight: 500;
 }
+
+/* Compact KPI strip shared across all four warehouse pages */
+.warehouse-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.warehouse-kpi-strip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.warehouse-kpi-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--muted);
+}
+.warehouse-kpi-pill svg { color: var(--primary); flex-shrink: 0; }
+.warehouse-kpi-pill strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.warehouse-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

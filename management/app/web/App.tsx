@@ -12,6 +12,7 @@ import '../../shared-ui/styles/App.css'
 type SessionProfile = {
   active?: boolean
   account: string
+  email?: string
   name: string
   org: string
   businessLine?: string
@@ -46,7 +47,7 @@ export function App() {
 
   useEffect(() => {
     let active = true
-    fetch('/api/demo-session')
+    fetch('/api/auth/session')
       .then(async response => (response.ok ? (await response.json()) as SessionProfile : {active: false}))
       .then(profile => {
         if (!active) return
@@ -114,21 +115,27 @@ export function App() {
     document.title = pageTitleForRoute(safeView, safeView === 'manual' ? manualTicketType : null)
   }, [safeView, manualTicketType])
 
-  const login = async (nextRole: Role, account?: string) => {
+  const login = async (username: string, password: string) => {
+    let nextRole: Role
     try {
-      const response = await fetch('/api/demo-session', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {'content-type': 'application/json'},
-        body: JSON.stringify({account: account ?? personOf(nextRole).account, role: nextRole === 'ops' ? 'operator' : nextRole}),
+        body: JSON.stringify({username: username.trim(), password}),
       })
-      if (!response.ok) throw Error()
-      const profile = await response.json()
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setLoginError(body?.error?.message || '账号或密码错误')
+        return
+      }
+      const profile = body as SessionProfile
+      nextRole = toUiRole(profile.actingRole)
       sessionStorage.setItem('session-person', JSON.stringify({...profile, role: nextRole}))
+      if (nextRole === 'ops') sessionStorage.setItem('operator', profile.account)
     } catch {
       setLoginError('管理服务未连接，请重试')
       return
     }
-    if (nextRole === 'ops') sessionStorage.setItem('operator', account ?? 'zhou.min')
     setLoginError('')
     const pending = intendedRoute.current
     intendedRoute.current = null
@@ -141,7 +148,7 @@ export function App() {
   }
 
   const logout = async () => {
-    const r = await fetch('/api/demo-session', {method: 'DELETE'})
+    const r = await fetch('/api/auth/logout', {method: 'POST'})
     if (r.ok) {
       sessionStorage.removeItem('session-person')
       sessionStorage.removeItem('operator')
@@ -155,7 +162,7 @@ export function App() {
 
   if (!sessionReady) return null
   if (!role || !identity || !safeView) {
-    return <>{loginError && <p role="alert">{loginError}</p>}<Login onLogin={login} /></>
+    return <Login onLogin={login} error={loginError} />
   }
 
   const moduleContent = renderModuleView(safeView, {role, onNavigate: navigate, onWorkOrder: setDrawer})

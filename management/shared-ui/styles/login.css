@@ -226,3 +226,73 @@
   font-size: 12px;
   letter-spacing: .5px;
 }
+
+/* Formal account/password login form */
+.login-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+}
+.login-field {
+  display: grid;
+  gap: 7px;
+}
+.login-field > span {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+}
+.login-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d5dbe7;
+  border-radius: 10px;
+  background: #fff;
+  color: #667085;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.login-input-wrap:focus-within {
+  border-color: #5b62e8;
+  box-shadow: 0 0 0 3px rgba(91, 98, 232, .14);
+}
+.login-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #172033;
+  font-size: 14px;
+}
+.login-eye-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+}
+.login-eye-btn:hover { color: #344054; }
+.login-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  color: #b42318;
+  font-size: 13px;
+}
+.login-submit {
+  height: 44px;
+  margin-top: 4px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}

@@ -110,13 +110,30 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
   }
   return <div data-testid="catalog-warehouse">
     <PageHeader view="skillWarehouse" />
-    <button className="secondary-button" disabled={loading} onClick={() => { setCatalog([]); setError(''); setLoading(true); setCursor(''); setNextCursor(null); setRefresh(value => value + 1) }}>刷新目录</button>
-    {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多目录</button>}
-    <p>{staff ? '已加载 ' + catalog.length + ' 个条目，含下架项' : '已加载 ' + visible.length + ' 个可下载条目'}</p>
-    {error && <p role="alert">{error}</p>}
-    <div className="metric-grid four">
-      {(staff ? [['已上架', visible.filter(item => item.status === '可下载').length], ['已下架', catalog.filter(item => item.status === '已下架').length], ['可见 Skill', visible.length], ['成功下载', ranked.length ? ranked.reduce((sum, item) => sum + (item.successCount ?? 0), 0) : '未采集']] : [['可下载', visible.filter(item => item.downloadable).length], ['可见 Skill', visible.length], ['成功下载', ranked.length ? ranked.reduce((sum, item) => sum + (item.successCount ?? 0), 0) : '未采集'], ['版本', visible.filter(item => item.version).length]]).map(([label, value]) => <article className="metric-card" key={String(label)}><div className="metric-icon"><PackageCheck size={19} /></div><span>{label}</span><strong>{value}</strong></article>)}
+    <div className="warehouse-top-bar">
+      <div className="warehouse-kpi-strip" data-testid="skill-warehouse-kpis">
+        <div className="warehouse-kpi-pill">
+          <PackageCheck size={15} />
+          <span>Skill 总数</span>
+          <strong>{catalog.length}</strong>
+        </div>
+        <div className="warehouse-kpi-pill">
+          <PackageCheck size={15} />
+          <span>可下载</span>
+          <strong>{visible.filter(item => item.downloadable).length}</strong>
+        </div>
+        <div className="warehouse-kpi-pill">
+          <Trophy size={15} />
+          <span>下载次数</span>
+          <strong>{ranked.reduce((sum, item) => sum + (item.successCount ?? 0), 0)}</strong>
+        </div>
+      </div>
+      <div className="warehouse-actions">
+        <button className="secondary-button" disabled={loading} onClick={() => { setCatalog([]); setError(''); setLoading(true); setCursor(''); setNextCursor(null); setRefresh(value => value + 1) }}>刷新目录</button>
+        {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多目录</button>}
+      </div>
     </div>
+    {error && <p role="alert">{error}</p>}
     <section className="panel ranking-panel" data-testid="usage-ranking">
       <div className="panel-title"><div><h3><Trophy size={15} /> {staff ? '下载排行榜' : '可下载条目排行'}</h3><p>按成功下载次数排序</p></div></div>
       {ranked.length === 0 ? <div className="agent-empty">未采集</div> : <div className="ranking-list">{ranked.map((item, index) => <button key={item.id} className={selected?.id === item.id ? 'active' : ''} onClick={() => setSelectedId(item.id)}><b>{index + 1}</b><span><strong>{item.name}</strong></span><i><em style={{width: Math.max(8, Math.round((item.successCount ?? 0) / maxCount * 100)) + '%'}} /></i><em>{item.successCount} 次</em></button>)}</div>}

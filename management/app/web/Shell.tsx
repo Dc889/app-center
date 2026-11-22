@@ -1,29 +1,26 @@
-import type {Role} from '../../shared-ui/UiContextData'
 import {useState} from 'react'
-import {Layers3} from 'lucide-react'
-import {Sparkles} from 'lucide-react'
-import {ShieldCheck} from 'lucide-react'
-import {Activity} from 'lucide-react'
-import {FileCheck2} from 'lucide-react'
-import {identities} from '../../shared-ui/UiContextData'
-import type {Identity} from '../../shared-ui/UiContextData'
-import {ArrowRight} from 'lucide-react'
-import type {View} from '../../shared-ui/UiContextData'
-import {baseTicketNav} from '../../shared-ui/UiContextData'
-import {operationTicketNav} from '../../shared-ui/UiContextData'
-import {Workflow} from 'lucide-react'
-import {PanelLeftClose} from 'lucide-react'
-import {warehouseNav} from '../../shared-ui/UiContextData'
-import {monitorNav} from '../../shared-ui/UiContextData'
-import type {NavItem} from '../../shared-ui/UiContextData'
-import {AlertTriangle} from 'lucide-react'
-import {ClipboardCheck} from 'lucide-react'
-import {ChevronDown} from 'lucide-react'
-import {LogOut} from 'lucide-react'
+import type {FormEvent} from 'react'
+import {Layers3, Sparkles, ShieldCheck, Activity, FileCheck2, Workflow, PanelLeftClose, AlertTriangle, ClipboardCheck, ChevronDown, LogOut, Lock, User, Eye, EyeOff} from 'lucide-react'
+import type {Identity, View, NavItem} from '../../shared-ui/UiContextData'
+import {baseTicketNav, operationTicketNav, warehouseNav, monitorNav} from '../../shared-ui/UiContextData'
 
-export function Login({ onLogin }: { onLogin: (role: Role, account?: string) => void }) {
-  const [operator,setOperator]=useState('zhou.min')
-  const [loginAccount,setLoginAccount]=useState('')
+export function Login({ onLogin, error }: { onLogin: (username: string, password: string) => Promise<void> | void; error?: string }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!username.trim() || !password) return
+    setSubmitting(true)
+    try {
+      await onLogin(username.trim(), password)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <main className="login-page">
       <div className="login-shell">
@@ -43,42 +40,58 @@ export function Login({ onLogin }: { onLogin: (role: Role, account?: string) => 
         <section className="login-panel">
           <div className="login-panel-head">
             <div>
-              <span className="mini-label">演示环境</span>
-              <h2>选择身份进入</h2>
+              <span className="mini-label">统一身份认证</span>
+              <h2>账号密码登录</h2>
             </div>
             <div className="network-pill"><span /> 用户网络分区</div>
           </div>
-          <div className="login-demo-controls">
-            <label>
-              <span>运维账户</span>
-              <select value={operator} onChange={e=>setOperator(e.target.value)}><option value="zhou.min">周敏</option><option value="wang.ning">王宁</option></select>
+          <form className="login-form" onSubmit={event => void handleSubmit(event)} data-testid="login-form">
+            <label className="login-field">
+              <span>账号 / 邮箱</span>
+              <div className="login-input-wrap">
+                <User size={16} />
+                <input
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="例如 chen.yu 或 chen.yu@kpw.com"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  required
+                />
+              </div>
             </label>
-            <label>
-              <span>指定账户（可选）</span>
-              <input value={loginAccount} placeholder="留空使用所选身份" onChange={e=>setLoginAccount(e.target.value)}/>
-            </label>
-          </div>
-          <div className="identity-list">
-            {identities.map((identity, index) => {
-              const Icon = identity.icon
-              return (
+            <label className="login-field">
+              <span>登录密码</span>
+              <div className="login-input-wrap">
+                <Lock size={16} />
+                <input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="请输入密码"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
                 <button
-                  key={identity.role}
-                  className={`identity-card identity-${index + 1}`}
-                  onClick={() => onLogin(identity.role,loginAccount || (identity.role==="ops"?operator:identity.account))}
+                  type="button"
+                  className="login-eye-btn"
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  onClick={() => setShowPassword(v => !v)}
                 >
-                  <div className="identity-icon"><Icon size={21} /></div>
-                  <div className="identity-main">
-                    <div><strong>{identity.roleName}</strong><span>{identity.role==="ops" && operator==="wang.ning" ? "王宁 · wang.ning" : identity.name+" · "+identity.account}</span></div>
-                  </div>
-                  <ArrowRight size={19} className="identity-arrow" />
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
-              )
-            })}
-          </div>
-          <div className="login-security"><ShieldCheck size={15} /> 当前为演示登录入口</div>
+              </div>
+            </label>
+            {error && <p className="login-error" role="alert">{error}</p>}
+            <button type="submit" className="primary-button login-submit" disabled={submitting || !username.trim() || !password}>
+              {submitting ? '正在验证...' : '登录'}
+            </button>
+          </form>
+          <div className="login-security"><ShieldCheck size={15} /> 支持管理平台、Dify 与 RAGFlow 统一账号登录</div>
         </section>
-        <footer className="login-footer">应用中心 · 内部演示环境 · 2026</footer>
+        <footer className="login-footer">应用中心 · 统一身份认证 · 2026</footer>
       </div>
     </main>
   )
@@ -182,7 +195,7 @@ export function Topbar({
         </button>
         {open && (
           <div className="user-menu">
-            <div><span className={`avatar avatar-${identity.role}`}>{identity.initials}</span><p><strong>{identity.name}</strong><small>{identity.account}</small></p></div>
+            <div><span className={`avatar avatar-${identity.role}`}>{identity.initials}</span><p><strong>{identity.name}</strong><small>{identity.email ?? `${identity.account}@kpw.com`}</small></p></div>
             <div className="menu-role">{identity.roleName} · {identity.org}</div>
             <button onClick={onLogout}><LogOut size={16} /> 退出登录</button>
           </div>

@@ -267,9 +267,10 @@ export function managementApi(options) {
     if(path==='/api/account-applications' || path==='/api/account-applications/transition')return accountChanges.handle(req,res,path,identity)
     if(path==='/api/subjects') {
       check(req.method==='GET' && hasRole(identity,'admin'),403,'ACCESS_DENIED')
-      return json(res,{items:directory.subjects(),catalog:options.directoryCatalog ?? directory.catalog})
+      const safeItems=directory.subjects().map(({passwordHash:_ph, ...rest})=>rest)
+      return json(res,{items:safeItems,catalog:options.directoryCatalog ?? directory.catalog})
     }
-    if(identity?.restricted && path.startsWith('/api/') && !['/api/demo-session','/api/audit','/api/account-applications','/api/account-applications/transition'].includes(path)) {
+    if(identity?.restricted && path.startsWith('/api/') && !['/api/demo-session','/api/auth/session','/api/auth/login','/api/auth/logout','/api/audit','/api/account-applications','/api/account-applications/transition'].includes(path)) {
       check(req.method==='GET' && ['/api/applications','/api/tickets','/api/events'].includes(path),403,'ACCOUNT_CHANGE_PENDING')
     }
     if(await dispatchModuleRoute(path,{accountChanges,applications,cap,demoAccounts,directory,drafts,events,hasRole,identity,options,ownerHeaders,path,req,res,tickets,types}))return
@@ -372,14 +373,48 @@ export function managementApi(options) {
       return json(res,await response.json())
     }
     if (['/api/drafts','/api/drafts/restore','/api/drafts/recover'].includes(path)) return drafts.handle(req,res,identity,path)
-    if (path==='/api/demo-session' || path.startsWith('/api/types')) {
+    if (path==='/api/auth/login' || path==='/api/auth/session' || path==='/api/auth/logout' || path==='/api/demo-session' || path.startsWith('/api/types')) {
       check(!req.headers.origin || new URL(req.headers.origin).host===req.headers.host,403,'ACCESS_DENIED')
+      if (path==='/api/auth/session') {
+        if (req.method==='DELETE') {
+          if (identity) identities.put(digest(token),{active:false})
+          res.setHeader('set-cookie','management_identity=; Path=/api; Max-Age=0; HttpOnly; SameSite=Strict')
+          return json(res,{active:false})
+        }
+        check(req.method==='GET',405,'METHOD_NOT_ALLOWED')
+        if (!identity?.active) return json(res,{active:false})
+        const profile=directory.get(identity.subjectId)
+        if (!directory.isActive(profile)) return json(res,{active:false})
+        return json(res,{active:true,account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.roles?.[0] ?? profile.roles[0],subjectId:profile.subjectId})
+      }
+      if (path==='/api/auth/logout') {
+        check(req.method==='POST' || req.method==='DELETE',405,'METHOD_NOT_ALLOWED')
+        if (identity) identities.put(digest(token),{active:false})
+        res.setHeader('set-cookie','management_identity=; Path=/api; Max-Age=0; HttpOnly; SameSite=Strict')
+        return json(res,{active:false})
+      }
+      if (path==='/api/auth/login') {
+        check(req.method==='POST',405,'METHOD_NOT_ALLOWED')
+        const input=await body(req)
+        const username=String(input.username ?? input.account ?? '').trim()
+        const password=String(input.password ?? '')
+        check(username && password,400,'INVALID_CREDENTIALS','请输入账号和密码')
+        const profile=directory.authenticate(username, password)
+        check(profile,401,'INVALID_CREDENTIALS','账号或密码错误')
+        check(directory.isActive(profile),403,'ACCOUNT_INACTIVE','该账号已被停用或已过期')
+        const actingRole=profile.roles.includes('admin')?'admin':profile.roles.includes('operator')?'operator':'user'
+        if (identity) identities.put(digest(token),{active:false})
+        const fresh=id()
+        identities.put(digest(fresh),{account:profile.account,subjectId:profile.subjectId,profileRevision:profile.revision,actingRole,active:true})
+        res.setHeader('set-cookie','management_identity='+fresh+'; Path=/api; HttpOnly; SameSite=Strict')
+        return json(res,{active:true,account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole,subjectId:profile.subjectId})
+      }
       if (path==='/api/demo-session') {
         if (req.method==='GET') {
           if (!identity?.active) return json(res,{active:false})
           const profile=directory.get(identity.subjectId)
           if (!directory.isActive(profile)) return json(res,{active:false})
-          return json(res,{active:true,account:profile.account,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.roles?.[0] ?? profile.roles[0],subjectId:profile.subjectId})
+          return json(res,{active:true,account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.roles?.[0] ?? profile.roles[0],subjectId:profile.subjectId})
         }
         if (req.method==='DELETE') {
           if (identity) identities.put(digest(token),{active:false})
@@ -396,7 +431,7 @@ export function managementApi(options) {
         const fresh=id()
         identities.put(digest(fresh),{account:profile.account,subjectId:profile.subjectId,profileRevision:profile.revision,actingRole,active:true})
         res.setHeader('set-cookie','management_identity='+fresh+'; Path=/api; HttpOnly; SameSite=Strict')
-        return json(res,{account:profile.account,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole,subjectId:profile.subjectId})
+        return json(res,{account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole,subjectId:profile.subjectId})
       }
       check(identity?.active && hasRole(identity,'admin'),403,'ACCESS_DENIED','仅系统管理员可管理工单类型')
       return types.handle(req,res,path,identity.account)

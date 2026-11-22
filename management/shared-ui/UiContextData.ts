@@ -31,6 +31,7 @@ export type Identity = {
   roleName: string
   name: string
   account: string
+  email?: string
   org: string
   initials: string
   note: string
@@ -41,17 +42,17 @@ export type NavItem = { id: View; label: string; icon: LucideIcon }
 
 export const identities: Identity[] = [
   {
-    role: 'user', roleName: '用户', name: '陈宇', account: 'chen.yu',
+    role: 'user', roleName: '用户', name: '陈宇', account: 'chen.yu', email: 'chen.yu@kpw.com',
     org: '业务一部', initials: '陈', note: '查看可用仓库、跟踪本人申请',
     icon: Users,
   },
   {
-    role: 'ops', roleName: '运维人员', name: '周敏', account: 'zhou.min',
+    role: 'ops', roleName: '运维人员', name: '周敏', account: 'zhou.min', email: 'zhou.min@kpw.com',
     org: '平台运营组', initials: '周', note: '监控运行态、办理业务工单',
     icon: Headphones,
   },
   {
-    role: 'admin', roleName: '系统管理员', name: '李强', account: 'li.qiang',
+    role: 'admin', roleName: '系统管理员', name: '李强', account: 'li.qiang', email: 'li.qiang@kpw.com',
     org: '系统管理组', initials: '李', note: '管理工单类型、办理账号工单',
     icon: UserCog,
   },
