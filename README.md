@@ -15,7 +15,7 @@
 
 ## 本机开发
 
-采用 Node.js 22.23 或兼容版本。在本目录运行 `npm ci` 安装依赖，`npm run dev` 启动页面、管理 API 和本机能力服务（SQLite 落在 `.local-data/`，可用 `APP_DATA_DIR` 覆盖）。`npm run dev:live` 读取 `.local-data/local-products.json` 接入本地真实 Dify 与 RAGFlow。
+采用 Node.js 22.23 或兼容版本。在本目录运行 `npm ci` 安装依赖，`npm run dev` 启动页面、管理 API 和本机能力服务（默认 SQLite 落在 `.local-data/`，可用 `APP_DATA_DIR` 覆盖）。`npm run dev:live` 读取 `.local-data/local-products.json` 接入本地真实 Dify 与 RAGFlow，并在检测到本机 Docker MySQL 8.0（`127.0.0.1:13306`）时自动路由到 `app_center_{mgmt,exec,repo}` 三逻辑库，与容器环境（`http://localhost:8088/`）实时共享同一套数据；如需强制退回 SQLite 可设置 `STORAGE_DRIVER=sqlite`。自动化测试默认使用临时隔离 SQLite，无需外部数据库依赖。
 
 页面使用独立 URL 路由（如 `/overview`、`/knowledge`、`/manual/TOL-01`），支持浏览器前进/后退与刷新保持登录。
 

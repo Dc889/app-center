@@ -2,7 +2,64 @@ import {existsSync, readFileSync} from 'node:fs'
 import {resolve, dirname} from 'node:path'
 import {spawn} from 'node:child_process'
 import {createRequire} from 'node:module'
+import {createConnection} from 'node:net'
 import {startLocalDaemonProxy} from './live-verification/daemon-proxy.mjs'
+
+function parseDotEnv(filePath) {
+  if (!existsSync(filePath)) return {}
+  const map = {}
+  for (const rawLine of readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq <= 0) continue
+    const key = line.slice(0, eq).trim()
+    const value = line.slice(eq + 1).trim().replace(/^(['"])(.*)\1$/, '$2')
+    map[key] = value
+  }
+  return map
+}
+
+function canConnectTcp(host, port, timeoutMs = 1000) {
+  return new Promise(done => {
+    const socket = createConnection({host, port})
+    const finish = ok => {
+      socket.removeAllListeners()
+      socket.destroy()
+      done(ok)
+    }
+    socket.setTimeout(timeoutMs, () => finish(false))
+    socket.once('connect', () => finish(true))
+    socket.once('error', () => finish(false))
+  })
+}
+
+async function resolveMysqlEnv() {
+  if (process.env.STORAGE_DRIVER === 'sqlite') {
+    return {env: {}, label: 'SQLite (forced via STORAGE_DRIVER=sqlite)'}
+  }
+  if (process.env.MYSQL_URL || process.env.MYSQL_MGMT_URL) {
+    return {env: {}, label: 'MySQL 8.0 (explicit MYSQL_* env)'}
+  }
+  const dockerEnv = parseDotEnv(resolve('docker/.env'))
+  const host = process.env.MYSQL_HOST || '127.0.0.1'
+  const port = Number(process.env.MYSQL_HOST_PORT || dockerEnv.MYSQL_HOST_PORT || 13306)
+  if (!(await canConnectTcp(host, port))) {
+    return {env: {}, label: `SQLite (${resolve(process.env.APP_DATA_DIR ?? '.local-data')}, Docker MySQL ${host}:${port} unreachable)`}
+  }
+  const mgmtPass = encodeURIComponent(dockerEnv.MYSQL_MGMT_PASSWORD || 'ac_mgmt_change_me')
+  const execPass = encodeURIComponent(dockerEnv.MYSQL_EXEC_PASSWORD || 'ac_exec_change_me')
+  const repoPass = encodeURIComponent(dockerEnv.MYSQL_REPO_PASSWORD || 'ac_repo_change_me')
+  return {
+    env: {
+      STORAGE_DRIVER: 'mysql',
+      MYSQL_MGMT_URL: `mysql://ac_mgmt:${mgmtPass}@${host}:${port}/app_center_mgmt`,
+      MYSQL_EXEC_URL: `mysql://ac_exec:${execPass}@${host}:${port}/app_center_exec`,
+      MYSQL_REPO_URL: `mysql://ac_repo:${repoPass}@${host}:${port}/app_center_repo`,
+    },
+    label: `MySQL 8.0 (${host}:${port} -> app_center_{mgmt,exec,repo}, shared with Docker)`,
+  }
+}
 
 const configFile = resolve(process.env.APP_DATA_DIR ?? '.local-data', 'local-products.json')
 if (!existsSync(configFile)) {
@@ -45,10 +102,12 @@ async function resolveDifyToken() {
 }
 
 const freshDifyToken = await resolveDifyToken()
+const mysqlConfig = await resolveMysqlEnv()
 const defaultEvidenceFile = resolve(dirname(configFile), 'capability-evidence.json')
 
 const env = {
   ...process.env,
+  ...mysqlConfig.env,
   DIFY_API_BASE: process.env.DIFY_API_BASE ?? creds.dify?.base ?? '',
   DIFY_CONSOLE_TOKEN: freshDifyToken,
   ...(process.env.DIFY_CONSOLE_EMAIL || !creds.dify?.email ? {} : {DIFY_CONSOLE_EMAIL: creds.dify.email}),
@@ -72,6 +131,7 @@ if (process.env.DIFY_LOCAL_DAEMON_PROXY === '1' || creds.dify?.pluginDaemon?.mod
 }
 
 console.log('Starting App Center (live mode):')
+console.log(`  Storage: ${mysqlConfig.label}`)
 console.log(`  Dify:    ${env.DIFY_API_BASE} (workspace=${env.DIFY_WORKSPACE_ID})`)
 console.log(`  RAGFlow: ${env.RAGFLOW_API_BASE} (tenant=${env.RAGFLOW_TENANT_ID})`)
 console.log(`  Strict:  CAPABILITY_STRICT_UPSTREAM=${env.CAPABILITY_STRICT_UPSTREAM}`)

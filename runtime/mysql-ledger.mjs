@@ -48,8 +48,23 @@ function callWorker(msg) {
   return parsed
 }
 
-export function resolveMysqlUrl() {
+const REPO_LEDGERS = new Set(['skill', 'skill-catalog', 'plugin', 'plugin-catalog', 'mcp', 'mcps', 'agent', 'agents'])
+
+function domainMysqlUrl(ledgerName) {
+  const mgmt = process.env.MYSQL_MGMT_URL?.trim()
+  const exec = process.env.MYSQL_EXEC_URL?.trim()
+  const repo = process.env.MYSQL_REPO_URL?.trim()
+  if (!mgmt && !exec && !repo) return null
+  if (!ledgerName) return mgmt || exec || repo
+  if (REPO_LEDGERS.has(ledgerName)) return repo || null
+  if (ledgerName === 'executions' || ledgerName.startsWith('mod_')) return exec || null
+  return mgmt || null
+}
+
+export function resolveMysqlUrl(ledgerName) {
   if (process.env.STORAGE_DRIVER === 'sqlite') return null
+  const routed = domainMysqlUrl(ledgerName)
+  if (routed) return routed
   const url = process.env.MYSQL_URL?.trim()
   if (url) return url
   if (process.env.STORAGE_DRIVER === 'mysql') {

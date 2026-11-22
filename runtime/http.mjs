@@ -27,7 +27,7 @@ export function closeStorage() {
   closeMysqlBridge()
 }
 export function ledger(dir, name, actorSnapshot) {
-  const mysqlUrl = resolveMysqlUrl()
+  const mysqlUrl = resolveMysqlUrl(name)
   if (mysqlUrl) {
     return mysqlLedger(mysqlUrl, name, actorSnapshot, { check, same })
   }

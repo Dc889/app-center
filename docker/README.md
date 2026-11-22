@@ -27,13 +27,14 @@ docker compose ps
 
 ## 2.5 日常开发调试（免重新编译镜像！）
 
-- **方式 A：纯本地 Vite 热更新（`http://localhost:5173/`，最轻快）**
+- **方式 A：纯本地 Vite 热更新 + 共享 Docker MySQL 8.0（`http://localhost:5173/`，最轻快）**
   ```bash
   # 在 app-center/ 根目录执行
   npm run dev:live
   ```
   - 改前端（`.tsx`/`.ts`/`.css`）：**Vite HMR 毫秒级自动热更**，浏览器无需刷新；
-  - 改后端（`.mjs`）：**Vite 监听服务端文件变化 1 秒内自动重启**，完全不碰 Docker。
+  - 改后端（`.mjs`）：**Vite 监听服务端文件变化 1 秒内自动重启**，完全不碰 Docker；
+  - **数据实时互通**：`dev:live` 启动时自动探测 `127.0.0.1:${MYSQL_HOST_PORT:-13306}`，按台账分域直连 Docker MySQL 的 `app_center_mgmt`、`app_center_exec`、`app_center_repo` 三个逻辑库，与 `http://localhost:8088/` 共享同一份数据（如需强制用 SQLite，设 `STORAGE_DRIVER=sqlite`）。
 
 - **方式 B：Docker 10 容器 + 真 MySQL 8.0 热挂载模式（`http://localhost:8088/`，零镜像重编）**
   ```bash
