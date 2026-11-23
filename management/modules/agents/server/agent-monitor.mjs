@@ -27,23 +27,82 @@ export async function agentMonitorReport({
   const page = Math.max(1, parseInt(query.get('page') || '1', 10) || 1)
   const pageSize = Math.min(100, Math.max(1, parseInt(query.get('pageSize') || '20', 10) || 20))
 
-  // 1. 能力侧 Dify 目录采集
+  // 1. 能力侧 Dify 全量应用与仓库目录实时采集
   let difyCatalogSource = 'not_collected'
+  const difyApps = []
+  const warehouseIds = new Set()
+
   if (cap) {
     try {
-      const res = await cap('/catalog?kind=agent', 'GET', undefined, headers)
-      if (res.ok) {
+      const catRes = await cap('/catalog?kind=agent', 'GET', undefined, headers)
+      if (catRes.ok) {
         difyCatalogSource = 'collected'
+        const catData = await catRes.json().catch(() => ({}))
+        for (const item of Array.isArray(catData.items) ? catData.items : []) {
+          if (item?.resourceId) warehouseIds.add(item.resourceId)
+          if (item?.data?.appId) warehouseIds.add(item.data.appId)
+        }
       }
     } catch {
       difyCatalogSource = 'not_collected'
     }
+
+    try {
+      let cursor = ''
+      for (let pageIndex = 0; pageIndex < 20; pageIndex += 1) {
+        const qs = new URLSearchParams({ kind: 'dify_app', limit: '50' })
+        if (cursor) qs.set('cursor', cursor)
+        const res = await cap(`/resources?${qs.toString()}`, 'GET', undefined, headers)
+        if (!res.ok) break
+        difyCatalogSource = 'collected'
+        const body = await res.json().catch(() => ({}))
+        const items = Array.isArray(body.items) ? body.items : []
+        difyApps.push(...items)
+        if (!body.nextCursor || body.nextCursor === cursor) break
+        cursor = body.nextCursor
+      }
+    } catch {
+      // Keep partial or empty list when Dify upstream is unreachable
+    }
   }
 
-  // 调用日志和账户树只来自已采集的产品记录。当前没有调用采集源时保持为空，不补演示账户。
-  const visibleAccounts = []
+  // 2. 按开发账户/工作区聚合真实 Dify 应用树
+  const groupMap = new Map()
+  for (const app of difyApps) {
+    if (!app?.resourceId) continue
+    const ownerAccount = (typeof app.ownerAccount === 'string' && app.ownerAccount.trim())
+      || (typeof app.data?.ownerAccount === 'string' && app.data.ownerAccount.trim())
+      || (app.workspaceId ? `workspace:${app.workspaceId.slice(0, 8)}` : 'dify-workspace')
+    const ownerName = (typeof app.ownerName === 'string' && app.ownerName.trim())
+      || (typeof app.data?.ownerName === 'string' && app.data.ownerName.trim())
+      || 'Dify 工作区'
+    const ownerOrg = (typeof app.org === 'string' && app.org.trim())
+      || (typeof app.data?.org === 'string' && app.data.org.trim())
+      || identity.org
+    if (!admin && ownerOrg !== identity.org) continue
+    if (filterOrg && ownerOrg !== filterOrg) continue
+    if (!groupMap.has(ownerAccount)) {
+      groupMap.set(ownerAccount, {
+        account: ownerAccount,
+        name: ownerName,
+        org: ownerOrg,
+        useCount: 0,
+        apps: [],
+      })
+    }
+    groupMap.get(ownerAccount).apps.push({
+      name: app.name || app.resourceId,
+      appId: app.resourceId,
+      appMode: app.data?.mode || app.mode || 'chat',
+      inWarehouse: warehouseIds.has(app.resourceId),
+      useCount: 0,
+    })
+  }
+
+  const accountGroups = Array.from(groupMap.values())
+  const visibleAccounts = accountGroups.map(g => g.account)
+  // 调用日志只来自已采集的产品调用源，未采集时保持为空，不伪造调用样本。
   const allLogs = []
-  const accountGroups = []
 
   // 指标卡计算
   const totalAppsList = accountGroups.flatMap(g => g.apps)
