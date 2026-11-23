@@ -35,21 +35,67 @@ export async function knowledgeMonitorReport({
   const page = Math.max(1, parseInt(query.get('page') || '1', 10) || 1)
   const pageSize = Math.min(100, Math.max(1, parseInt(query.get('pageSize') || '10', 10) || 10))
 
-  // 1. 读取能力侧知识库目录盘点
+  // 1. 读取能力侧知识库目录盘点（聚合 RAGFlow + Dify 真实知识库，兼容 /catalog?kind=knowledge）
   let catalogItems = null
   let catalogSource = 'not_collected'
+  const liveDatasets = []
   if (cap) {
     try {
-      const res = await cap('/catalog?kind=knowledge', 'GET', undefined, headers)
-      if (res.ok) {
-        const body = await res.json()
-        if (Array.isArray(body?.items)) {
-          catalogItems = body.items
+      const [rfRes, difyRes] = await Promise.all([
+        cap('/resources?kind=ragflow_dataset&limit=100', 'GET', undefined, headers).catch(() => null),
+        cap('/resources?kind=dify_dataset&limit=100', 'GET', undefined, headers).catch(() => null),
+      ])
+      if (rfRes?.ok) {
+        const rfBody = await rfRes.json().catch(() => null)
+        if (Array.isArray(rfBody?.items)) {
+          for (const item of rfBody.items) {
+            liveDatasets.push({
+              resourceId: item.resourceId,
+              name: item.name || item.resourceId,
+              source: 'RAGFlow',
+              status: item.status || 'private',
+              documentCount: item.data?.documentCount ?? item.documentCount ?? null,
+              updatedAt: item.data?.updatedAt ?? item.updatedAt ?? new Date(now).toISOString(),
+            })
+          }
+          catalogSource = 'collected'
+        }
+      }
+      if (difyRes?.ok) {
+        const difyBody = await difyRes.json().catch(() => null)
+        if (Array.isArray(difyBody?.items)) {
+          for (const item of difyBody.items) {
+            liveDatasets.push({
+              resourceId: item.resourceId,
+              name: item.name || item.resourceId,
+              source: 'Dify',
+              status: item.status || 'private',
+              documentCount: item.data?.documentCount ?? item.documentCount ?? null,
+              updatedAt: item.data?.updatedAt ?? item.updatedAt ?? new Date(now).toISOString(),
+            })
+          }
           catalogSource = 'collected'
         }
       }
     } catch {
-      catalogSource = 'not_collected'
+      // Fall through to legacy catalog endpoint
+    }
+
+    if (liveDatasets.length > 0) {
+      catalogItems = liveDatasets
+    } else {
+      try {
+        const res = await cap('/catalog?kind=knowledge', 'GET', undefined, headers)
+        if (res.ok) {
+          const body = await res.json()
+          if (Array.isArray(body?.items)) {
+            catalogItems = body.items
+            catalogSource = 'collected'
+          }
+        }
+      } catch {
+        catalogSource = 'not_collected'
+      }
     }
   }
 
@@ -102,19 +148,35 @@ export async function knowledgeMonitorReport({
     ['异常停滞', 0],
   ])
 
-  for (const app of kbApps) {
-    const src = app.snapshot?.fields?.['来源系统'] || app.submission?.fields?.sourceSystem || 'RAGFlow'
-    if (src === 'Dify') difyCount++
-    else ragflowCount++
+  if (liveDatasets.length > 0 && kbApps.length === 0) {
+    for (const ds of liveDatasets) {
+      if (ds.source === 'Dify') difyCount++
+      else ragflowCount++
+      if (['shared', 'published', '已分享'].includes(ds.status)) {
+        statusCounter.set('已分享', (statusCounter.get('已分享') || 0) + 1)
+      } else if (['building', '构建中'].includes(ds.status)) {
+        statusCounter.set('构建中', (statusCounter.get('构建中') || 0) + 1)
+      } else if (['abnormal', 'failed', '异常'].includes(ds.status)) {
+        statusCounter.set('异常停滞', (statusCounter.get('异常停滞') || 0) + 1)
+      } else {
+        statusCounter.set('私有纳管', (statusCounter.get('私有纳管') || 0) + 1)
+      }
+    }
+  } else {
+    for (const app of kbApps) {
+      const src = app.snapshot?.fields?.['来源系统'] || app.submission?.fields?.sourceSystem || 'RAGFlow'
+      if (src === 'Dify') difyCount++
+      else ragflowCount++
 
-    if (app.ticketType === 'KB-02' && app.status === '已完成') {
-      statusCounter.set('已分享', (statusCounter.get('已分享') || 0) + 1)
-    } else if (app.ticketType === 'KB-01' && app.status === '已完成') {
-      statusCounter.set('私有纳管', (statusCounter.get('私有纳管') || 0) + 1)
-    } else if (['待受理', '待审批', '待运维办理'].includes(app.status)) {
-      statusCounter.set('构建中', (statusCounter.get('构建中') || 0) + 1)
-    } else if (app.ticketType === 'KB-05' || app.status === '执行失败') {
-      statusCounter.set('异常停滞', (statusCounter.get('异常停滞') || 0) + 1)
+      if (app.ticketType === 'KB-02' && app.status === '已完成') {
+        statusCounter.set('已分享', (statusCounter.get('已分享') || 0) + 1)
+      } else if (app.ticketType === 'KB-01' && app.status === '已完成') {
+        statusCounter.set('私有纳管', (statusCounter.get('私有纳管') || 0) + 1)
+      } else if (['待受理', '待审批', '待运维办理'].includes(app.status)) {
+        statusCounter.set('构建中', (statusCounter.get('构建中') || 0) + 1)
+      } else if (app.ticketType === 'KB-05' || app.status === '执行失败') {
+        statusCounter.set('异常停滞', (statusCounter.get('异常停滞') || 0) + 1)
+      }
     }
   }
 
@@ -146,7 +208,9 @@ export async function knowledgeMonitorReport({
 
   // 6. 构建任务追踪列表（Tasks）
   const allTasks = []
+  const seenDatasetIds = new Set()
   for (const app of kbApps) {
+    if (app.resourceId) seenDatasetIds.add(app.resourceId)
     const time = app.history?.[0]?.at || app.createdAt || new Date(now).toISOString()
     const timeMs = Date.parse(time) || now
     const src = app.snapshot?.fields?.['来源系统'] || app.submission?.fields?.sourceSystem || 'RAGFlow'
@@ -205,6 +269,30 @@ export async function knowledgeMonitorReport({
         else trendBuckets[bIdx].failed += 1
       }
     }
+  }
+
+  // 补充已采集的 RAGFlow / Dify 真实知识库条目（无在途工单时直接展示真实同步态）
+  for (const ds of liveDatasets) {
+    if (seenDatasetIds.has(ds.resourceId)) continue
+    if (sourceFilter !== '全部' && ds.source !== sourceFilter) continue
+    const taskItem = {
+      taskId: ds.resourceId,
+      source: ds.source,
+      datasetName: ds.name,
+      stage: '索引就绪',
+      progress: '100%',
+      duration: '—',
+      status: '正常',
+      ticketNo: '—',
+      updatedAt: ds.updatedAt,
+    }
+    if (q) {
+      const match = [taskItem.taskId, taskItem.datasetName, taskItem.source, taskItem.status].some(
+        str => str && str.toLowerCase().includes(q),
+      )
+      if (!match) continue
+    }
+    allTasks.push(taskItem)
   }
 
   // 7. 逐文档审查台账（Document Audits）
