@@ -21,6 +21,7 @@ export const VIEW_PATHS: Record<View, string> = {
   todo: '/todo',
   query: '/query',
   types: '/types',
+  subsystems: '/subsystems',
 }
 
 const PATH_TO_VIEW: Record<string, View> = Object.fromEntries(
@@ -75,7 +76,7 @@ export function defaultViewForRole(role: Role): View {
 export function resolveViewForRole(view: View | null, role: Role): View {
   if (!view) return defaultViewForRole(role)
   if (role === 'user' && !USER_ALLOWED_VIEWS.includes(view)) return 'agents'
-  if (role === 'ops' && view === 'types') return 'overview'
+  if (role === 'ops' && (view === 'types' || view === 'subsystems')) return 'overview'
   return view
 }
 

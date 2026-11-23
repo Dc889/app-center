@@ -1,6 +1,6 @@
 import {useState} from 'react'
 import type {FormEvent} from 'react'
-import {Layers3, Sparkles, ShieldCheck, Activity, FileCheck2, Workflow, PanelLeftClose, AlertTriangle, ClipboardCheck, ChevronDown, LogOut, Lock, User, Eye, EyeOff} from 'lucide-react'
+import {Layers3, Sparkles, ShieldCheck, Activity, FileCheck2, Workflow, ServerCog, PanelLeftClose, AlertTriangle, ClipboardCheck, ChevronDown, LogOut, Lock, User, Eye, EyeOff} from 'lucide-react'
 import type {Identity, View, NavItem} from '../../shared-ui/UiContextData'
 import {baseTicketNav, operationTicketNav, warehouseNav, monitorNav} from '../../shared-ui/UiContextData'
 
@@ -108,7 +108,12 @@ export function Sidebar({
 }) {
   const ticketNav = identity.role === 'user' ? baseTicketNav : [
     ...operationTicketNav,
-    ...(identity.role === 'admin' ? [{ id: 'types' as View, label: '工单类型', icon: Workflow }] : []),
+    ...(identity.role === 'admin'
+      ? [
+          { id: 'types' as View, label: '工单类型', icon: Workflow },
+          { id: 'subsystems' as View, label: '纳管子系统', icon: ServerCog },
+        ]
+      : []),
   ]
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>

@@ -24,7 +24,7 @@ export type View =
   | 'pluginWarehouse' | 'mcpWarehouse' | 'skillWarehouse'
   | 'plugins' | 'mcp' | 'skills'
   | 'security' | 'accounts' | 'audit'
-  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'types'
+  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'types' | 'subsystems'
 
 export type Identity = {
   role: Role
@@ -109,6 +109,7 @@ export const pageMeta: Record<View, { title: string; eyebrow: string; desc: stri
   todo: { title: '我的待办', eyebrow: '待处理事项', desc: '办理分派给你的工单与系统事件。' },
   query: { title: '工单查询', eyebrow: '全量检索', desc: '按条件检索当前可见范围内的工单。' },
   types: { title: '工单类型', eyebrow: '流程定义', desc: '定义字段和流程，测试通过后发布新版本。' },
+  subsystems: { title: '纳管子系统', eyebrow: '平台集成配置', desc: '仅系统管理员可见。统一管理 Dify、RAGFlow 等多实例接入配置，支持连通性测试与保存后热生效。' },
 }
 
 

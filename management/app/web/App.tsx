@@ -5,6 +5,7 @@ import {Login,Sidebar,Topbar} from './Shell'
 import {ChatApplication} from './ChatApplication'
 import {adminTicketTypes,ticketTypes} from './ticket-catalog'
 import {ManualApplication,TicketList,TicketTypes,WorkOrderDrawer} from './WorkOrderPages'
+import {SubsystemsPage} from './SubsystemsPage'
 import {renderModuleView} from './module-registry'
 import {buildPath,pageTitleForRoute,parseRoute,pushPath,replacePath,resolveViewForRole} from './routes'
 import '../../shared-ui/styles/App.css'
@@ -172,6 +173,7 @@ export function App() {
   else if (safeView === 'manual') content = <ManualApplication key={role} role={role} ticketType={manualTicketType} onSelectTicketType={selectManualTicketType} />
   else if (safeView === 'mine' || safeView === 'todo' || safeView === 'query') content = <TicketList key={role + safeView} view={safeView} role={role} />
   else if (safeView === 'types' && role === 'admin') content = <TicketTypes />
+  else if (safeView === 'subsystems' && role === 'admin') content = <SubsystemsPage />
   else content = <ChatApplication role={role} account={personOf(role).account} catalog={ticketTypes.map(item => ({code: item[0], name: item[1], mode: item[3], scene: item[4]}))} />
 
   return (
