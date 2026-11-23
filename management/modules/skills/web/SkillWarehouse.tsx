@@ -1,5 +1,5 @@
-import {useEffect,useState} from 'react'
-import {History,PackageCheck,Search,Trophy} from 'lucide-react'
+import {useEffect, useState} from 'react'
+import {ChevronRight, History, PackageCheck, Search, Trophy} from 'lucide-react'
 import type {Role} from '../../../shared-ui/UiContextData'
 import {personOf} from '../../../shared-ui/UiContextData'
 import {PageHeader} from '../../../shared-ui/UiContext'
@@ -54,37 +54,52 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
   const [error, setError] = useState('')
   const [refresh, setRefresh] = useState(0)
   const [keyword, setKeyword] = useState('')
-  const [status, setStatus] = useState('全部')
+  const [usableTab, setUsableTab] = useState<'全部' | '可直接使用' | '暂不可用'>('全部')
+  const [methodFilter, setMethodFilter] = useState<'全部方式' | '直接下载' | '申请下载'>('全部方式')
   const [selectedId, setSelectedId] = useState('')
   const [version, setVersion] = useState<string | undefined>()
   const [notice, setNotice] = useState('')
   const [reserving, setReserving] = useState(false)
+
   useEffect(() => {
     let active = true
     const params = new URLSearchParams({kind: 'skill'})
     if (cursor) params.set('cursor', cursor)
-    fetch('/api/catalog?' + params).then(async response => {
-      const data = await response.json()
-      if (!response.ok) throw Error(data.error?.message ?? '目录读取失败')
-      if (!active) return
-      if (data.nextCursor === cursor && cursor) throw Error('目录游标重复，请刷新')
-      const page = (data.items as CatalogItem[]).map(mapItem)
-      setError('')
-      setNextCursor(data.nextCursor ?? null)
-      setCatalog(previous => [...previous.filter(item => !page.some(row => row.id === item.id)), ...page])
-    }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : '目录读取失败') }).finally(() => { if (active) setLoading(false) })
+    fetch('/api/catalog?' + params)
+      .then(async response => {
+        const data = await response.json()
+        if (!response.ok) throw Error(data.error?.message ?? '目录读取失败')
+        if (!active) return
+        if (data.nextCursor === cursor && cursor) throw Error('目录游标重复，请刷新')
+        const page = (data.items as CatalogItem[]).map(mapItem)
+        setError('')
+        setNextCursor(data.nextCursor ?? null)
+        setCatalog(previous => (cursor ? [...previous.filter(item => !page.some(row => row.id === item.id)), ...page] : page))
+      })
+      .catch(reason => {
+        if (active) setError(reason instanceof Error ? reason.message : '目录读取失败')
+      })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [cursor, refresh])
-  const visible = catalog.filter(item => staff || item.downloadable)
-  const statuses = ['全部', ...Array.from(new Set(visible.map(item => item.status)))]
+
+  const visible = catalog.filter(item => staff || !item.withdrawn)
   const filtered = visible.filter(item => {
-    const haystack = [item.name, item.summary, item.version].join(' ').toLowerCase()
+    const haystack = [item.name, item.id, item.summary, item.version].join(' ').toLowerCase()
     if (keyword.trim() && !haystack.includes(keyword.trim().toLowerCase())) return false
-    return status === '全部' || item.status === status
+    if (usableTab === '可直接使用' && !item.downloadable) return false
+    if (usableTab === '暂不可用' && !item.withdrawn) return false
+    if (methodFilter === '直接下载' && !item.downloadable) return false
+    if (methodFilter === '申请下载' && (item.downloadable || item.withdrawn)) return false
+    return true
   })
   const selected = filtered.find(item => item.id === selectedId) ?? filtered[0]
-  const ranked = visible.filter(item => item.successCount !== null && (staff || item.downloadable)).sort((a, b) => (b.successCount ?? 0) - (a.successCount ?? 0))
+  const ranked = visible
+    .filter(item => !item.withdrawn)
+    .sort((a, b) => (b.successCount ?? 0) - (a.successCount ?? 0))
+    .slice(0, 5)
   const maxCount = Math.max(...ranked.map(item => item.successCount ?? 0), 1)
+
   async function download() {
     if (!selected || !selected.downloadable) return
     setReserving(true)
@@ -96,69 +111,165 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
         const url = URL.createObjectURL(await file.blob())
         const link = document.createElement('a')
         link.href = url
-        link.download = /filename="([^"]+)"/.exec(file.headers.get('content-disposition') ?? '')?.[1] ?? 'skill.txt'
+        link.download = /filename="([^"]+)"/.exec(file.headers.get('content-disposition') ?? '')?.[1] ?? 'skill.zip'
         link.click()
         setTimeout(() => URL.revokeObjectURL(url), 1000)
         const state = await fetch('/api/tickets/' + ticket.ticketNo)
         const latest = await state.json()
         if (!state.ok) throw Error(latest.error?.message ?? '回执待核对，可用原流水重试')
         setNotice(latest.ticketNo + ' · ' + (latest.ok ? '已完成' : latest.status ?? '可在我的申请查看交付结果'))
-      } else setNotice(ticket.ticketNo + ' · ' + (ticket.failureReason || '可在我的申请查看交付结果。'))
+      } else {
+        setNotice(ticket.ticketNo + ' · ' + (ticket.failureReason || '可在我的申请查看交付结果。'))
+      }
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : '下载服务未响应')
-    } finally { setReserving(false) }
+    } finally {
+      setReserving(false)
+    }
   }
-  return <div data-testid="catalog-warehouse">
-    <PageHeader view="skillWarehouse" />
-    <div className="warehouse-top-bar">
-      <div className="warehouse-kpi-strip" data-testid="skill-warehouse-kpis">
-        <div className="warehouse-kpi-pill">
-          <PackageCheck size={15} />
-          <span>Skill 总数</span>
-          <strong>{catalog.length}</strong>
-        </div>
-        <div className="warehouse-kpi-pill">
-          <PackageCheck size={15} />
-          <span>可下载</span>
-          <strong>{visible.filter(item => item.downloadable).length}</strong>
-        </div>
-        <div className="warehouse-kpi-pill">
-          <Trophy size={15} />
-          <span>下载次数</span>
-          <strong>{ranked.reduce((sum, item) => sum + (item.successCount ?? 0), 0)}</strong>
+
+  return (
+    <div data-testid="catalog-warehouse">
+      <div className="warehouse-top-bar">
+        <PageHeader view="skillWarehouse" />
+        <div className="warehouse-kpi-strip" data-testid="skill-warehouse-kpis">
+          <div className="warehouse-kpi-pill">
+            <PackageCheck size={15} />
+            <span>Skill 总数</span>
+            <strong>{catalog.length}</strong>
+          </div>
+          <div className="warehouse-kpi-pill">
+            <PackageCheck size={15} />
+            <span>可下载</span>
+            <strong>{visible.filter(item => item.downloadable).length}</strong>
+          </div>
+          <div className="warehouse-kpi-pill">
+            <Trophy size={15} />
+            <span>下载次数</span>
+            <strong>{visible.reduce((sum, item) => sum + (item.successCount ?? 0), 0)}</strong>
+          </div>
         </div>
       </div>
-      <div className="warehouse-actions">
+
+      {error && <p role="alert">{error}</p>}
+
+      {/* 1. 下载次数排行榜 */}
+      <section className="panel ranking-panel" data-testid="usage-ranking">
+        <div className="panel-title">
+          <div>
+            <h3><Trophy size={15} /> 下载次数排行榜</h3>
+            <p>按 Skill 成功下载次数排序</p>
+          </div>
+        </div>
+        <div className="ranking-list">
+          {ranked.length === 0 ? (
+            <p className="version-meta">暂无已上架 Skill 排行数据</p>
+          ) : ranked.map((item, index) => {
+            const count = item.successCount ?? 0
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={selected?.id === item.id ? 'active' : ''}
+                onClick={() => { setSelectedId(item.id); setVersion(undefined) }}
+              >
+                <b>{index + 1}</b>
+                <span>
+                  <strong>{item.name}</strong>
+                  <small>{item.version ? `v${item.version}` : item.id}</small>
+                </span>
+                <i><em style={{width: `${Math.max(8, Math.round((count / maxCount) * 100))}%`}} /></i>
+                <em>{count} 次</em>
+                <ChevronRight size={14} />
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* 2-4. 搜索框 + 全部/可直接使用/暂不可用标签页 + 使用方式筛选 */}
+      <div className="warehouse-toolbar">
+        <label className="catalog-search warehouse-search">
+          <Search size={16} />
+          <input aria-label="搜索Skill" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索 Skill 名称、版本或简介" />
+        </label>
+        <div className="usable-switch" data-testid="skill-usable-tabs">
+          {(['全部', '可直接使用', '暂不可用'] as const).map(tab => (
+            <button key={tab} type="button" className={usableTab === tab ? 'active' : ''} onClick={() => setUsableTab(tab)}>
+              {tab}
+            </button>
+          ))}
+        </div>
+        <label className="log-filter">
+          <span>使用方式</span>
+          <select aria-label="Skill使用方式筛选" value={methodFilter} onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接下载' | '申请下载')}>
+            <option value="全部方式">全部方式</option>
+            <option value="直接下载">直接下载（即办）</option>
+            <option value="申请下载">申请下载（待核验）</option>
+          </select>
+        </label>
         <button className="secondary-button" disabled={loading} onClick={() => { setCatalog([]); setError(''); setLoading(true); setCursor(''); setNextCursor(null); setRefresh(value => value + 1) }}>刷新目录</button>
-        {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多目录</button>}
+        {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多</button>}
       </div>
-    </div>
-    {error && <p role="alert">{error}</p>}
-    <section className="panel ranking-panel" data-testid="usage-ranking">
-      <div className="panel-title"><div><h3><Trophy size={15} /> {staff ? '下载排行榜' : '可下载条目排行'}</h3><p>按成功下载次数排序</p></div></div>
-      {ranked.length === 0 ? <div className="agent-empty">未采集</div> : <div className="ranking-list">{ranked.map((item, index) => <button key={item.id} className={selected?.id === item.id ? 'active' : ''} onClick={() => setSelectedId(item.id)}><b>{index + 1}</b><span><strong>{item.name}</strong></span><i><em style={{width: Math.max(8, Math.round((item.successCount ?? 0) / maxCount * 100)) + '%'}} /></i><em>{item.successCount} 次</em></button>)}</div>}
-    </section>
-    <div className="warehouse-toolbar">
-      <label className="catalog-search warehouse-search"><Search size={16} /><input data-testid="catalog-search" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索名称或说明" /></label>
-      <div className="usable-switch" data-testid="catalog-status">{statuses.map(item => <button key={item} className={status === item ? 'active' : ''} onClick={() => setStatus(item)}>{item}</button>)}</div>
-    </div>
-    <div className="warehouse-layout">
-      <div className="agent-grid">
-        {filtered.length === 0 && <div className="agent-empty">没有符合当前筛选的条目。</div>}
-        {filtered.map(item => <article key={item.id} role="button" tabIndex={0} className={'agent-card ' + (selected?.id === item.id ? 'active ' : '') + (item.downloadable ? 'usable' : 'blocked')} data-testid={'catalog-card-' + item.id} onClick={() => { setSelectedId(item.id); setVersion(undefined) }} onKeyDown={event => {if(event.key === 'Enter' || event.key === ' '){event.preventDefault();event.currentTarget.click()}}}><div className="agent-card-top"><span className="agent-emoji">📄</span><div><strong>{item.name}</strong><small>{item.version}</small></div><em className={item.downloadable ? 'yes' : 'no'}>{item.status}</em></div><p>{item.summary}</p><div className="agent-version"><span>{item.successCount === null ? '未采集' : item.successCount + ' 次'}</span><small>成功下载</small></div></article>)}
-      </div>
-      {selected && <aside className="panel agent-detail" data-testid="catalog-detail">
-        <div className="agent-detail-head"><span className="agent-emoji">📄</span><div><span className="mini-label">{selected.status}</span><h3>{selected.name}</h3><p>{selected.summary}</p></div></div>
-        <div className="detail-block">
-          <h4><History size={14} /> 版本与下载</h4>
-          <SkillVersions key={selected.id} resourceId={selected.id} onSelect={setVersion} />
-          <p>下载记录可在“我的申请”查看。</p>
-          {!selected.downloadable && <div className="method-block-note">{selected.status}，不能发起新的下载。</div>}
-          <button className="primary-button" disabled={!selected.downloadable || reserving} onClick={() => void download()}>下载</button>
-          {notice && <div className="method-block-note" data-testid="catalog-notice">{notice}</div>}
-          {staff && <button className="secondary-button" onClick={() => onWorkOrder(selected.name + ' · SKL-03')}>查看关联工单</button>}
+
+      {/* 5. 内嵌可滑动 Dify 风格矩形图标块展示区 + 右侧详情抽屉 */}
+      <div className="warehouse-layout">
+        <div className="dify-catalog-scroll">
+          <div className="dify-tile-grid" data-testid="skill-grid">
+            {filtered.map(item => {
+              const badgeClass = item.withdrawn ? 'blocked' : item.downloadable ? 'usable' : 'pending'
+              const badgeText = item.withdrawn ? '暂不可用' : item.downloadable ? '可使用' : '待申请'
+              const accessTag = item.downloadable ? '直接下载' : '待申请'
+              return (
+                <article
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  className={'dify-tile-card' + (selected?.id === item.id ? ' active' : '')}
+                  data-testid={'skill-card-' + item.id}
+                  onClick={() => { setSelectedId(item.id); setVersion(undefined) }}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(item.id); setVersion(undefined) } }}
+                >
+                  <div className="dify-tile-head">
+                    <span className="dify-tile-icon tone-skill"><PackageCheck size={20} /></span>
+                    <div className="dify-tile-title">
+                      <strong>{item.name}</strong>
+                      <small>{item.version ? `v${item.version}` : item.id}</small>
+                    </div>
+                    <span className={`dify-status-badge ${badgeClass}`}>{badgeText}</span>
+                  </div>
+                  <p className="dify-tile-desc">{item.summary || '标准 Skill 技能包'}</p>
+                  <div className="dify-tile-foot">
+                    <div className="dify-tile-tags">
+                      <span className="dify-tile-tag">{accessTag}</span>
+                    </div>
+                    <b>{item.successCount ?? 0} 次</b>
+                  </div>
+                </article>
+              )
+            })}
+            {filtered.length === 0 && !loading && <div className="agent-empty">没有符合当前筛选的 Skill。</div>}
+          </div>
         </div>
-      </aside>}
+
+        {selected && (
+          <aside className="panel" data-testid="skill-detail">
+            <h3>{selected.name}</h3>
+            <p className="version-meta">状态 · {selected.status}{selected.version ? ` · v${selected.version}` : ''}</p>
+            {selected.summary && <p>{selected.summary}</p>}
+            <SkillVersions resourceId={selected.id} onSelect={setVersion} />
+            <div className="draft-toolbar" style={{marginTop: 12}}>
+              <button className="primary-button" disabled={reserving || !selected.downloadable} onClick={() => void download()}>
+                {reserving ? '正在下载...' : '下载 Skill (SKL-03)'}
+              </button>
+              <button className="secondary-button" onClick={() => onWorkOrder(`Skill 变更申请 · ${selected.name}`)}>
+                <History size={14} /> 提交工单
+              </button>
+            </div>
+            {notice && <p role="status" data-testid="skill-notice">{notice}</p>}
+          </aside>
+        )}
+      </div>
     </div>
-  </div>
+  )
 }

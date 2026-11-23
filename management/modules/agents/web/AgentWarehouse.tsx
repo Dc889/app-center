@@ -233,7 +233,7 @@ export function AgentWarehouse({
           />
         </label>
         <div className="usable-switch" data-testid="warehouse-usable">
-          {(role === 'user' ? (['全部', '可直接使用'] as const) : (['全部', '可直接使用', '暂不可用'] as const)).map((item) => (
+          {(['全部', '可直接使用', '暂不可用'] as const).map((item) => (
             <button
               key={item}
               type="button"
@@ -282,69 +282,53 @@ export function AgentWarehouse({
         <em>当前 {items.length} 个</em>
       </div>
 
-      {/* 智能体卡片网格与右侧详情 */}
+      {/* 内嵌可滑动 Dify 风格矩形图标块展示区与右侧详情 */}
       <div className="warehouse-layout">
-        <div className="agent-grid" data-testid="agent-grid">
-          {items.length === 0 && (
-            <div className="agent-empty">
-              {loading ? '正在加载智能体仓库...' : '没有符合当前筛选的智能体。'}
-            </div>
-          )}
-          {items.map((agent) => {
-            const current = agent.releases[0]
-            const count = agent.successCount ?? 0
-            return (
-              <article
-                key={agent.id}
-                role="button"
-                tabIndex={0}
-                data-testid={`agent-card-${agent.id}`}
-                className={`agent-card ${selected?.id === agent.id ? 'active' : ''} ${agent.directlyUsable ? 'usable' : 'blocked'}`}
-                onClick={() => setSelectedId(agent.id)}
-                onKeyDown={(event) => { if (event.key === 'Enter') setSelectedId(agent.id) }}
-              >
-                <div className="agent-card-top">
-                  <span className="agent-emoji">{agent.emoji}</span>
-                  <div>
-                    <strong>{agent.name}</strong>
-                    <small className={`agent-mode mode-${agent.mode}`}>{agent.mode}</small>
+        <div className="dify-catalog-scroll">
+          <div className="dify-tile-grid" data-testid="agent-grid">
+            {items.length === 0 && (
+              <div className="agent-empty">
+                {loading ? '正在加载智能体仓库...' : '没有符合当前筛选的智能体。'}
+              </div>
+            )}
+            {items.map((agent) => {
+              const current = agent.releases[0]
+              const count = agent.successCount ?? 0
+              const badgeClass = agent.directlyUsable ? 'usable' : 'pending'
+              const badgeText = agent.directlyUsable ? '可使用' : '待申请'
+              return (
+                <article
+                  key={agent.id}
+                  role="button"
+                  tabIndex={0}
+                  data-testid={`agent-card-${agent.id}`}
+                  className={`dify-tile-card ${selected?.id === agent.id ? 'active' : ''}`}
+                  onClick={() => setSelectedId(agent.id)}
+                  onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(agent.id) } }}
+                >
+                  <div className="dify-tile-head">
+                    <span className="dify-tile-icon tone-agent">{agent.emoji || <Bot size={20} />}</span>
+                    <div className="dify-tile-title">
+                      <strong>{agent.name}</strong>
+                      <small>{agent.developer} · {current?.version ?? agent.mode}</small>
+                    </div>
+                    <span className={`dify-status-badge ${badgeClass}`}>{badgeText}</span>
                   </div>
-                  <em className={agent.directlyUsable ? 'yes' : 'no'}>
-                    {agent.directlyUsable ? '可直接使用' : '暂不可用'}
-                  </em>
-                </div>
-                <p>{agent.description}</p>
-                <div className="agent-tags">
-                  {agent.tags.map((item) => <span key={item}>{item}</span>)}
-                </div>
-                <div className="agent-author">
-                  <span>{agent.developer.slice(0, 1)}</span>
-                  <div>
-                    <b>{agent.developer}</b>
-                    <small>{agent.developerAccount} · {agent.org}</small>
+                  <p className="dify-tile-desc">{agent.description || '暂无简介'}</p>
+                  <div className="dify-tile-foot">
+                    <div className="dify-tile-tags">
+                      {usageMethodCatalog.filter((m) => agent.methods.includes(m.id)).map((m) => {
+                        const Icon = m.id === 'run' ? Play : m.id === 'embed' ? Code2 : Terminal
+                        return <span key={m.id} className="dify-tile-tag"><Icon size={11} />{m.label}</span>
+                      })}
+                      {agent.methods.length === 0 && <span className="dify-tile-tag">待开通方式</span>}
+                    </div>
+                    <b>{count} 次</b>
                   </div>
-                </div>
-                <div className="agent-methods">
-                  {usageMethodCatalog.map((item) => {
-                    const Icon = item.id === 'run' ? Play : item.id === 'embed' ? Code2 : Terminal
-                    const opened = agent.methods.includes(item.id)
-                    return (
-                      <span key={item.id} className={opened ? 'on' : 'off'}>
-                        <Icon size={12} />
-                        {item.label}
-                      </span>
-                    )
-                  })}
-                </div>
-                <div className="agent-version">
-                  <span>{current?.version ?? '—'}</span>
-                  <small>发布 {current?.publishedAt ?? '—'}</small>
-                  <small>更改 {current?.changedAt ?? '—'}</small>
-                  <b>{count} 次</b>
-                </div>
-              </article>
-            )
-          })}
+                </article>
+              )
+            })}
+          </div>
         </div>
 
         {/* 详情抽屉/侧边栏 */}
