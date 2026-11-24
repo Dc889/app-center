@@ -1271,3 +1271,40 @@ input[type='checkbox'], input[type='radio'] {
   background: #eff4ff;
   color: #155eef;
 }
+
+/* Commercial Preset Chips for High-Frequency Forms */
+.preset-chip-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.preset-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.preset-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.preset-chip:hover {
+  border-color: #2563eb;
+  color: #155eef;
+  background: #f5f8ff;
+}
+.preset-chip.is-active {
+  border-color: #2563eb;
+  background: #eff4ff;
+  color: #155eef;
+  font-weight: 600;
+}
