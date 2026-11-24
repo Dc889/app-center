@@ -49,6 +49,7 @@ export async function readDifyApp(appId, workspaceId) {
   check(app?.id === appId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用详情标识不一致')
   const actualScope = app.workspace_id || workspaceId || configuredWorkspace
   check(!workspaceId || !actualScope || workspaceId === actualScope, 404, 'NOT_FOUND', '应用不属于目标工作区')
+  const difyRev = Number.isInteger(app.updated_at) && app.updated_at > 0 ? `dify-ts-${app.updated_at}` : null
   return {
     resourceId: app.id,
     name: app.name,
@@ -56,8 +57,8 @@ export async function readDifyApp(appId, workspaceId) {
     mode: app.mode ?? null,
     ownerAccount: resolveProductOwner([app.owner_account, app.ownerAccount, app.created_by], {product: 'DIFY'}),
     webSiteEnabled: app.enable_site ?? null,
-    publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? app.model_config?.id ?? null,
-    workflowSnapshotId: app.workflow_snapshot_id ?? app.workflowSnapshotId ?? app.workflow?.id ?? null,
+    publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? app.model_config?.id ?? difyRev,
+    workflowSnapshotId: app.workflow_snapshot_id ?? app.workflowSnapshotId ?? app.workflow?.id ?? difyRev,
   }
 }
 
