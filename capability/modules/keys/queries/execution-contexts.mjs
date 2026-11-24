@@ -3,7 +3,7 @@ import {check, json} from '../../../../runtime/http.mjs'
 import {fetchDifyAppForKey} from '../adapters/difyAppInfo.mjs'
 import {KEY_REGISTRATION_ACTIONS, canManageRegistration} from '../adapters/registration-store.mjs'
 
-export async function key01Context({res, query}) {
+export async function key01Context({res, query, identity}) {
   const action = query.get('action')
   const resourceId = (query.get('resourceId') ?? '').trim()
   const workspaceId = (query.get('workspaceId') ?? '').trim()
@@ -11,6 +11,8 @@ export async function key01Context({res, query}) {
   check(resourceId && workspaceId, 400, 'INVALID_REQUEST')
 
   const app = await fetchDifyAppForKey(resourceId, workspaceId)
+  const isUuid = typeof app.ownerAccount === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(app.ownerAccount)
+  const ownerAccount = isUuid && identity?.account ? identity.account : app.ownerAccount
   return json(res, {
     snapshotId: `snap-key01-${randomUUID().slice(0, 12)}`,
     ticketType: 'KEY-01',
@@ -19,7 +21,7 @@ export async function key01Context({res, query}) {
     capturedAt: new Date().toISOString(),
     fields: {
       'Dify应用ID': app.appId,
-      '所有者账户名': app.ownerAccount,
+      '所有者账户名': ownerAccount,
       'Dify API地址': app.apiBase,
       '关联发布工单号': app.publicationTicketNo,
     },
