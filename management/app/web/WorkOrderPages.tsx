@@ -30,14 +30,14 @@ function needsApplicationNote(code: string, path: string) {
   if (code === 'PLG-01' || code === 'SKL-01' || code === 'MCP-01') return path === '分享'
   if (code === 'MCP-03') return path === '隔离' || path === '下架'
   if (['KB-01', 'KB-03', 'AG-01', 'AG-03', 'PLG-03', 'SKL-03', 'MCP-02'].includes(code)) return false
-  return ['KB-02', 'KB-05', 'AG-02', 'AG-04', 'AG-05', 'KEY-02', 'TOL-01', 'PLG-02', 'SKL-02', 'SKL-04', 'ACC-01', 'ACC-02'].includes(code)
+  return ['KB-05', 'AG-02', 'AG-04', 'AG-05', 'KEY-02', 'TOL-01', 'PLG-02', 'SKL-02', 'SKL-04', 'ACC-01', 'ACC-02'].includes(code)
 }
 
 function needsLevelPick(code: string, path: string) {
   if (code === 'KEY-01') return path === '对外'
   if (code === 'PLG-01' || code === 'SKL-01' || code === 'MCP-01') return path === '分享'
   if (code === 'MCP-03') return path === '下架'
-  return ['KB-02', 'KB-05', 'AG-02', 'AG-04', 'AG-05', 'TOL-01', 'PLG-02', 'SKL-02', 'SKL-04'].includes(code)
+  return ['KB-05', 'AG-02', 'AG-04', 'AG-05', 'TOL-01', 'PLG-02', 'SKL-02', 'SKL-04'].includes(code)
 }
 
 function shownMode(code: string, catalogMode: string, path: string) {
@@ -200,7 +200,7 @@ export function ManualApplication({ role, ticketType, onSelectTicketType }: { ro
             <dl className="application-context">
               <div className="context-title"><dt>工单标题</dt><dd>{selected[1]} · {resourceName || '未选择资源'}</dd></div>
               <div><dt>申请人</dt><dd>{person.name} · {person.account}</dd></div>
-              <div><dt>申请组织</dt><dd>{person.org}</dd></div>
+              <div><dt>{selected[0] === 'KB-02' ? '申请部门' : '申请组织'}</dt><dd>{person.org}</dd></div>
             </dl>
             <RecordedBoundary key={`${selected[0]}-${path}-${resourceName}`} role={role} resourceLevel={resourceLevel} resourceLine={resourceLine} choose={chooseLevel && !hasRegisteredTicketForm(selected[0])} />
             {selected[0] === 'EVT-01' ? (
@@ -314,12 +314,14 @@ export function ManualApplication({ role, ticketType, onSelectTicketType }: { ro
 }
 
 export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; role: Role }) {
+  const [activeTab,setActiveTab] = useState<'applications'|'tickets'|'events'|'accounts'|'skills'>('applications')
   const [items,setItems] = useState<string[][]>([])
   const [query,setQuery] = useState('')
   const [status,setStatus] = useState('')
   const [selected,setSelected] = useState('')
   const [error,setError] = useState('')
   const [reload,setReload] = useState(0)
+  useEffect(()=>{ setActiveTab('applications') },[view,role])
   useEffect(()=>{
     if(view==='todo') return
     let active=true
@@ -330,7 +332,7 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
       const labels:Record<string,string>={succeeded:'已完成',failed:'执行失败',cancelled:'已终止',queued:'等待执行',running:'执行中',reconciling:'正在查证',awaiting_delivery:'待领取文件'}
       if(active) {
         setItems(tickets.map((t:{ticketNo:string;ticketType:string;selection:string;status:string;account:string;updatedAt:string;cancelStatus?:string;deliveryClosed?:boolean})=>
-          [t.ticketNo,t.ticketType,t.selection,t.status==='awaiting_delivery' && (t.cancelStatus || t.deliveryClosed)?t.cancelStatus?'取消待查证':'交付已封存':labels[t.status] ?? t.status,t.account,t.updatedAt]))
+          [t.ticketNo,t.ticketType,t.selection,t.status==='awaiting_delivery' && (t.cancelStatus || t.deliveryClosed)?t.cancelStatus?'取消待查证':'交付已封存':labels[t.status] ?? t.status,t.account,Number.isFinite(Date.parse(t.updatedAt))?new Date(t.updatedAt).toLocaleString('zh-CN',{hour12:false}):t.updatedAt]))
         setError('')
       }
     }).catch(()=>{if(active)setError('读取工单失败，请刷新重试')})
@@ -339,8 +341,35 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
   const rows=items.filter(row=>(!status || row[3]===status) && row.some(cell=>cell.toLowerCase().includes(query.trim().toLowerCase())))
   const details=rows.find(row=>row[0]===selected)
   const columns=['工单号','工单类型','申请对象','当前状态','申请人','最后更新']
-  return <><PageHeader view={view}/><EventDesk view={view} account={personOf(role).account}/><ApplicationDesk view={view} account={personOf(role).account}/>{role==='admin' && <AccountDesk view={view}/>}{role==='ops' && view==='todo' && <SkillCancellationDesk/>}
-    {view!=='todo' && <section className="panel list-panel">
+  const tabs: {id:'applications'|'tickets'|'events'|'accounts'|'skills'; label:string; badge?:number}[] = [
+    {id:'applications', label:'业务审批申请'},
+    ...(view !== 'todo' ? [{id:'tickets' as const, label:'即办执行工单', badge:items.length}] : []),
+    {id:'events', label:'异常事件处置'},
+    ...(role === 'admin' ? [{id:'accounts' as const, label:'账号变更工单'}] : []),
+    ...(role === 'ops' && view === 'todo' ? [{id:'skills' as const, label:'Skill 文件待办'}] : []),
+  ]
+  return <>
+    <PageHeader view={view}/>
+    <nav className="workorder-tabs" role="tablist" aria-label="工单分类">
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          role="tab"
+          aria-selected={activeTab === tab.id}
+          className={`workorder-tab ${activeTab === tab.id ? 'is-active' : ''}`}
+          onClick={() => setActiveTab(tab.id)}
+        >
+          <span>{tab.label}</span>
+          {typeof tab.badge === 'number' && <span className="workorder-tab-badge">{tab.badge}</span>}
+        </button>
+      ))}
+    </nav>
+    {activeTab === 'applications' && <ApplicationDesk view={view} account={personOf(role).account}/>}
+    {activeTab === 'events' && <EventDesk view={view} account={personOf(role).account}/>}
+    {activeTab === 'accounts' && role === 'admin' && <AccountDesk view={view}/>}
+    {activeTab === 'skills' && role === 'ops' && view === 'todo' && <SkillCancellationDesk/>}
+    {activeTab === 'tickets' && view !== 'todo' && <section className="panel list-panel">
+      <div className="panel-header"><div><h3>即办执行工单</h3><small>免审批、提交后直接下发执行的工单（如插件安装、MCP 绑定、Skill 文件领取）。</small></div></div>
       <div className="list-toolbar"><input aria-label="搜索执行工单" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索工单号、类型或申请对象"/>
       <select aria-label="执行状态" value={status} onChange={e=>setStatus(e.target.value)}><option value="">全部状态</option>{[...new Set(items.map(row=>row[3]))].map(s=><option key={s}>{s}</option>)}</select>
       <button className="secondary-button" onClick={()=>setReload(v=>v+1)}>刷新</button></div>
@@ -351,7 +380,8 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
         {view==='mine' && details[3]==='待领取文件' && <a href={'/api/tickets/'+encodeURIComponent(details[0])+'/file'}>领取文件</a>}
         <button className="secondary-button" onClick={()=>setSelected('')}>关闭详情</button></section>}
       <p>共 {rows.length} 条执行工单</p>
-    </section>}</>
+    </section>}
+  </>
 }
 
 export function TicketTypes() {
