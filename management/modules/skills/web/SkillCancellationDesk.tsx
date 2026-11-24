@@ -17,8 +17,12 @@ export function SkillCancellationDesk() {
     }catch(e){setError(e instanceof Error?e.message:'取消未确认')}
     finally{setBusy(false)}
   }
-  return <section className="panel list-panel"><h3>Skill文件执行待办</h3>
-    <button disabled={busy} onClick={()=>{setError('');setReload(v=>v+1)}}>刷新文件待办</button>
+  return <section className="panel list-panel">
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:8}}>
+      <h3 style={{margin:0}}>Skill文件执行待办（{rows.length} 条）</h3>
+      <button className="secondary-button" disabled={busy} onClick={()=>{setError('');setReload(v=>v+1)}}>刷新文件待办</button>
+    </div>
+    {rows.length===0 && <p style={{color:'var(--muted,#64748b)',margin:'4px 0'}}>暂无 Skill 文件执行待办</p>}
     {rows.map(r=><button key={r.ticketNo} disabled={busy} onClick={()=>{setSelected(r.ticketNo);setNote('');setError('')}}>{r.ticketNo} · {r.status} · {r.cancelStatus ?? '尚未取消'}</button>)}
     {row && <div className="editor-section"><p>执行编号 · {row.executionId}</p><p>在途或未知交付须先查证，再申请取消。</p>
       {row.cancelError && <p>取消等待查证 · {row.cancelError}</p>}

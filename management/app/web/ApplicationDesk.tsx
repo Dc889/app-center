@@ -4,7 +4,7 @@ import {KnowledgeChangesReviewFieldset, KnowledgeDispositionFieldset, KnowledgeS
 import {PluginRestoreForm} from '../../modules/plugins/public.web'
 import {useEffect,useState} from 'react'
 import {RecordDetails} from '../../shared-ui/RecordDetails'
-type Application={agentImpact?:AgentImpact;approvedImpact?:AgentImpact;canQueryExecution?:boolean;ticketNo:string;ticketType:string;account:string;status:string;revision:number;isApplicant?:boolean;restoreRequest?:{reason:string;repairInfo:string;minutes:number};observeFrom?:string;observeUntil?:string;observation?:{verdict:string;complete:boolean};observationError?:{code:string};urgentEventNo?:string;alertEvidence?:unknown[];deliveryBlocked?:boolean;lastError?:{code:string};linkedDispositionTicketNo?:string;linkedReviewDispositionTicketNo?:string;relatedTicketNos?:string[];linkError?:{code:string};creationMode?:string;node?:string;evidenceRefs?:{evidenceId:string;filename?:string}[];attempts?:{command:{executionId:string;action:string};execution?:{status:string}}[];revealState?:string;command?:{action:string};approvedFields?:{文档确认记录?:{documentId:string;sha256:string;verdict:string;actor:string;at:string}[]};execution?:{status:string;result?:{failureCode?:string;failureReason?:string;retryable?:boolean;details?:unknown}};submission:{resourceId:string;fields:Record<string,unknown>};snapshot:{snapshotId:string;fields?:{文档审查明细?:{documentId:string;sha256:string;autoVerdict:string}[]};data?:{dependencies?:{name:string;approved:boolean;externalAllowed:boolean}[]}};history:{at:string;actor:string;action:string;note?:string}[]}
+type Application={agentImpact?:AgentImpact;approvedImpact?:AgentImpact;canQueryExecution?:boolean;ticketNo:string;ticketType:string;account:string;status:string;revision:number;isApplicant?:boolean;restoreRequest?:{reason:string;repairInfo:string;minutes:number};observeFrom?:string;observeUntil?:string;observation?:{verdict:string;complete:boolean};observationError?:{code:string};urgentEventNo?:string;alertEvidence?:unknown[];deliveryBlocked?:boolean;lastError?:{code:string};linkedDispositionTicketNo?:string;linkedReviewDispositionTicketNo?:string;relatedTicketNos?:string[];linkError?:{code:string};creationMode?:string;approvalMode?:string;node?:string;evidenceRefs?:{evidenceId:string;filename?:string}[];attempts?:{command:{executionId:string;action:string};execution?:{status:string}}[];revealState?:string;command?:{action:string};approvedFields?:{文档确认记录?:{documentId:string;sha256:string;verdict:string;actor:string;at:string}[]};execution?:{status:string;result?:{failureCode?:string;failureReason?:string;retryable?:boolean;details?:unknown}};submission:{resourceId:string;fields:Record<string,unknown>};snapshot:{snapshotId:string;name?:string;fields?:{文档审查明细?:{documentId:string;sha256:string;autoVerdict:string}[]};data?:{name?:string;dependencies?:{name:string;approved:boolean;externalAllowed:boolean}[]}};history:{at:string;actor:string;action:string;note?:string}[]}
 export function ApplicationDesk({view,account}:{view:string;account:string}) {
   const [items,setItems]=useState<Application[]>([])
   const [selected,setSelected]=useState('')
@@ -29,7 +29,11 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
     fetch('/api/applications?view='+view).then(async r=>{
       if(!r.ok)throw Error('读取审批申请失败')
       const data=await r.json()
-      if(active){setItems(data.items);setError('')}
+      if(active){
+        setItems(data.items)
+        setSelected(prev=>data.items.some((i:Application)=>i.ticketNo===prev)?prev:(data.items[0]?.ticketNo ?? ''))
+        setError('')
+      }
     }).catch(e=>{if(active)setError(e.message)})
     return ()=>{active=false}
   },[view,reload])
@@ -62,9 +66,28 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
   const actions=row && (view==='todo' && row.ticketType==='PLG-04' && row.status==='待恢复审核'?['批准恢复','驳回恢复']:view==='todo' && row.ticketType==='PLG-04' && row.status==='观察中'?['核对观察']:view==='mine' && row.ticketType==='KB-04' && (row.isApplicant || row.account===account) && ['待所有者提交','待补正'].includes(row.status)?['提交变更审查']:view==='todo' && row.ticketType==='KB-04' && row.status==='待受理'?['确认审查','退回补正']:view==='todo' && row.status==='待运维确认'?['批准']:view==='todo' && row.creationMode==='告警转单' && row.status==='待结果确认'?['确认结果']:view==='todo' && row.status==='待受理'?['批准','驳回']:view==='todo' && row.status==='执行失败'?row.execution?.result?.retryable?['重试执行','终止工单']:['终止工单']:view==='mine' && (row.isApplicant || row.account===account)?
     row.status==='待受理'?['撤回']:row.status==='待结果确认'?['确认结果']:[]:[]) || []
   if(row?.canQueryExecution && view==='todo')actions.push('查证原执行')
-  return <section className="panel list-panel"><h3>业务审批申请</h3>
-    <button className="secondary-button" disabled={busy} onClick={()=>setReload(v=>v+1)}>刷新发布申请</button>
-    {items.map(item=><button key={item.ticketNo} disabled={busy} className="secondary-button" onClick={()=>{setSelected(item.ticketNo);setDocumentVerdicts({});setReviewVerdict('通过');setDispositionActions([]);setRecoveryCondition('');setHistoryPolicy('保留且不可新增下载');setSecret('');setSecurityVerdict('通过');setSecurityNote('');setExternalAllowed('禁止');setConfirmed([]);setNote('');setRisk(false);setError('');setDisposalScope(['仓库下架','撤销访问授权'])}}>{item.ticketNo} · {item.submission.resourceId} · {item.status}</button>)}
+  return <section className="panel list-panel">
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:12}}>
+      <h3 style={{margin:0}}>业务审批申请（{items.length} 条）</h3>
+      <button className="secondary-button" disabled={busy} onClick={()=>setReload(v=>v+1)}>刷新发布申请</button>
+    </div>
+    {items.length===0 ? <p style={{color:'var(--muted,#64748b)',margin:'8px 0'}}>暂无业务审批申请</p> : (
+      <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14}}>
+        {items.map(item=>{
+          const displayName=item.snapshot?.name || item.snapshot?.data?.name || ''
+          const active=item.ticketNo===selected
+          return <button key={item.ticketNo} disabled={busy} className="secondary-button"
+            style={{display:'flex',justifyContent:'space-between',alignItems:'center',textAlign:'left',width:'100%',padding:'10px 14px',borderColor:active?'var(--accent,#2563eb)':undefined,background:active?'rgba(37,99,235,0.06)':undefined}}
+            onClick={()=>{setSelected(item.ticketNo);setDocumentVerdicts({});setReviewVerdict('通过');setDispositionActions([]);setRecoveryCondition('');setHistoryPolicy('保留且不可新增下载');setSecret('');setSecurityVerdict('通过');setSecurityNote('');setExternalAllowed('禁止');setConfirmed([]);setNote('');setRisk(false);setError('');setDisposalScope(['仓库下架','撤销访问授权'])}}>
+            <span>
+              <strong>{displayName ? `${displayName} · ` : ''}{item.ticketNo}</strong>
+              <span style={{marginLeft:8,color:'var(--muted,#64748b)',fontSize:12}}>{item.ticketType} · 申请人 {item.account} · {item.submission.resourceId}</span>
+            </span>
+            <span style={{fontWeight:600,color:item.status==='待受理'?'#d97706':item.status==='已完成'?'#16a34a':'var(--accent,#2563eb)'}}>{item.status}</span>
+          </button>
+        })}
+      </div>
+    )}
     {row && <div className="editor-section"><p>{row.account} · 快照 {row.snapshot.snapshotId}</p>
       {view==='mine' && (row.isApplicant || row.account===account) && row.execution?.status==='succeeded' &&
         (row.ticketType==='KEY-01' || row.ticketType==='KEY-02' && row.command?.action==='rotate_key') &&
@@ -72,6 +95,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
       {secret && <div><label>一次性密钥<textarea aria-label="一次性密钥" readOnly value={secret}/></label><button onClick={()=>setSecret('')}>关闭密钥展示</button></div>}
       {row.deliveryBlocked && <p role="alert">执行结果需要查证 · {row.lastError?.code}</p>}
       {row.execution?.result?.failureCode && <p>{row.execution.result.failureCode} · {row.execution.result.failureReason}</p>}
+      {row.ticketType==='SVC-01' && <div><p>创建方式 · {row.creationMode}</p><p>审批 · {row.approvalMode}</p><p>服务 · {row.submission.resourceId}</p></div>}
       {['KB-05','PLG-04'].includes(row.ticketType) && <div><p>创建方式 · {row.creationMode}</p>
         {row.evidenceRefs?.filter(e=>e.filename).map(e=><p key={e.evidenceId}><a href={'/api/evidence/'+e.evidenceId+'/file'}>{e.filename}</a></p>)}
         {row.attempts?.map(a=><p key={a.command.executionId}>执行节点 · {a.command.action} · {a.execution?.status ?? '等待结果'} · {a.command.executionId}</p>)}
@@ -118,7 +142,10 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
       {row.approvedFields?.文档确认记录?.map(c=><p key={c.documentId}>安全复核 · {c.documentId} · {c.verdict} · {c.actor} · {c.at}</p>)}
       {warnings.map((d,i)=><p key={i}>资源告警 · {d.name}</p>)}
       {row.history.map((h,i)=><p key={i}>{h.at} · {h.actor} · {h.action} · {h.note}</p>)}
-      {actions.length>0 && <div><label>{row.ticketType==='KB-04' && view==='mine' && ['待所有者提交','待补正'].includes(row.status)?'变更原因':'办理意见'}<textarea value={note} onChange={e=>setNote(e.target.value)}/></label>
+      {actions.length>0 && <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border,#e2e8f0)'}}>
+        <label style={{display:'flex',flexDirection:'column',gap:6}}>{row.ticketType==='KB-04' && view==='mine' && ['待所有者提交','待补正'].includes(row.status)?'变更原因':'办理意见'}
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="请输入审批/办理意见（填写后下方按钮即可点击，例如：同意发布）" rows={3}/>
+        </label>
         {view === 'todo' && row.ticketType === 'KB-05' && ['待受理', '待运维确认'].includes(row.status) && (
           <KnowledgeDispositionFieldset
             target={row.submission.fields.target as string | undefined}
@@ -142,7 +169,14 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
         {view === 'todo' && ['AG-02', 'AG-04'].includes(row.ticketType) && warnings.length > 0 && (
           <AgentRiskDecisionField checked={risk} onChange={setRisk} disabled={busy} />
         )}
-        {actions.map(action=><button key={action} disabled={busy || !note.trim()} onClick={()=>act(action)}>{action}</button>)}</div>}
+        <div style={{display:'flex',gap:8,alignItems:'center',marginTop:10}}>
+          {actions.map(action=>{
+            const isPrimary=['批准','批准恢复','确认审查','确认结果','提交变更审查','重试执行'].includes(action)
+            return <button key={action} className={isPrimary?'primary-button':'secondary-button'} disabled={busy || !note.trim()} onClick={()=>act(action)}>{action}</button>
+          })}
+          {!note.trim() && <span style={{fontSize:12,color:'var(--muted,#64748b)'}}>请先填写办理意见</span>}
+        </div>
+      </div>}
     </div>}{error && <p role="alert">{error}</p>}
   </section>
 }
