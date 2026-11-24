@@ -544,7 +544,7 @@ export function managementApi(options) {
       const query=new URL(req.url,'http://localhost').searchParams
       const todo=query.get('view')==='todo'
       const staffQuery=query.get('view')==='query' || todo
-      if(todo)check(identity?.active && hasRole(identity,'operator'),403,'ACCESS_DENIED')
+      if(todo)check(identity?.active && (hasRole(identity,'operator') || hasRole(identity,'admin')),403,'ACCESS_DENIED')
       if (staffQuery) check(identity?.active && (hasRole(identity,'operator') || hasRole(identity,'admin')),403,'ACCESS_DENIED')
       const account=query.get('account') ?? identity?.account
       const items=tickets.all().filter(row=>{

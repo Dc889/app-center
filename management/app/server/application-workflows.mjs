@@ -135,7 +135,7 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
     check(identity?.active,403,'ACCESS_DENIED')
     const actor=identity.account
     const send=(value,status=200)=>json(res,value?.ticketType?project(value):value,status)
-    const operator=identity.roles.includes('operator')
+    const operator=identity.roles.includes('operator') || identity.roles.includes('admin')
     const owns=row=>row.account===actor || !!workflowOptions.ownsHistorical?.(row.account,identity)
     const project=row=>({...visibleApplication(row,identity),isApplicant:owns(row),
       canQueryExecution:!!(operator && row.command && !row.execution?.result && (!row.effectiveAt || Date.parse(row.effectiveAt)<=Date.now()) && !['已完成','已终止','已驳回'].includes(row.status))})

@@ -346,7 +346,7 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
     ...(view !== 'todo' ? [{id:'tickets' as const, label:'即办执行工单', badge:items.length}] : []),
     {id:'events', label:'异常事件处置'},
     ...(role === 'admin' ? [{id:'accounts' as const, label:'账号变更工单'}] : []),
-    ...(role === 'ops' && view === 'todo' ? [{id:'skills' as const, label:'Skill 文件待办'}] : []),
+    ...((role === 'ops' || role === 'admin') && view === 'todo' ? [{id:'skills' as const, label:'Skill 文件待办'}] : []),
   ]
   return <>
     <PageHeader view={view}/>
@@ -367,7 +367,7 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
     {activeTab === 'applications' && <ApplicationDesk view={view} account={personOf(role).account}/>}
     {activeTab === 'events' && <EventDesk view={view} account={personOf(role).account}/>}
     {activeTab === 'accounts' && role === 'admin' && <AccountDesk view={view}/>}
-    {activeTab === 'skills' && role === 'ops' && view === 'todo' && <SkillCancellationDesk/>}
+    {activeTab === 'skills' && (role === 'ops' || role === 'admin') && view === 'todo' && <SkillCancellationDesk/>}
     {activeTab === 'tickets' && view !== 'todo' && <section className="panel list-panel">
       <div className="panel-header"><div><h3>即办执行工单</h3></div></div>
       <div className="list-toolbar"><input aria-label="搜索执行工单" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索工单号、类型或申请对象"/>
@@ -391,8 +391,8 @@ export function TicketTypes() {
   return <><PageHeader view="types"/><TypeRegistry names={names}/></>
 }
 
-export function WorkOrderDrawer({ title, role, onClose }: { title: string; role: Role; onClose: () => void }) {
-  const readonly = role === 'admin' && !title.includes('ACC')
+export function WorkOrderDrawer({ title, role: _role, onClose }: { title: string; role: Role; onClose: () => void }) {
+  const readonly = false
   const [data, setData] = useState<{
     ticketNo: string
     ticketType: string
