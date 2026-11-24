@@ -59,6 +59,201 @@ export async function readDifyApp(appId, workspaceId) {
     webSiteEnabled: app.enable_site ?? null,
     publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? app.model_config?.id ?? difyRev,
     workflowSnapshotId: app.workflow_snapshot_id ?? app.workflowSnapshotId ?? app.workflow?.id ?? difyRev,
+    modelConfig: app.model_config ?? null,
+  }
+}
+
+const KIND_LABELS = {knowledge: '知识库', plugin: '插件', mcp: 'MCP', tool: '自定义工具'}
+
+async function fetchDifyWorkflowGraph(appId) {
+  for (const suffix of ['workflows/publish', 'workflows/draft']) {
+    try {
+      const res = await difyConsoleFetch(`/console/api/apps/${encodeURIComponent(appId)}/${suffix}`)
+      if (res.ok) {
+        const body = await res.json()
+        if (body?.graph?.nodes && Array.isArray(body.graph.nodes)) {
+          return {inspected: true, source: suffix, nodes: body.graph.nodes}
+        }
+      }
+    } catch {
+      // 未发布或未初始化工作流草稿时忽略
+    }
+  }
+  return {inspected: false, source: null, nodes: []}
+}
+
+async function fetchDifyDatasetName(datasetId) {
+  try {
+    const res = await difyConsoleFetch(`/console/api/datasets/${encodeURIComponent(datasetId)}`)
+    if (res.ok) {
+      const body = await res.json()
+      if (body?.name) return body.name
+    }
+  } catch {
+    // 忽略名称回查失败
+  }
+  return null
+}
+
+async function safeJsonList(fn) {
+  try {
+    const res = await fn()
+    const body = await res.json()
+    return Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : []
+  } catch {
+    return []
+  }
+}
+
+export async function inspectDifyAppDependencies(app, {clients} = {}) {
+  const raw = new Map()
+  const add = item => {
+    const key = `${item.kind}:${item.id}`
+    if (!raw.has(key)) raw.set(key, item)
+  }
+
+  // 1. 解析 model_config（chat / agent-chat / completion 模式）
+  const mc = app?.modelConfig
+  if (mc && typeof mc === 'object') {
+    const dsList = mc.dataset_configs?.datasets?.datasets
+    if (Array.isArray(dsList)) {
+      for (const entry of dsList) {
+        const ds = entry?.dataset ?? entry
+        if (ds?.id && ds?.enabled !== false) {
+          add({kind: 'knowledge', id: String(ds.id), name: ds.name || String(ds.id), source: 'dify-model-config'})
+        }
+      }
+    }
+    const tools = mc.agent_mode?.tools
+    if (Array.isArray(tools)) {
+      for (const t of tools) {
+        if (!t || t.enabled === false) continue
+        const providerType = String(t.provider_type || '').toLowerCase()
+        const id = String(t.provider_id || t.provider_name || t.tool_name || '')
+        if (!id) continue
+        const label = t.tool_label || t.tool_name || t.provider_name || id
+        if (providerType === 'mcp') {
+          add({kind: 'mcp', id, name: label, source: 'dify-model-config'})
+        } else if (providerType === 'api') {
+          add({kind: 'tool', id, name: label, source: 'dify-model-config'})
+        } else {
+          add({kind: 'plugin', id, name: label, source: 'dify-model-config'})
+        }
+      }
+    }
+  }
+
+  // 2. 解析 workflow / advanced-chat 图节点
+  let workflowInspected = false
+  if (app?.resourceId && ['workflow', 'advanced-chat'].includes(app.mode)) {
+    const wf = await fetchDifyWorkflowGraph(app.resourceId)
+    workflowInspected = wf.inspected
+    for (const node of wf.nodes) {
+      const d = node?.data
+      if (!d || typeof d !== 'object') continue
+      if (d.type === 'knowledge-retrieval' && Array.isArray(d.dataset_ids)) {
+        for (const dsId of d.dataset_ids) {
+          if (dsId) add({kind: 'knowledge', id: String(dsId), name: String(dsId), source: `dify-${wf.source}`})
+        }
+      } else if (d.type === 'tool') {
+        const providerType = String(d.provider_type || '').toLowerCase()
+        const id = String(d.provider_id || d.provider_name || d.tool_name || node.id)
+        const label = d.title || d.tool_label || d.tool_name || d.provider_name || id
+        if (providerType === 'mcp') {
+          add({kind: 'mcp', id, name: label, source: `dify-${wf.source}`})
+        } else if (providerType === 'api') {
+          add({kind: 'tool', id, name: label, source: `dify-${wf.source}`})
+        } else {
+          add({kind: 'plugin', id, name: label, source: `dify-${wf.source}`})
+        }
+      } else if (d.type === 'http-request' && d.url) {
+        add({kind: 'tool', id: String(d.url), name: `${d.title || 'HTTP 请求'} (${d.method || 'GET'} ${d.url})`, source: `dify-${wf.source}`})
+      }
+    }
+  }
+
+  // 3. 与平台仓库比对合规状态
+  const [plugins, mcps] = await Promise.all([
+    clients?.plugin ? safeJsonList(() => clients.plugin('/packages')) : Promise.resolve([]),
+    clients?.mcp ? safeJsonList(() => clients.mcp('/mcps')) : Promise.resolve([]),
+  ])
+
+  const dependencies = []
+  for (const item of raw.values()) {
+    let name = item.name
+    let approved = false
+    let externalAllowed = false
+    let status = '未审告警'
+    let reason = ''
+
+    if (item.kind === 'knowledge') {
+      const resolvedName = await fetchDifyDatasetName(item.id)
+      if (resolvedName) name = resolvedName
+      approved = false
+      externalAllowed = false
+      status = '未审告警'
+      reason = '应用绑定了知识库，请核验其是否已通过 KB-02 安全审查（或确认风险后放行）'
+    } else if (item.kind === 'plugin') {
+      const matched = plugins.find(p =>
+        [p.resourceId, p.packageId, p.name, p.identifier].filter(Boolean).some(v => String(v) === item.id || String(v) === item.name),
+      )
+      if (matched && ['active', '已上架', 'approved'].includes(String(matched.status || '').toLowerCase())) {
+        approved = true
+        externalAllowed = matched.externalAllowed !== false
+        status = externalAllowed ? '合规通过' : '未审告警'
+        reason = externalAllowed ? '已在插件仓库通过 PLG-01 审核' : '插件已入库但禁止对外开放使用'
+      } else if (matched) {
+        approved = false
+        externalAllowed = false
+        status = '已禁用拦截'
+        reason = `插件当前状态为 ${matched.status}，不可作为合规依赖`
+      } else {
+        reason = '未在平台插件仓库登记，尚未通过 PLG-01 代码安全审核'
+      }
+    } else if (item.kind === 'mcp') {
+      const matched = mcps.find(m =>
+        [m.resourceId, m.name, m.url].filter(Boolean).some(v => String(v) === item.id || String(v) === item.name),
+      )
+      if (matched && ['active', '已上架'].includes(String(matched.status || '').toLowerCase())) {
+        approved = true
+        externalAllowed = matched.externalAllowed !== false
+        status = externalAllowed ? '合规通过' : '未审告警'
+        reason = externalAllowed ? '已在 MCP 仓库通过 MCP-01 审核' : 'MCP 已登记但禁止对外开放使用'
+      } else {
+        reason = '未在平台 MCP 仓库登记或未处于生效状态，尚未通过 MCP-01 审核'
+      }
+    } else {
+      reason = '自定义 HTTP/API 工具存在外部调用风险，尚未通过 TOL-01 审批'
+    }
+
+    dependencies.push({
+      kind: item.kind,
+      kindLabel: KIND_LABELS[item.kind] ?? item.kind,
+      id: item.id,
+      name,
+      source: item.source,
+      approved,
+      externalAllowed,
+      status,
+      reason,
+    })
+  }
+
+  const counts = {knowledge: 0, plugin: 0, mcp: 0, tool: 0}
+  for (const d of dependencies) {
+    if (Object.hasOwn(counts, d.kind)) counts[d.kind] += 1
+  }
+  const warnings = dependencies.filter(d => !d.approved || !d.externalAllowed).length
+  return {
+    dependencies,
+    dependencySummary: {
+      checkedAt: new Date().toISOString(),
+      workflowInspected,
+      total: dependencies.length,
+      passed: dependencies.length - warnings,
+      warnings,
+      counts,
+    },
   }
 }
 

@@ -1,5 +1,5 @@
 import {check, id} from '../../../../runtime/http.mjs'
-import {buildAgentImpact, listDifyApps, readDifyApp} from '../adapters/agent-store.mjs'
+import {buildAgentImpact, inspectDifyAppDependencies, listDifyApps, readDifyApp} from '../adapters/agent-store.mjs'
 
 export async function listDifyAppResources({query, openLedger}) {
   const workspaceId = query?.get('workspaceId') || undefined
@@ -17,7 +17,14 @@ export async function listDifyAppResources({query, openLedger}) {
   const hasMore = start >= 0 && start + limit < apps.length
 
   return {
-    items: slice.map(({resourceId, name, source, workspaceId: ws}) => ({resourceId, name, source: source || 'dify', workspaceId: ws})),
+    items: slice.map(app => ({
+      resourceId: app.resourceId,
+      name: app.name,
+      source: app.source || 'dify',
+      workspaceId: app.workspaceId,
+      ownerAccount: app.ownerAccount || '',
+      data: {mode: app.mode ?? null, description: app.description ?? null, ownerAccount: app.ownerAccount || '', versions: app.versions ?? []},
+    })),
     nextCursor: hasMore ? slice.at(-1).resourceId : null,
   }
 }
@@ -43,6 +50,7 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
 
   const effectiveAppId = app?.resourceId ?? catalogEntry.appId
   const effectiveName = app?.name ?? catalogEntry.name
+  const depAudit = app ? await inspectDifyAppDependencies(app, {clients}) : {dependencies: [], dependencySummary: null}
   const data = {
     appId: effectiveAppId,
     name: effectiveName,
@@ -53,6 +61,8 @@ export async function difyAppResourceDetail({resourceId, query, clients, openLed
     publicationVersionId: app?.publicationVersionId ?? null,
     workflowSnapshotId: app?.workflowSnapshotId ?? null,
     catalogRevision: catalogEntry?.revision ?? 0,
+    dependencies: depAudit.dependencies,
+    dependencySummary: depAudit.dependencySummary,
   }
   if (catalogResourceId) {
     data.catalogRevision = catalogEntry?.revision ?? 0
