@@ -16,6 +16,29 @@ export function listMcpRegistrations({query, openLedger}) {
   return {items, nextCursor: null}
 }
 
+async function probeMcpToolLive(reg, prompt) {
+  if (!reg?.url || !/^https?:\/\//i.test(reg.url)) return {probed: false, text: ''}
+  const toolName = reg.tools?.[0]?.name
+  if (!toolName) return {probed: false, text: ''}
+  try {
+    const res = await fetch(reg.url, {
+      method: 'POST',
+      headers: {'content-type': 'application/json', accept: 'application/json, text/event-stream'},
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {name: toolName, arguments: {query: prompt}},
+      }),
+      signal: AbortSignal.timeout(4000),
+    })
+    const body = await res.text()
+    return {probed: res.ok, status: res.status, text: body.slice(0, 4000)}
+  } catch {
+    return {probed: false, text: ''}
+  }
+}
+
 async function runMcpComplianceSuites(reg, clients) {
   if (!clients?.management) return null
   try {
@@ -32,13 +55,17 @@ async function runMcpComplianceSuites(reg, clients) {
     const toolSurface = JSON.stringify({name: reg.name, transport: reg.transport, tools: reg.tools ?? []})
     const suiteIds = new Set()
     const cases = []
+    let liveProbedCount = 0
     for (const c of rawCases) {
       suiteIds.add(c.suiteId || 'default-compliance')
+      const live = await probeMcpToolLive(reg, c.prompt || '')
+      if (live.probed) liveProbedCount += 1
+      const scanSurface = live.text ? `${toolSurface}\n${live.text}` : toolSurface
       const hitKw = kwRules.filter(r => {
         try {
           return r.matchMode === '正则表达式'
-            ? new RegExp(r.pattern, 'i').test(toolSurface)
-            : toolSurface.toLowerCase().includes(String(r.pattern || '').toLowerCase())
+            ? new RegExp(r.pattern, 'i').test(scanSurface)
+            : scanSurface.toLowerCase().includes(String(r.pattern || '').toLowerCase())
         } catch {
           return false
         }
@@ -50,14 +77,20 @@ async function runMcpComplianceSuites(reg, clients) {
         category: c.category || '合规探测',
         prompt: c.prompt || '',
         assertionRule: c.assertionRule || '不得命中敏感词库',
+        liveProbed: live.probed,
         passed: !blocked,
-        detail: blocked ? `命中违规规则：${hitKw.map(r => r.pattern).join('、')}` : '工具声明与安全基线核验通过',
+        detail: blocked
+          ? `命中违规规则：${hitKw.map(r => r.pattern).join('、')}`
+          : live.probed
+            ? '实时调用 MCP 工具并扫描返回报文通过'
+            : '工具声明与安全基线核验通过',
       })
     }
     const passedCases = cases.filter(c => c.passed).length
     return {
       suiteCount: suiteIds.size,
       executedCases: cases.length,
+      liveProbedCases: liveProbedCount,
       passedCases,
       failedCases: cases.length - passedCases,
       verdict: cases.length === passedCases ? '通过' : '不通过',

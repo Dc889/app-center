@@ -104,6 +104,6 @@ const server = createServer(async (req, res) => {
   res.end(JSON.stringify({jsonrpc: '2.0', id, result}))
 })
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Local MCP server ready on http://127.0.0.1:${PORT} (${Object.keys(SERVERS).join(', ')})`)
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Local MCP server ready on http://0.0.0.0:${PORT} (${Object.keys(SERVERS).join(', ')})`)
 })

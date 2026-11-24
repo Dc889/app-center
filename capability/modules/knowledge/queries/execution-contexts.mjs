@@ -1,6 +1,6 @@
 import {check, json, id} from '../../../../runtime/http.mjs'
-import {getDifyDatasetDetail} from '../adapters/dify-datasets.mjs'
-import {getRagflowDatasetDetail, getRagflowExternalEndpoint} from '../adapters/ragflow-datasets.mjs'
+import {fetchDifyDocumentSegments, getDifyDatasetDetail} from '../adapters/dify-datasets.mjs'
+import {fetchRagflowDocumentChunks, getRagflowDatasetDetail, getRagflowExternalEndpoint} from '../adapters/ragflow-datasets.mjs'
 import {diffDocuments, resolveBindingVariant, sha256Hex} from '../adapters/knowledge-store.mjs'
 
 async function fetchLiveDataset(dataset) {
@@ -101,18 +101,29 @@ export async function kb02Context(ctx) {
   const live = await fetchLiveDataset(dataset)
   const {ruleSetVersion, rules} = await fetchKeywordRules(clients)
 
-  const docs = live.documents.map(d => {
-    const sampleText = [d.name, d.previewText, d.content].filter(Boolean).join('\n')
+  let totalScannedChunks = 0
+  const docs = []
+  for (const d of live.documents) {
+    let chunkTexts = []
+    if (rules.length > 0 && dataset.sourceSystem === 'RAGFlow') {
+      chunkTexts = await fetchRagflowDocumentChunks(dataset.sourceResourceId, d.documentId)
+    } else if (rules.length > 0 && dataset.sourceSystem === 'Dify') {
+      chunkTexts = await fetchDifyDocumentSegments(dataset.sourceResourceId, d.documentId)
+    }
+    totalScannedChunks += chunkTexts.length
+    // 零留存流式扫描：正文切片仅在内存中与 CFG-02 词库比对，不落盘、不写入快照
+    const sampleText = [d.name, d.previewText, d.content, ...chunkTexts].filter(Boolean).join('\n')
     const hits = scanTextAgainstRules(sampleText, rules)
     const blocked = hits.some(h => h.severity === '阻断')
-    return {
+    docs.push({
       documentId: d.documentId,
       name: d.name,
       sha256: d.sha256,
+      scannedChunks: chunkTexts.length,
       autoVerdict: blocked ? '不通过' : d.autoVerdict,
       ...(hits.length ? {matchedRules: hits} : {}),
-    }
-  })
+    })
+  }
   const blockedCount = docs.filter(d => d.autoVerdict !== '通过').length
   const warnCount = docs.filter(d => Array.isArray(d.matchedRules) && d.matchedRules.some(r => r.severity === '告警')).length
 
@@ -130,7 +141,7 @@ export async function kb02Context(ctx) {
       文档清单快照ID: live.manifestSnapshotId,
       文档数: docs.length,
       模型目录核对结果: live.modelVerified ? '一致' : '不一致',
-      关键词扫描规则版本: ruleSetVersion ? `v${ruleSetVersion}（启用 ${rules.length} 条规则，零留存流式扫描）` : '未启用外部词库',
+      关键词扫描规则版本: ruleSetVersion ? `v${ruleSetVersion}（启用 ${rules.length} 条规则，扫描 ${totalScannedChunks} 个正文切片，零留存）` : '未启用外部词库',
       关键词扫描结论: blockedCount > 0 ? `阻断（${blockedCount} 份文档命中阻断词）` : warnCount > 0 ? `告警放行（${warnCount} 份文档命中告警词）` : '通过（未命中敏感关键词）',
       文档审查明细: docs,
     },

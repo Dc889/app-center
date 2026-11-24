@@ -94,3 +94,21 @@ export async function disableRagflowDocument({datasetId, documentId}) {
     body: {enabled: false},
   })
 }
+
+export async function fetchRagflowDocumentChunks(datasetId, documentId) {
+  try {
+    const raw = await ragflowFetch(
+      `/api/v1/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/chunks?page=1&page_size=50`,
+    )
+    const chunks = Array.isArray(raw?.data?.chunks)
+      ? raw.data.chunks
+      : Array.isArray(raw?.data)
+        ? raw.data
+        : []
+    return chunks
+      .map(c => String(c?.content ?? c?.content_with_weight ?? '').trim())
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}

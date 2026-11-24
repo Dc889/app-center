@@ -67,6 +67,20 @@ export async function getDifyDatasetDetail(datasetId, workspaceId) {
   }
 }
 
+export async function fetchDifyDocumentSegments(datasetId, documentId) {
+  try {
+    const raw = await difyFetch(
+      `/console/api/datasets/${encodeURIComponent(datasetId)}/documents/${encodeURIComponent(documentId)}/segments?limit=50`,
+    )
+    const segs = Array.isArray(raw?.data) ? raw.data : []
+    return segs
+      .map(s => String(s?.content ?? '').trim())
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 export async function createDifyExternalBinding({name, targetWorkspaceId, endpoint, externalKnowledgeId, targetAppId}) {
   requireWorkspace(targetWorkspaceId)
   check(!targetAppId, 501, 'UPSTREAM_UNSUPPORTED', '指定应用编排配置尚未完成真实适配，不以外部知识库创建冒充应用绑定')
