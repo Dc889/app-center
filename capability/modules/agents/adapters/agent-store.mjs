@@ -47,7 +47,7 @@ export async function readDifyApp(appId, workspaceId) {
   check(response.ok, response.status === 404 ? 404 : 503, 'UPSTREAM_ERROR', `Dify 应用详情读取失败: HTTP ${response.status}`)
   const app = await response.json()
   check(app?.id === appId, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用详情标识不一致')
-  const actualScope = app.workspace_id || configuredWorkspace || workspaceId
+  const actualScope = app.workspace_id || workspaceId || configuredWorkspace
   check(!workspaceId || !actualScope || workspaceId === actualScope, 404, 'NOT_FOUND', '应用不属于目标工作区')
   return {
     resourceId: app.id,
