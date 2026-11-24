@@ -5,7 +5,9 @@ export const VIEW_PATHS: Record<View, string> = {
   overview: '/overview',
   knowledge: '/knowledge',
   agents: '/agents',
+  knowledgeWarehouse: '/knowledge-warehouse',
   agentMonitor: '/agent-monitor',
+  serviceMonitor: '/service-monitor',
   pluginWarehouse: '/plugin-warehouse',
   mcpWarehouse: '/mcp-warehouse',
   skillWarehouse: '/skill-warehouse',
@@ -22,6 +24,9 @@ export const VIEW_PATHS: Record<View, string> = {
   query: '/query',
   types: '/types',
   subsystems: '/subsystems',
+  organizations: '/organizations',
+  keywordRules: '/keyword-rules',
+  mcpTestSuites: '/mcp-test-suites',
 }
 
 const PATH_TO_VIEW: Record<string, View> = Object.fromEntries(
@@ -30,6 +35,7 @@ const PATH_TO_VIEW: Record<string, View> = Object.fromEntries(
 
 const USER_ALLOWED_VIEWS: View[] = [
   'agents',
+  'knowledgeWarehouse',
   'pluginWarehouse',
   'mcpWarehouse',
   'skillWarehouse',
@@ -76,7 +82,7 @@ export function defaultViewForRole(role: Role): View {
 export function resolveViewForRole(view: View | null, role: Role): View {
   if (!view) return defaultViewForRole(role)
   if (role === 'user' && !USER_ALLOWED_VIEWS.includes(view)) return 'agents'
-  if (role === 'ops' && (view === 'types' || view === 'subsystems')) return 'overview'
+  if (role === 'ops' && (view === 'types' || view === 'subsystems' || view === 'organizations')) return 'overview'
   return view
 }
 

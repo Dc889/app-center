@@ -16,15 +16,16 @@ import {FilePlus2} from 'lucide-react'
 import {ClipboardList} from 'lucide-react'
 import {ListChecks} from 'lucide-react'
 import {Search} from 'lucide-react'
+import {ServerCog} from 'lucide-react'
 
 export type Role = 'user' | 'ops' | 'admin'
 
 export type View =
   | 'overview' | 'knowledge' | 'agents' | 'agentMonitor'
-  | 'pluginWarehouse' | 'mcpWarehouse' | 'skillWarehouse'
-  | 'plugins' | 'mcp' | 'skills'
+  | 'knowledgeWarehouse' | 'pluginWarehouse' | 'mcpWarehouse' | 'skillWarehouse'
+  | 'plugins' | 'mcp' | 'skills' | 'serviceMonitor'
   | 'security' | 'accounts' | 'audit'
-  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'types' | 'subsystems'
+  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'types' | 'subsystems' | 'organizations' | 'keywordRules' | 'mcpTestSuites'
 
 export type Identity = {
   role: Role
@@ -60,6 +61,7 @@ export const identities: Identity[] = [
 
 export const warehouseNav: NavItem[] = [
   { id: 'agents', label: '智能体仓库', icon: Bot },
+  { id: 'knowledgeWarehouse', label: '知识库仓库', icon: Database },
   { id: 'pluginWarehouse', label: '插件仓库', icon: PlugZap },
   { id: 'mcpWarehouse', label: 'MCP仓库', icon: Network },
   { id: 'skillWarehouse', label: 'Skill仓库', icon: PackageCheck },
@@ -69,6 +71,7 @@ export const monitorNav: NavItem[] = [
   { id: 'overview', label: '统一概览', icon: Gauge },
   { id: 'knowledge', label: '知识库', icon: Database },
   { id: 'agentMonitor', label: '智能体监控', icon: Radar },
+  { id: 'serviceMonitor', label: '服务监控', icon: ServerCog },
   { id: 'plugins', label: '插件监控', icon: PlugZap },
   { id: 'mcp', label: 'MCP监控', icon: Network },
   { id: 'skills', label: 'Skill监控', icon: PackageCheck },
@@ -93,7 +96,9 @@ export const pageMeta: Record<View, { title: string; eyebrow: string; desc: stri
   overview: { title: '统一概览', eyebrow: '运行全景', desc: '汇聚资源、服务、调用和待办，快速定位需要介入的事项。' },
   knowledge: { title: '知识库监控', eyebrow: '知识资产', desc: '跟踪纳管资源、构建过程、模型目录核对与文档安全审查。' },
   agents: { title: '智能体仓库', eyebrow: '工单应用', desc: '查看已经生效的智能体。普通用户只看到自己能用的应用和成功调用排行；运维人员和管理员还能看到下架项和工单号。' },
+  knowledgeWarehouse: { title: '知识库仓库', eyebrow: '共享知识库', desc: '查看已经发布的知识库。可直接使用的显示可使用，需要申请的显示待申请；下载次数未采集时不显示为 0。' },
   agentMonitor: { title: '智能体监控', eyebrow: 'Dify 全量', desc: '按账户查看 Dify 上的全部智能体、应用数量和调用记录。调用次数含成功和失败，可筛选并逐条溯源。' },
+  serviceMonitor: { title: '服务监控', eyebrow: '子系统容器', desc: '查看 Dify 和 RAGFlow 各容器的运行状态。确认不可用时自动创建工单、自动审批并只重启该容器。读不到 Docker 时显示未采集。' },
   pluginWarehouse: { title: '插件仓库', eyebrow: '可安装插件', desc: '查看已经生效的插件。能直接安装的生成即办工单，受限的提交安装申请。调用次数只用于排行。' },
   mcpWarehouse: { title: 'MCP仓库', eyebrow: '可绑定目录', desc: '查看已经生效的 MCP。能直接绑定的生成即办工单，受限的提交绑定申请。不展示统一 URL 原文。' },
   skillWarehouse: { title: 'Skill仓库', eyebrow: '可下载文件', desc: '查看已经生效的 Skill。普通用户只看到自己能下载的文件和成功下载排行；运维人员和管理员还能看到下架项。下载只生成 SKL-03，不统计运行。' },
@@ -110,6 +115,9 @@ export const pageMeta: Record<View, { title: string; eyebrow: string; desc: stri
   query: { title: '工单查询', eyebrow: '全量检索', desc: '按条件检索当前可见范围内的工单。' },
   types: { title: '工单类型', eyebrow: '流程定义', desc: '定义字段和流程，测试通过后发布新版本。' },
   subsystems: { title: '纳管子系统', eyebrow: '平台集成配置', desc: '仅系统管理员可见。统一管理 Dify、RAGFlow 等多实例接入配置，支持连通性测试与保存后热生效。' },
+  organizations: { title: '组织机构配置', eyebrow: '1～6 级组织体系', desc: '仅系统管理员可见。管理 1～6 级组织机构占位序号（1.1~1.N）、真实名称与外部映射，变更走 CFG-01 工单留痕。' },
+  keywordRules: { title: '敏感词库配置', eyebrow: '安全扫描基线', desc: '管理知识库文档、Skill 与 MCP 响应自动扫描所使用的敏感关键词与正则规则，变更走 CFG-02 工单审批生效。' },
+  mcpTestSuites: { title: 'MCP 合规题库', eyebrow: '违规探测基线', desc: '管理 MCP 上架审核所使用的预设测试问题集与违规判定规则，变更走 CFG-03 工单审批生效。' },
 }
 
 

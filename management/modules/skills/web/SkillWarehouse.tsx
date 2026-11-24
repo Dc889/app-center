@@ -1,10 +1,7 @@
 import {useEffect, useState} from 'react'
-import {ChevronRight, History, PackageCheck, Search, Trophy} from 'lucide-react'
+import {ChevronRight, PackageCheck, Search, Trophy} from 'lucide-react'
 import type {Role} from '../../../shared-ui/UiContextData'
-import {personOf} from '../../../shared-ui/UiContextData'
 import {PageHeader} from '../../../shared-ui/UiContext'
-import {submitTicket} from '../../../platform/workflow/public.web'
-import {SkillVersions} from './SkillVersions'
 
 type CatalogItem = {
   resourceId: string
@@ -41,11 +38,7 @@ function mapItem(item: CatalogItem): Entry {
   }
 }
 
-function downloadTicketNo() {
-  return 'SKL-03-' + crypto.randomUUID()
-}
-
-export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (title: string) => void}) {
+export function SkillWarehouse({role}: {role: Role; onWorkOrder?: (title: string) => void}) {
   const staff = role !== 'user'
   const [catalog, setCatalog] = useState<Entry[]>([])
   const [cursor, setCursor] = useState('')
@@ -57,9 +50,6 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
   const [usableTab, setUsableTab] = useState<'全部' | '可直接使用' | '暂不可用'>('全部')
   const [methodFilter, setMethodFilter] = useState<'全部方式' | '直接下载' | '申请下载'>('全部方式')
   const [selectedId, setSelectedId] = useState('')
-  const [version, setVersion] = useState<string | undefined>()
-  const [notice, setNotice] = useState('')
-  const [reserving, setReserving] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -99,34 +89,6 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
     .sort((a, b) => (b.successCount ?? 0) - (a.successCount ?? 0))
     .slice(0, 5)
   const maxCount = Math.max(...ranked.map(item => item.successCount ?? 0), 1)
-
-  async function download() {
-    if (!selected || !selected.downloadable) return
-    setReserving(true)
-    try {
-      const ticket = await submitTicket(downloadTicketNo(), 'SKL-03', 'download', selected.id, personOf(role).account, version)
-      if (ticket.downloadUrl) {
-        const file = await fetch(ticket.downloadUrl)
-        if (!file.ok) throw Error('文件暂不可领取，请用原流水重试')
-        const url = URL.createObjectURL(await file.blob())
-        const link = document.createElement('a')
-        link.href = url
-        link.download = /filename="([^"]+)"/.exec(file.headers.get('content-disposition') ?? '')?.[1] ?? 'skill.zip'
-        link.click()
-        setTimeout(() => URL.revokeObjectURL(url), 1000)
-        const state = await fetch('/api/tickets/' + ticket.ticketNo)
-        const latest = await state.json()
-        if (!state.ok) throw Error(latest.error?.message ?? '回执待核对，可用原流水重试')
-        setNotice(latest.ticketNo + ' · ' + (latest.ok ? '已完成' : latest.status ?? '可在我的申请查看交付结果'))
-      } else {
-        setNotice(ticket.ticketNo + ' · ' + (ticket.failureReason || '可在我的申请查看交付结果。'))
-      }
-    } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : '下载服务未响应')
-    } finally {
-      setReserving(false)
-    }
-  }
 
   return (
     <div data-testid="catalog-warehouse">
@@ -171,7 +133,7 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
                 key={item.id}
                 type="button"
                 className={selected?.id === item.id ? 'active' : ''}
-                onClick={() => { setSelectedId(item.id); setVersion(undefined) }}
+                onClick={() => setSelectedId(item.id)}
               >
                 <b>{index + 1}</b>
                 <span>
@@ -200,14 +162,16 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
             </button>
           ))}
         </div>
-        <label className="log-filter">
-          <span>使用方式</span>
-          <select aria-label="Skill使用方式筛选" value={methodFilter} onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接下载' | '申请下载')}>
-            <option value="全部方式">全部方式</option>
-            <option value="直接下载">直接下载（即办）</option>
-            <option value="申请下载">申请下载（待核验）</option>
-          </select>
-        </label>
+        <select
+          className="warehouse-method"
+          aria-label="使用方式"
+          value={methodFilter}
+          onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接下载' | '申请下载')}
+        >
+          <option value="全部方式">使用方式</option>
+          <option value="直接下载">直接下载（即办）</option>
+          <option value="申请下载">申请下载（待核验）</option>
+        </select>
         <button className="secondary-button" disabled={loading} onClick={() => { setCatalog([]); setError(''); setLoading(true); setCursor(''); setNextCursor(null); setRefresh(value => value + 1) }}>刷新目录</button>
         {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多</button>}
       </div>
@@ -227,8 +191,8 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
                   tabIndex={0}
                   className={'dify-tile-card' + (selected?.id === item.id ? ' active' : '')}
                   data-testid={'skill-card-' + item.id}
-                  onClick={() => { setSelectedId(item.id); setVersion(undefined) }}
-                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(item.id); setVersion(undefined) } }}
+                  onClick={() => setSelectedId(item.id)}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedId(item.id) } }}
                 >
                   <div className="dify-tile-head">
                     <span className="dify-tile-icon tone-skill"><PackageCheck size={20} /></span>
@@ -251,24 +215,6 @@ export function SkillWarehouse({role, onWorkOrder}: {role: Role; onWorkOrder: (t
             {filtered.length === 0 && !loading && <div className="agent-empty">没有符合当前筛选的 Skill。</div>}
           </div>
         </div>
-
-        {selected && (
-          <aside className="panel" data-testid="skill-detail">
-            <h3>{selected.name}</h3>
-            <p className="version-meta">状态 · {selected.status}{selected.version ? ` · v${selected.version}` : ''}</p>
-            {selected.summary && <p>{selected.summary}</p>}
-            <SkillVersions resourceId={selected.id} onSelect={setVersion} />
-            <div className="draft-toolbar" style={{marginTop: 12}}>
-              <button className="primary-button" disabled={reserving || !selected.downloadable} onClick={() => void download()}>
-                {reserving ? '正在下载...' : '下载 Skill (SKL-03)'}
-              </button>
-              <button className="secondary-button" onClick={() => onWorkOrder(`Skill 变更申请 · ${selected.name}`)}>
-                <History size={14} /> 提交工单
-              </button>
-            </div>
-            {notice && <p role="status" data-testid="skill-notice">{notice}</p>}
-          </aside>
-        )}
       </div>
     </div>
   )

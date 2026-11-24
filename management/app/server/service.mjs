@@ -13,6 +13,7 @@ import {mcpRegistration} from '../../modules/mcp/public.server.mjs'
 import {policyDecision} from '../../platform/access/public.server.mjs'
 import {applicationApi} from './application-workflows.mjs'
 import {subsystemRegistry} from './subsystems.mjs'
+import {platformConfigs} from './platform-configs.mjs'
 import {draftApi,typeRegistry} from '../../platform/workflow/public.server.mjs'
 import {body,check,client,digest,id,json,ledger,listen} from '../../../runtime/http.mjs'
 
@@ -50,6 +51,7 @@ export function managementApi(options) {
   const events = ledger(options.dir,'reported-events',actorSnapshot)
   const types = typeRegistry(options.dir,cap,actorSnapshot,{organizations:()=>directory.catalog.orgs,currentOrg:()=>auditContext.getStore()?.org ?? null})
   const subsystems = subsystemRegistry(options.dir,actorSnapshot)
+  const configs = platformConfigs(options.dir,actorSnapshot)
   const drafts=draftApi(options.dir,directory.owns,{activeVersion:types.activeVersion,actorSnapshot,
     findSubmission(draft){
       const no=draft.submission.ticketNo
@@ -176,7 +178,7 @@ export function managementApi(options) {
     }
   },3000)
   retry.unref()
-  function close() { stopped=true;clearInterval(retry); tickets.close(); identities.close(); types.close(); subsystems.close(); events.close(); drafts.close();applications.close();intake.close();evidence.close();accountChanges.close();directory.close() }
+  function close() { stopped=true;clearInterval(retry); tickets.close(); identities.close(); types.close(); subsystems.close(); configs.close(); events.close(); drafts.close();applications.close();intake.close();evidence.close();accountChanges.close();directory.close() }
   function visible(row) {
     const state = row.state ?? {status:'reconciling'}
     return {ticketNo:row.ticketNo,status:state.status,ok:state.status==='succeeded',executionId:row.command.executionId,
@@ -375,7 +377,7 @@ export function managementApi(options) {
       return json(res,await response.json())
     }
     if (['/api/drafts','/api/drafts/restore','/api/drafts/recover'].includes(path)) return drafts.handle(req,res,identity,path)
-    if (path==='/api/auth/login' || path==='/api/auth/session' || path==='/api/auth/logout' || path==='/api/demo-session' || path.startsWith('/api/types') || path==='/api/subsystems' || path.startsWith('/api/subsystems/')) {
+    if (path==='/api/auth/login' || path==='/api/auth/session' || path==='/api/auth/logout' || path==='/api/demo-session' || path.startsWith('/api/types') || path==='/api/subsystems' || path.startsWith('/api/subsystems/') || path==='/api/organizations' || path.startsWith('/api/organizations/') || path==='/api/keyword-rules' || path.startsWith('/api/keyword-rules/') || path==='/api/mcp-test-suites' || path.startsWith('/api/mcp-test-suites/') || path==='/api/config-tickets' || path.startsWith('/api/config-tickets/')) {
       check(!req.headers.origin || new URL(req.headers.origin).host===req.headers.host,403,'ACCESS_DENIED')
       if (path==='/api/auth/session') {
         if (req.method==='DELETE') {
@@ -438,6 +440,10 @@ export function managementApi(options) {
       if (path==='/api/subsystems' || path.startsWith('/api/subsystems/')) {
         check(identity?.active && hasRole(identity,'admin'),403,'ACCESS_DENIED','仅系统管理员可配置纳管子系统')
         return subsystems.handle(req,res,path,identity.account)
+      }
+      if (path==='/api/organizations' || path.startsWith('/api/organizations/') || path==='/api/keyword-rules' || path.startsWith('/api/keyword-rules/') || path==='/api/mcp-test-suites' || path.startsWith('/api/mcp-test-suites/') || path==='/api/config-tickets' || path.startsWith('/api/config-tickets/')) {
+        check(identity?.active,403,'ACCESS_DENIED')
+        return configs.handle(req,res,path,identity)
       }
       check(identity?.active && hasRole(identity,'admin'),403,'ACCESS_DENIED','仅系统管理员可管理工单类型')
       return types.handle(req,res,path,identity.account)

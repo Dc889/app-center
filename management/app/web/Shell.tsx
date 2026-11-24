@@ -1,6 +1,6 @@
 import {useState} from 'react'
 import type {FormEvent} from 'react'
-import {Layers3, Sparkles, ShieldCheck, Activity, FileCheck2, Workflow, ServerCog, PanelLeftClose, AlertTriangle, ClipboardCheck, ChevronDown, LogOut, Lock, User, Eye, EyeOff} from 'lucide-react'
+import {Layers3, Sparkles, ShieldCheck, Activity, FileCheck2, Workflow, ServerCog, Building2, BookKey, FlaskConical, PanelLeftClose, AlertTriangle, ClipboardCheck, ChevronDown, LogOut, Lock, User, Eye, EyeOff} from 'lucide-react'
 import type {Identity, View, NavItem} from '../../shared-ui/UiContextData'
 import {baseTicketNav, operationTicketNav, warehouseNav, monitorNav} from '../../shared-ui/UiContextData'
 
@@ -108,10 +108,13 @@ export function Sidebar({
 }) {
   const ticketNav = identity.role === 'user' ? baseTicketNav : [
     ...operationTicketNav,
+    { id: 'keywordRules' as View, label: '敏感词库', icon: BookKey },
+    { id: 'mcpTestSuites' as View, label: 'MCP题库', icon: FlaskConical },
     ...(identity.role === 'admin'
       ? [
           { id: 'types' as View, label: '工单类型', icon: Workflow },
           { id: 'subsystems' as View, label: '纳管子系统', icon: ServerCog },
+          { id: 'organizations' as View, label: '组织机构', icon: Building2 },
         ]
       : []),
   ]
