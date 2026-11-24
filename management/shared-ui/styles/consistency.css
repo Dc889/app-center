@@ -1845,3 +1845,80 @@ input[type='checkbox'], input[type='radio'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ==========================================================================
+   Unified Commercial Settings Center (/organizations, /subsystems, etc.)
+   ========================================================================== */
+.settings-center {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+.settings-top-bar {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 16px 24px 0;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.settings-brand-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #eff4ff;
+  color: #155eef;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.settings-brand h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #101828;
+}
+.settings-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid #f2f4f7;
+  padding-top: 2px;
+  overflow-x: auto;
+}
+.settings-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #667085;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+.settings-tab:hover { color: #101828; }
+.settings-tab.is-active {
+  color: #155eef;
+  border-bottom-color: #155eef;
+  font-weight: 600;
+}
+.settings-pane {
+  width: 100%;
+}
+.settings-pane .page-head {
+  display: none;
+}

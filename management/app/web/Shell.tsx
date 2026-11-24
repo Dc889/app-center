@@ -1,8 +1,9 @@
 import {useState} from 'react'
 import type {FormEvent} from 'react'
-import {Layers3, Sparkles, ShieldCheck, Activity, FileCheck2, Workflow, ServerCog, Building2, BookKey, FlaskConical, PanelLeftClose, AlertTriangle, ClipboardCheck, ChevronDown, LogOut, Lock, User, Eye, EyeOff} from 'lucide-react'
+import {Layers3, Sparkles, ShieldCheck, Activity, FileCheck2, Settings, PanelLeftClose, AlertTriangle, ClipboardCheck, ChevronDown, LogOut, Lock, User, Eye, EyeOff} from 'lucide-react'
 import type {Identity, View, NavItem} from '../../shared-ui/UiContextData'
 import {baseTicketNav, operationTicketNav, warehouseNav, monitorNav} from '../../shared-ui/UiContextData'
+import {isSettingsView} from './SettingsCenter'
 
 export function Login({ onLogin, error }: { onLogin: (username: string, password: string) => Promise<void> | void; error?: string }) {
   const [username, setUsername] = useState('')
@@ -106,18 +107,12 @@ export function Sidebar({
   collapsed: boolean
   onCollapse: () => void
 }) {
-  const ticketNav = identity.role === 'user' ? baseTicketNav : [
-    ...operationTicketNav,
-    { id: 'keywordRules' as View, label: '敏感词库', icon: BookKey },
-    { id: 'mcpTestSuites' as View, label: 'MCP题库', icon: FlaskConical },
-    ...(identity.role === 'admin'
-      ? [
-          { id: 'types' as View, label: '工单类型', icon: Workflow },
-          { id: 'subsystems' as View, label: '纳管子系统', icon: ServerCog },
-          { id: 'organizations' as View, label: '组织机构', icon: Building2 },
-        ]
-      : []),
+  const ticketNav = identity.role === 'user' ? baseTicketNav : operationTicketNav
+  const settingsDefaultView: View = identity.role === 'admin' ? 'organizations' : 'keywordRules'
+  const settingsNav: NavItem[] = [
+    { id: settingsDefaultView, label: '系统设置', icon: Settings },
   ]
+  const activeSettingsView: View = isSettingsView(view) ? settingsDefaultView : view
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="side-brand">
@@ -133,6 +128,9 @@ export function Sidebar({
           <NavGroup title="监控" items={monitorNav} view={view} onNavigate={onNavigate} collapsed={collapsed} />
         )}
         <NavGroup title="工单" items={ticketNav} view={view} onNavigate={onNavigate} collapsed={collapsed} />
+        {identity.role !== 'user' && (
+          <NavGroup title="系统" items={settingsNav} view={activeSettingsView} onNavigate={onNavigate} collapsed={collapsed} />
+        )}
       </nav>
     </aside>
   )
