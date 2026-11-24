@@ -9,7 +9,10 @@ export async function mcpRegistration(cap,headers,registrationId) {
     d.tools.every(t=>typeof t.name==='string' && t.name && typeof t.description==='string' &&
       t.inputSchema && typeof t.inputSchema==='object') && Number.isFinite(Date.parse(d.syncedAt)),
     409,'INCOMPLETE_MCP_REGISTRATION')
-  return {snapshotId:raw.snapshotId,resourceId:registrationId,capturedAt:raw.capturedAt,data:{
-    registrationId:d.registrationId,name:d.name,status:d.status,transport:d.transport,urlFingerprint:d.urlFingerprint,
-    authType:d.authType,tools:d.tools,syncedAt:d.syncedAt}}
+  return {snapshotId:raw.snapshotId,resourceId:registrationId,capturedAt:raw.capturedAt,
+    ...(raw.fields ? {fields:raw.fields} : {}),
+    data:{
+      registrationId:d.registrationId,name:d.name,status:d.status,transport:d.transport,urlFingerprint:d.urlFingerprint,
+      authType:d.authType,tools:d.tools,syncedAt:d.syncedAt,
+      ...(d.complianceReport ? {complianceReport:d.complianceReport} : {})}}
 }
