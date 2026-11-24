@@ -16,8 +16,8 @@
   --muted: #667085;
 }
 body, #root, .app-shell { background: var(--canvas); }
-.sidebar { width: 224px; box-shadow: none; }
-.app-main { margin-left: 224px; }
+.sidebar { width: 182px; box-shadow: none; }
+.app-main { margin-left: 182px; }
 .topbar { padding-inline: var(--space-6); height: 64px; background: #fff; backdrop-filter: none; }
 .page-content { max-width: 1680px; padding: var(--space-6); }
 .page-layout { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
