@@ -33,10 +33,13 @@ export function OrganizationsPage() {
   const [notice, setNotice] = useState('')
   const [reload, setReload] = useState(0)
 
-  // Batch placeholder init
+  // Create organization (named single/multi or batch placeholder)
+  const [createMode, setCreateMode] = useState<'named' | 'placeholder'>('named')
   const [batchLevel, setBatchLevel] = useState(1)
   const [batchCount, setBatchCount] = useState(5)
   const [batchParentId, setBatchParentId] = useState('')
+  const [newNames, setNewNames] = useState('')
+  const [newExtCode, setNewExtCode] = useState('')
   const [batchReason, setBatchReason] = useState('')
 
   // Single edit / add drawer
@@ -68,22 +71,41 @@ export function OrganizationsPage() {
     return found ? `${found.code} ${found.name || found.placeholderKey}` : '—'
   }
 
-  async function submitBatch() {
-    if (!batchReason.trim()) { setNotice('请填写批量初始化原因'); return }
+  async function submitCreate() {
+    const parsedNames = newNames.split(/[,，\n]/).map(s => s.trim()).filter(Boolean)
+    if (createMode === 'named' && parsedNames.length === 0) {
+      setNotice('请输入组织机构名称（多个名称可用逗号分隔）')
+      return
+    }
+    const reason = batchReason.trim() || (createMode === 'named' ? `新增 ${batchLevel} 级机构：${parsedNames.join('、')}` : `批量初始化 ${batchLevel} 级机构占位（${batchCount} 个）`)
     setBusy(true)
     try {
+      const payload =
+        createMode === 'named' && parsedNames.length === 1
+          ? {
+              operation: '新增机构',
+              level: batchLevel,
+              name: parsedNames[0],
+              parentId: batchLevel > 1 ? batchParentId : '',
+              externalCode: newExtCode.trim(),
+            }
+          : {
+              operation: '批量初始化占位',
+              level: batchLevel,
+              batchCount: createMode === 'named' ? parsedNames.length : batchCount,
+              names: createMode === 'named' ? parsedNames : [],
+              parentId: batchLevel > 1 ? batchParentId : '',
+            }
       const res = await fetch('/api/config-tickets', {
         method: 'POST',
         headers: {'content-type': 'application/json'},
-        body: JSON.stringify({
-          ticketType: 'CFG-01',
-          reason: batchReason.trim(),
-          payload: {operation: '批量初始化占位', level: batchLevel, batchCount, parentId: batchLevel > 1 ? batchParentId : ''},
-        }),
+        body: JSON.stringify({ticketType: 'CFG-01', reason, payload}),
       })
       const data = await res.json()
       if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交 ${data.ticketNo}（待批准生效）`)
+      setNotice(`已提交 ${data.ticketNo}（在下方工单列表点击「批准」即可生效）`)
+      setNewNames('')
+      setNewExtCode('')
       setBatchReason('')
       setReload(v => v + 1)
     } catch (e) {
@@ -157,13 +179,19 @@ export function OrganizationsPage() {
 
       {notice && <p role="status" data-testid="org-notice">{notice}</p>}
 
-      {/* 批量初始化占位工具条 */}
+      {/* 新增组织机构 / 批量生成占位工具条 */}
       <section className="panel" style={{padding: 16}}>
-        <div className="panel-header" style={{marginBottom: 10}}>
-          <h3>批量生成层级占位序号（提交 CFG-01 变更工单）</h3>
+        <div className="panel-header" style={{marginBottom: 12}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'}}>
+            <h3 style={{margin: 0}}>新增组织机构（提交 CFG-01 变更工单）</h3>
+            <div className="usable-switch">
+              <button type="button" className={createMode === 'named' ? 'active' : ''} onClick={() => setCreateMode('named')}>直接命名新增</button>
+              <button type="button" className={createMode === 'placeholder' ? 'active' : ''} onClick={() => setCreateMode('placeholder')}>按数量生成占位</button>
+            </div>
+          </div>
           <button type="button" className="secondary-button" disabled={loading} onClick={() => setReload(v => v + 1)}><RefreshCw size={14} /> 刷新</button>
         </div>
-        <div className="warehouse-toolbar">
+        <div className="warehouse-toolbar" style={{flexWrap: 'wrap', gap: 10}}>
           <label className="log-filter">
             <span>机构层级</span>
             <select value={batchLevel} onChange={e => setBatchLevel(Number(e.target.value))}>
@@ -181,18 +209,35 @@ export function OrganizationsPage() {
               </select>
             </label>
           )}
-          <label className="log-filter">
-            <span>新增数量</span>
-            <input type="number" min={1} max={50} style={{width: 72}} value={batchCount} onChange={e => setBatchCount(Number(e.target.value))} />
-          </label>
+          {createMode === 'named' ? (
+            <>
+              <input
+                style={{flex: 1.4, minWidth: 240}}
+                placeholder="输入组织机构名称（多个机构可用逗号分隔，如：刑侦支队, 经侦支队）"
+                value={newNames}
+                onChange={e => setNewNames(e.target.value)}
+              />
+              <input
+                style={{width: 150}}
+                placeholder="外部编码（选填）"
+                value={newExtCode}
+                onChange={e => setNewExtCode(e.target.value)}
+              />
+            </>
+          ) : (
+            <label className="log-filter">
+              <span>新增数量</span>
+              <input type="number" min={1} max={50} style={{width: 72}} value={batchCount} onChange={e => setBatchCount(Number(e.target.value))} />
+            </label>
+          )}
           <input
-            style={{flex: 1, minWidth: 200}}
-            placeholder="变更原因（如：初始化一级机构 1.6~1.10 占位）"
+            style={{flex: 1, minWidth: 180}}
+            placeholder="变更原因（选填，留空自动生成）"
             value={batchReason}
             onChange={e => setBatchReason(e.target.value)}
           />
-          <button type="button" className="primary-button" disabled={busy} onClick={() => void submitBatch()}>
-            <Plus size={15} /> 提交 CFG-01
+          <button type="button" className="primary-button" disabled={busy} onClick={() => void submitCreate()}>
+            <Plus size={15} /> {createMode === 'named' ? '新增组织机构' : '生成占位序号'}
           </button>
         </div>
       </section>

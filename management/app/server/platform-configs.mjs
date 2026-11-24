@@ -162,7 +162,8 @@ export function platformConfigs(dir, actorSnapshot) {
     if (ticket.ticketType === 'CFG-01') {
       if (p.operation === '批量初始化占位') {
         const level = Number(p.level)
-        const count = Number(p.batchCount)
+        const names = Array.isArray(p.names) ? p.names.map(v => String(v || '').trim()).filter(Boolean) : []
+        const count = names.length > 0 ? names.length : Number(p.batchCount)
         check(level >= 1 && level <= 6 && count >= 1 && count <= 50, 400, 'INVALID_FIELDS')
         const existing = listOrgs(level)
         const maxIdx = existing.reduce((m, r) => Math.max(m, Number(String(r.code).split('.')[1] || 0)), 0)
@@ -172,15 +173,16 @@ export function platformConfigs(dir, actorSnapshot) {
           const code = `${level}.${idx}`
           const placeholderKey = `ORG_L${level}_${idx}`
           const orgId = `org-l${level}-${idx}-${id().slice(0, 4)}`
+          const name = names[i - 1] || ''
           const doc = {
             orgId,
             level,
             code,
             placeholderKey,
-            name: '',
+            name,
             parentId: level === 1 ? '' : String(p.parentId || ''),
             externalCode: '',
-            aliases: [placeholderKey],
+            aliases: name ? [placeholderKey, name] : [placeholderKey],
             enabled: true,
             revision: 1,
             createdAt: now,
@@ -189,7 +191,7 @@ export function platformConfigs(dir, actorSnapshot) {
           orgStore.put(orgId, doc)
           created.push(doc)
         }
-        return {createdCount: created.length, codes: created.map(c => c.code)}
+        return {createdCount: created.length, codes: created.map(c => c.code), names: created.map(c => c.name || c.placeholderKey)}
       }
       if (p.operation === '新增机构') {
         const level = Number(p.level)
