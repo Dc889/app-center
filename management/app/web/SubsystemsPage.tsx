@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {CheckCircle2, Plus, RefreshCw, ServerCog, ShieldCheck, Star, Trash2, Wifi, XCircle} from 'lucide-react'
+import {CheckCircle2, Cpu, Database, Globe, Pencil, Plus, RefreshCw, Search, ServerCog, ShieldCheck, Star, Trash2, Wifi, X, XCircle} from 'lucide-react'
 import {PageHeader} from '../../shared-ui/UiContext'
 
 type SubsystemType = 'dify' | 'ragflow' | 'model_gateway' | 'custom'
@@ -61,6 +61,13 @@ const TYPE_LABELS: Record<SubsystemType, string> = {
   custom: '自定义子系统',
 }
 
+function TypeIcon({type}: {type: SubsystemType}) {
+  if (type === 'dify') return <Cpu size={18} />
+  if (type === 'ragflow') return <Database size={18} />
+  if (type === 'model_gateway') return <Globe size={18} />
+  return <ServerCog size={18} />
+}
+
 function emptyForm(type: SubsystemType = 'dify'): FormState {
   return {
     id: '',
@@ -113,6 +120,7 @@ export function SubsystemsPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [filterType, setFilterType] = useState<'all' | SubsystemType>('all')
+  const [keyword, setKeyword] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<FormState>(() => emptyForm('dify'))
@@ -146,8 +154,14 @@ export function SubsystemsPage() {
     }
   }, [reloadTick])
 
-  const filtered = filterType === 'all' ? items : items.filter(i => i.type === filterType)
+  const q = keyword.trim().toLowerCase()
+  const filtered = items.filter(i => {
+    if (filterType !== 'all' && i.type !== filterType) return false
+    if (!q) return true
+    return [i.name, i.apiBase, i.version, TYPE_LABELS[i.type]].some(v => (v || '').toLowerCase().includes(q))
+  })
   const editingRecord = editingId ? items.find(i => i.id === editingId) ?? null : null
+  const editorOpen = creating || Boolean(editingId)
 
   function startCreate() {
     setCreating(true)
@@ -227,7 +241,7 @@ export function SubsystemsPage() {
       const res = await fetch(`/api/subsystems/${encodeURIComponent(item.id)}/test`, {method: 'POST'})
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw Error(data.error?.message ?? '连通性测试失败')
-      setNotice(`${item.name}：${data.test?.message ?? '测试完成'} (${data.test?.latencyMs ?? 0}ms)`)
+      setNotice(`${item.name} · ${data.test?.message ?? '测试完成'} · ${data.test?.latencyMs ?? 0}ms`)
       setReloadTick(t => t + 1)
     } catch (err) {
       setNotice(err instanceof Error ? err.message : '连通性测试失败')
@@ -262,51 +276,13 @@ export function SubsystemsPage() {
   }
 
   return (
-    <div data-testid="subsystems-page">
-      <PageHeader view="subsystems" />
-
-      <div className="warehouse-top-bar">
-        <div className="warehouse-kpi-strip" data-testid="subsystems-kpis">
-          <div className="warehouse-kpi-pill">
-            <ServerCog size={15} />
-            <span>已纳管实例</span>
-            <strong>{items.length}</strong>
-          </div>
-          <div className="warehouse-kpi-pill">
-            <ShieldCheck size={15} />
-            <span>已启用</span>
-            <strong>{items.filter(i => i.enabled).length}</strong>
-          </div>
-          <div className="warehouse-kpi-pill">
-            <span>Dify</span>
-            <strong>{items.filter(i => i.type === 'dify').length}</strong>
-          </div>
-          <div className="warehouse-kpi-pill">
-            <span>RAGFlow</span>
-            <strong>{items.filter(i => i.type === 'ragflow').length}</strong>
-          </div>
-        </div>
-        <div className="warehouse-actions">
-          <div className="usable-switch">
-            {([
-              ['all', '全部'],
-              ['dify', 'Dify'],
-              ['ragflow', 'RAGFlow'],
-              ['model_gateway', '模型网关'],
-              ['custom', '自定义'],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={filterType === key ? 'active' : ''}
-                onClick={() => setFilterType(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="secondary-button" disabled={loading} onClick={() => setReloadTick(t => t + 1)}>
-            <RefreshCw size={14} /> 刷新
+    <div className="org-page-stack" data-testid="subsystems-page">
+      <div className="org-header-row">
+        <PageHeader view="subsystems" />
+        <div className="org-row-actions">
+          <button type="button" className="app-icon-btn" disabled={loading} onClick={() => setReloadTick(t => t + 1)}>
+            <RefreshCw size={14} className={loading ? 'spin' : ''} />
+            <span>刷新</span>
           </button>
           <button type="button" className="primary-button" data-testid="add-subsystem-btn" onClick={startCreate}>
             <Plus size={15} /> 新增子系统
@@ -314,100 +290,198 @@ export function SubsystemsPage() {
         </div>
       </div>
 
-      {error && <p role="alert" className="login-error">{error}</p>}
-      {notice && <p role="status" data-testid="subsystems-notice">{notice}</p>}
+      {/* 4 等宽对齐 KPI 指标卡 */}
+      <div className="org-kpi-grid" data-testid="subsystems-kpis">
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon blue"><ServerCog size={18} /></div>
+          <div className="org-kpi-meta"><span>已纳管实例</span><strong>{items.length}</strong></div>
+        </div>
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon green"><ShieldCheck size={18} /></div>
+          <div className="org-kpi-meta"><span>已启用实例</span><strong>{items.filter(i => i.enabled).length}</strong></div>
+        </div>
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon amber"><Cpu size={18} /></div>
+          <div className="org-kpi-meta"><span>Dify 平台</span><strong>{items.filter(i => i.type === 'dify').length}</strong></div>
+        </div>
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon slate"><Database size={18} /></div>
+          <div className="org-kpi-meta"><span>RAGFlow 引擎</span><strong>{items.filter(i => i.type === 'ragflow').length}</strong></div>
+        </div>
+      </div>
 
-      <div className="warehouse-layout">
-        <div className="agent-grid">
-          {filtered.map(item => (
-            <article
-              key={item.id}
-              className={'agent-card' + (editingId === item.id ? ' active' : '')}
-              data-testid={`subsystem-card-${item.id}`}
-            >
-              <div className="agent-card-top">
-                <ServerCog size={16} />
-                <div>
-                  <strong>{item.name}</strong>
-                  <small>{TYPE_LABELS[item.type]} · {item.version || '未标版本'}</small>
-                </div>
-                <em>{item.isDefault ? '主用' : item.enabled ? '已启用' : '已停用'}</em>
-              </div>
-              <p className="version-meta">{item.apiBase}</p>
-              {item.type === 'dify' && item.workspaceId && <p className="version-meta">工作区：{item.workspaceId}</p>}
-              {item.type === 'ragflow' && item.tenantId && <p className="version-meta">租户：{item.tenantId}</p>}
-              {item.lastTest && (
-                <p className="version-meta" style={{color: item.lastTest.ok ? '#067647' : '#b42318'}}>
-                  {item.lastTest.ok ? '● 连通正常' : '● 探活异常'} · {item.lastTest.message} ({item.lastTest.latencyMs}ms)
-                </p>
-              )}
-              <div className="draft-toolbar" style={{marginTop: 10}}>
-                <button type="button" className="secondary-button" disabled={testingId === item.id} onClick={() => void testExisting(item)}>
-                  <Wifi size={14} /> {testingId === item.id ? '测试中...' : '测试连接'}
-                </button>
-                <button type="button" className="secondary-button" onClick={() => startEdit(item)}>
-                  编辑
-                </button>
-                {!item.isDefault && (
-                  <button type="button" className="secondary-button" onClick={() => void setAsDefault(item)}>
-                    <Star size={14} /> 设为主用
-                  </button>
-                )}
-                <button type="button" className="secondary-button" aria-label={`移除 ${item.name}`} onClick={() => void removeItem(item)}>
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </article>
-          ))}
-          {filtered.length === 0 && !loading && (
-            <div className="agent-empty">暂无该类型的纳管子系统，点击右上角「新增子系统」接入。</div>
-          )}
+      {error && <div className="app-banner danger" role="alert">{error}</div>}
+      {notice && <div className="app-banner info" role="status" data-testid="subsystems-notice">{notice}</div>}
+
+      {/* 统一全宽主卡片 */}
+      <section className="org-card">
+        <div className="org-card-head">
+          <div className="org-level-tabs">
+            {([
+              ['all', '全部', items.length],
+              ['dify', 'Dify', items.filter(i => i.type === 'dify').length],
+              ['ragflow', 'RAGFlow', items.filter(i => i.type === 'ragflow').length],
+              ['model_gateway', '模型网关', items.filter(i => i.type === 'model_gateway').length],
+              ['custom', '自定义', items.filter(i => i.type === 'custom').length],
+            ] as const).map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                className={filterType === key ? 'is-active' : ''}
+                onClick={() => setFilterType(key)}
+              >
+                <span>{label}</span>
+                <em>{count}</em>
+              </button>
+            ))}
+          </div>
+          <div className="app-list-search org-table-search">
+            <Search size={14} />
+            <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索实例名称、地址或版本" />
+          </div>
         </div>
 
-        {(creating || editingId) && (
-          <aside className="panel" data-testid="subsystem-editor">
-            <div className="panel-header" style={{marginBottom: 12}}>
-              <h3>{creating ? '新增纳管子系统' : `编辑：${editingRecord?.name ?? editingId}`}</h3>
-              <button type="button" className="secondary-button" onClick={closeEditor}>关闭</button>
-            </div>
+        <div className={`sub-workspace ${editorOpen ? 'has-editor' : ''}`}>
+          <div className={`sub-card-grid ${editorOpen ? 'is-compact' : ''}`}>
+            {filtered.map(item => (
+              <article
+                key={item.id}
+                className={`sub-card ${editingId === item.id ? 'is-active' : ''}`}
+                data-testid={`subsystem-card-${item.id}`}
+              >
+                <div className="sub-card-head">
+                  <div className={`sub-type-icon type-${item.type}`}>
+                    <TypeIcon type={item.type} />
+                  </div>
+                  <div className="sub-card-title">
+                    <h4>{item.name}</h4>
+                    <div className="sub-card-sub">
+                      <span>{TYPE_LABELS[item.type]}</span>
+                      <span className="dot">·</span>
+                      <span>v{item.version || '1.0'}</span>
+                    </div>
+                  </div>
+                  <span className={`app-status-pill tone-${item.isDefault ? 'progress' : item.enabled ? 'success' : 'muted'}`}>
+                    {item.isDefault ? '主用' : item.enabled ? '已启用' : '已停用'}
+                  </span>
+                </div>
 
-            <div className="form-section" style={{display: 'grid', gap: 12}}>
-              <label>
-                <span>子系统类型</span>
-                <select
-                  aria-label="子系统类型"
-                  value={form.type}
-                  disabled={!creating}
-                  onChange={e => setForm(f => ({...f, type: e.target.value as SubsystemType}))}
-                >
-                  <option value="dify">Dify 应用平台</option>
-                  <option value="ragflow">RAGFlow 知识库引擎</option>
-                  <option value="model_gateway">模型推理网关</option>
-                  <option value="custom">自定义子系统</option>
-                </select>
-              </label>
+                <dl className="sub-card-kv">
+                  <div>
+                    <dt>API 地址</dt>
+                    <dd><code>{item.apiBase}</code></dd>
+                  </div>
+                  {item.type === 'dify' && item.workspaceId && (
+                    <div>
+                      <dt>工作区 ID</dt>
+                      <dd><code>{item.workspaceId}</code></dd>
+                    </div>
+                  )}
+                  {item.type === 'ragflow' && item.tenantId && (
+                    <div>
+                      <dt>租户 ID</dt>
+                      <dd><code>{item.tenantId}</code></dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>连通状态</dt>
+                    <dd>
+                      {item.lastTest ? (
+                        <span className={`sub-health ${item.lastTest.ok ? 'ok' : 'bad'}`}>
+                          {item.lastTest.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                          <span>{item.lastTest.ok ? '连通正常' : '探活异常'} · {item.lastTest.latencyMs}ms</span>
+                        </span>
+                      ) : (
+                        <span className="org-muted-text">尚未测试</span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
 
-              <label>
-                <span>实例名称</span>
-                <input
-                  aria-label="实例名称"
-                  value={form.name}
-                  placeholder="例如：生产 Dify 1.14.0 集群"
-                  onChange={e => setForm(f => ({...f, name: e.target.value}))}
-                />
-              </label>
+                <div className="sub-card-footer">
+                  <button type="button" className="app-icon-btn" disabled={testingId === item.id} onClick={() => void testExisting(item)}>
+                    <Wifi size={13} />
+                    <span>{testingId === item.id ? '测试中' : '测试连接'}</span>
+                  </button>
+                  <button type="button" className="app-icon-btn" onClick={() => startEdit(item)}>
+                    <Pencil size={13} />
+                    <span>编辑</span>
+                  </button>
+                  {!item.isDefault && (
+                    <button type="button" className="app-icon-btn" onClick={() => void setAsDefault(item)}>
+                      <Star size={13} />
+                      <span>设为主用</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="app-icon-btn sub-del-btn"
+                    aria-label={`移除 ${item.name}`}
+                    onClick={() => void removeItem(item)}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </article>
+            ))}
 
-              <div className="form-row">
-                <label>
-                  <span>适配版本</span>
+            {filtered.length === 0 && !loading && (
+              <div className="app-detail-empty" style={{gridColumn: '1 / -1'}}>
+                <ServerCog size={32} strokeWidth={1.5} />
+                <h4>暂无匹配的子系统实例</h4>
+                <p>点击右上角「新增子系统」接入新的应用平台、知识库引擎或模型网关。</p>
+              </div>
+            )}
+          </div>
+
+          {editorOpen && (
+            <aside className="sub-editor-panel" data-testid="subsystem-editor">
+              <div className="org-editor-head">
+                <div>
+                  <h4>{creating ? '新增纳管子系统' : editingRecord?.name ?? editingId}</h4>
+                  <span className="org-muted-text" style={{fontSize: 12}}>{TYPE_LABELS[form.type]}</span>
+                </div>
+                <button type="button" className="app-icon-btn" onClick={closeEditor}><X size={14} /></button>
+              </div>
+
+              <div className="sub-editor-form">
+                <div className="sub-form-2col">
+                  <label className="org-field">
+                    <span>子系统类型</span>
+                    <select
+                      aria-label="子系统类型"
+                      value={form.type}
+                      disabled={!creating}
+                      onChange={e => setForm(f => ({...f, type: e.target.value as SubsystemType}))}
+                    >
+                      <option value="dify">Dify 应用平台</option>
+                      <option value="ragflow">RAGFlow 知识库引擎</option>
+                      <option value="model_gateway">模型推理网关</option>
+                      <option value="custom">自定义子系统</option>
+                    </select>
+                  </label>
+                  <label className="org-field">
+                    <span>适配版本</span>
+                    <input
+                      aria-label="适配版本"
+                      value={form.version}
+                      placeholder="1.7.1"
+                      onChange={e => setForm(f => ({...f, version: e.target.value}))}
+                    />
+                  </label>
+                </div>
+
+                <label className="org-field">
+                  <span>实例名称</span>
                   <input
-                    aria-label="适配版本"
-                    value={form.version}
-                    placeholder="如 1.7.1 / 0.22.1"
-                    onChange={e => setForm(f => ({...f, version: e.target.value}))}
+                    aria-label="实例名称"
+                    value={form.name}
+                    placeholder="如：生产 Dify 1.14.0 集群"
+                    onChange={e => setForm(f => ({...f, name: e.target.value}))}
                   />
                 </label>
-                <label>
+
+                <label className="org-field">
                   <span>API 地址</span>
                   <input
                     aria-label="API 地址"
@@ -416,176 +490,164 @@ export function SubsystemsPage() {
                     onChange={e => setForm(f => ({...f, apiBase: e.target.value}))}
                   />
                 </label>
-              </div>
 
-              {form.type === 'dify' && (
-                <>
-                  <label>
-                    <span>默认工作区 ID（Workspace ID）</span>
-                    <input
-                      aria-label="默认工作区 ID"
-                      value={form.workspaceId}
-                      placeholder="UUID"
-                      onChange={e => setForm(f => ({...f, workspaceId: e.target.value}))}
-                    />
-                  </label>
-                  <div className="form-row">
-                    <label>
-                      <span>管理账号邮箱</span>
+                {form.type === 'dify' && (
+                  <>
+                    <label className="org-field">
+                      <span>默认工作区 ID</span>
                       <input
-                        aria-label="Dify 管理账号邮箱"
-                        value={form.consoleEmail}
-                        placeholder="li.qiang@kpw.com"
-                        onChange={e => setForm(f => ({...f, consoleEmail: e.target.value}))}
+                        aria-label="默认工作区 ID"
+                        value={form.workspaceId}
+                        placeholder="Workspace UUID"
+                        onChange={e => setForm(f => ({...f, workspaceId: e.target.value}))}
                       />
                     </label>
-                    <label>
-                      <span>管理密码 {editingRecord?.hasSecrets?.consolePassword ? '（已加密保存，留空不变）' : ''}</span>
+                    <div className="sub-form-2col">
+                      <label className="org-field">
+                        <span>管理账号邮箱</span>
+                        <input
+                          aria-label="Dify 管理账号邮箱"
+                          value={form.consoleEmail}
+                          placeholder="li.qiang@kpw.com"
+                          onChange={e => setForm(f => ({...f, consoleEmail: e.target.value}))}
+                        />
+                      </label>
+                      <label className="org-field">
+                        <span>管理密码 {editingRecord?.hasSecrets?.consolePassword && <em className="sub-secret-tag">已加密</em>}</span>
+                        <input
+                          aria-label="Dify 管理密码"
+                          type="password"
+                          value={form.consolePassword}
+                          placeholder={editingRecord?.hasSecrets?.consolePassword ? '留空保持不变' : '输入密码'}
+                          onChange={e => setForm(f => ({...f, consolePassword: e.target.value}))}
+                        />
+                      </label>
+                    </div>
+                    <label className="org-field">
+                      <span>Console Token {editingRecord?.hasSecrets?.consoleToken && <em className="sub-secret-tag">{editingRecord.secretMasks.consoleToken}</em>}</span>
                       <input
-                        aria-label="Dify 管理密码"
+                        aria-label="Dify Console Token"
                         type="password"
-                        value={form.consolePassword}
-                        placeholder={editingRecord?.hasSecrets?.consolePassword ? '已配置，留空保持不变' : '输入密码'}
-                        onChange={e => setForm(f => ({...f, consolePassword: e.target.value}))}
+                        value={form.consoleToken}
+                        placeholder={editingRecord?.hasSecrets?.consoleToken ? '留空保持不变' : '留空时自动用邮箱密码换取'}
+                        onChange={e => setForm(f => ({...f, consoleToken: e.target.value}))}
                       />
                     </label>
-                  </div>
-                  <label>
-                    <span>Console Token {editingRecord?.hasSecrets?.consoleToken ? `（${editingRecord.secretMasks.consoleToken}）` : ''}</span>
+                    <div className="sub-form-2col">
+                      <label className="org-field">
+                        <span>Plugin Daemon 地址</span>
+                        <input
+                          aria-label="Plugin Daemon 地址"
+                          value={form.pluginDaemonBase}
+                          placeholder="http://127.0.0.1:5002"
+                          onChange={e => setForm(f => ({...f, pluginDaemonBase: e.target.value}))}
+                        />
+                      </label>
+                      <label className="org-field">
+                        <span>Plugin Daemon Key</span>
+                        <input
+                          aria-label="Plugin Daemon Key"
+                          type="password"
+                          value={form.pluginDaemonKey}
+                          placeholder={editingRecord?.hasSecrets?.pluginDaemonKey ? '留空保持不变' : '选填'}
+                          onChange={e => setForm(f => ({...f, pluginDaemonKey: e.target.value}))}
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                {form.type === 'ragflow' && (
+                  <>
+                    <div className="sub-form-2col">
+                      <label className="org-field">
+                        <span>默认租户 ID</span>
+                        <input
+                          aria-label="默认租户 ID"
+                          value={form.tenantId}
+                          placeholder="Tenant ID"
+                          onChange={e => setForm(f => ({...f, tenantId: e.target.value}))}
+                        />
+                      </label>
+                      <label className="org-field">
+                        <span>API Key {editingRecord?.hasSecrets?.apiKey && <em className="sub-secret-tag">{editingRecord.secretMasks.apiKey}</em>}</span>
+                        <input
+                          aria-label="RAGFlow API Key"
+                          type="password"
+                          value={form.apiKey}
+                          placeholder={editingRecord?.hasSecrets?.apiKey ? '留空保持不变' : 'ragflow-xxx'}
+                          onChange={e => setForm(f => ({...f, apiKey: e.target.value}))}
+                        />
+                      </label>
+                    </div>
+                    <label className="org-field">
+                      <span>外部知识库接入地址</span>
+                      <input
+                        aria-label="外部知识库接入地址"
+                        value={form.externalEndpoint}
+                        placeholder="http://127.0.0.1:9380/api/v1/dify"
+                        onChange={e => setForm(f => ({...f, externalEndpoint: e.target.value}))}
+                      />
+                    </label>
+                  </>
+                )}
+
+                {(form.type === 'model_gateway' || form.type === 'custom') && (
+                  <label className="org-field">
+                    <span>访问令牌</span>
                     <input
-                      aria-label="Dify Console Token"
+                      aria-label="访问令牌"
                       type="password"
-                      value={form.consoleToken}
-                      placeholder={editingRecord?.hasSecrets?.consoleToken ? '留空保持原 Token 不变' : '可选，留空时自动用邮箱密码换取'}
-                      onChange={e => setForm(f => ({...f, consoleToken: e.target.value}))}
+                      value={form.authToken}
+                      placeholder={editingRecord?.hasSecrets?.authToken ? '留空保持不变' : '选填'}
+                      onChange={e => setForm(f => ({...f, authToken: e.target.value}))}
                     />
                   </label>
-                  <div className="form-row">
-                    <label>
-                      <span>Plugin Daemon 地址</span>
-                      <input
-                        aria-label="Plugin Daemon 地址"
-                        value={form.pluginDaemonBase}
-                        placeholder="http://127.0.0.1:5002"
-                        onChange={e => setForm(f => ({...f, pluginDaemonBase: e.target.value}))}
-                      />
-                    </label>
-                    <label>
-                      <span>Plugin Daemon Key</span>
-                      <input
-                        aria-label="Plugin Daemon Key"
-                        type="password"
-                        value={form.pluginDaemonKey}
-                        placeholder={editingRecord?.hasSecrets?.pluginDaemonKey ? '留空保持不变' : '可选'}
-                        onChange={e => setForm(f => ({...f, pluginDaemonKey: e.target.value}))}
-                      />
-                    </label>
-                  </div>
-                </>
-              )}
+                )}
 
-              {form.type === 'ragflow' && (
-                <>
-                  <div className="form-row">
-                    <label>
-                      <span>默认租户 ID（Tenant ID）</span>
-                      <input
-                        aria-label="默认租户 ID"
-                        value={form.tenantId}
-                        placeholder="RAGFlow Tenant ID"
-                        onChange={e => setForm(f => ({...f, tenantId: e.target.value}))}
-                      />
-                    </label>
-                    <label>
-                      <span>API Key {editingRecord?.hasSecrets?.apiKey ? `（${editingRecord.secretMasks.apiKey}）` : ''}</span>
-                      <input
-                        aria-label="RAGFlow API Key"
-                        type="password"
-                        value={form.apiKey}
-                        placeholder={editingRecord?.hasSecrets?.apiKey ? '留空保持原 Key 不变' : 'ragflow-xxx'}
-                        onChange={e => setForm(f => ({...f, apiKey: e.target.value}))}
-                      />
-                    </label>
-                  </div>
-                  <label>
-                    <span>外部知识库接入地址（供 Dify 回调）</span>
-                    <input
-                      aria-label="外部知识库接入地址"
-                      value={form.externalEndpoint}
-                      placeholder="http://127.0.0.1:9380/api/v1/dify"
-                      onChange={e => setForm(f => ({...f, externalEndpoint: e.target.value}))}
-                    />
-                  </label>
-                </>
-              )}
-
-              {(form.type === 'model_gateway' || form.type === 'custom') && (
-                <label>
-                  <span>访问令牌（Bearer Token）</span>
-                  <input
-                    aria-label="访问令牌"
-                    type="password"
-                    value={form.authToken}
-                    placeholder={editingRecord?.hasSecrets?.authToken ? '留空保持不变' : '可选'}
-                    onChange={e => setForm(f => ({...f, authToken: e.target.value}))}
+                <label className="org-field">
+                  <span>备注说明</span>
+                  <textarea
+                    aria-label="备注说明"
+                    rows={2}
+                    className="sub-textarea"
+                    value={form.notes}
+                    placeholder="环境用途、网络分区或负责人说明"
+                    onChange={e => setForm(f => ({...f, notes: e.target.value}))}
                   />
                 </label>
-              )}
 
-              <label>
-                <span>备注说明</span>
-                <textarea
-                  aria-label="备注说明"
-                  rows={2}
-                  value={form.notes}
-                  placeholder="环境用途、网络分区或负责人说明"
-                  onChange={e => setForm(f => ({...f, notes: e.target.value}))}
-                />
-              </label>
-
-              <div className="draft-toolbar">
-                <label style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
-                  <input type="checkbox" checked={form.enabled} onChange={e => setForm(f => ({...f, enabled: e.target.checked}))} />
-                  <span>启用该实例</span>
-                </label>
-                <label style={{display: 'inline-flex', alignItems: 'center', gap: 6}}>
-                  <input type="checkbox" checked={form.isDefault} onChange={e => setForm(f => ({...f, isDefault: e.target.checked}))} />
-                  <span>设为同类型主用实例（保存后立即热生效）</span>
-                </label>
-              </div>
-
-              {draftTest && (
-                <div
-                  role="status"
-                  data-testid="subsystem-test-result"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    background: draftTest.ok ? '#ecfdf3' : '#fef3f2',
-                    color: draftTest.ok ? '#067647' : '#b42318',
-                  }}
-                >
-                  {draftTest.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-                  <span>{draftTest.message} ({draftTest.latencyMs}ms)</span>
+                <div className="sub-check-row">
+                  <label className="sub-check-item">
+                    <input type="checkbox" checked={form.enabled} onChange={e => setForm(f => ({...f, enabled: e.target.checked}))} />
+                    <span>启用该实例</span>
+                  </label>
+                  <label className="sub-check-item">
+                    <input type="checkbox" checked={form.isDefault} onChange={e => setForm(f => ({...f, isDefault: e.target.checked}))} />
+                    <span>设为同类型主用实例</span>
+                  </label>
                 </div>
-              )}
 
-              <div className="draft-toolbar">
-                <button type="button" className="secondary-button" disabled={testingId === 'draft'} onClick={() => void testDraft()}>
-                  <Wifi size={14} /> {testingId === 'draft' ? '测试中...' : '测试连接'}
-                </button>
-                <button type="button" className="primary-button" disabled={saving} onClick={() => void saveForm()}>
-                  {saving ? '保存中...' : '保存并生效'}
-                </button>
+                {draftTest && (
+                  <div role="status" data-testid="subsystem-test-result" className={`app-banner ${draftTest.ok ? 'info' : 'danger'}`}>
+                    {draftTest.ok ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
+                    <span>{draftTest.message} · {draftTest.latencyMs}ms</span>
+                  </div>
+                )}
+
+                <div className="sub-editor-footer">
+                  <button type="button" className="secondary-button" disabled={testingId === 'draft'} onClick={() => void testDraft()}>
+                    <Wifi size={14} /> {testingId === 'draft' ? '测试中...' : '测试连接'}
+                  </button>
+                  <button type="button" className="primary-button" disabled={saving} onClick={() => void saveForm()}>
+                    {saving ? '保存中...' : '保存并生效'}
+                  </button>
+                </div>
               </div>
-            </div>
-          </aside>
-        )}
-      </div>
+            </aside>
+          )}
+        </div>
+      </section>
     </div>
   )
 }
