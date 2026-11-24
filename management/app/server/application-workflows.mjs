@@ -146,7 +146,7 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
       check(['mine','todo','query'].includes(view),400,'INVALID_VIEW')
       check(view==='mine' || operator || identity.roles.includes('admin') && view==='query',403,'ACCESS_DENIED')
       return send({items:applications.all().filter(row=>view==='mine'?owns(row):
-        view==='todo'?row.deliveryBlocked || row.command && !row.execution?.result || ['待受理','待运维确认','已禁用待确认','待恢复审核','观察中','执行失败'].includes(row.status) || row.creationMode==='告警转单' && row.status==='待结果确认':true).reverse().map(row=>project(row))})
+        view==='todo'?row.ticketType!=='SVC-01' && (row.deliveryBlocked || row.command && !row.execution?.result || ['待受理','待运维确认','已禁用待确认','待恢复审核','观察中','执行失败'].includes(row.status) || row.creationMode==='告警转单' && row.status==='待结果确认'):true).reverse().map(row=>project(row))})
     }
     check(req.method==='POST' && (!req.headers.origin || new URL(req.headers.origin).host===req.headers.host),403,'ACCESS_DENIED')
     const input=await body(req)
@@ -281,6 +281,7 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
         const command={executionId:id(),ticketNo:previous.ticketNo,ticketType:previous.ticketType,
           ticketTypeVersion:previous.ticketTypeVersion,action:'publish',resourceId:previous.submission.resourceId,
           account:previous.account,org:previous.org,payload:{
+            name:previous.snapshot?.name || data?.name || undefined,
             snapshotId:previous.snapshot.snapshotId,workspaceId:previous.submission.workspaceId,
             publicationVersionId:data.publicationVersionId,expectedRevision:data.catalogRevision,
             scope:fields.scope,targetOrgs:fields.scope==='orgs'?fields.targetOrgs:[],
@@ -396,7 +397,7 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
     else if(input.ticketType==='KB-02') check(fields && ['RAGFlow','Dify'].includes(fields.sourceSystem) &&
       ['共享目录','指定组织','指定人员','随应用发布'].includes(fields.shareMode) && text(fields.purpose) &&
       text(fields.name) && text(fields.description) && list(fields.tags) && list(fields.boundaryOrgs) &&
-      ['公开','内部','敏感','机密'].includes(fields.classification) && text(fields.businessLine) &&
+      ['公开','内部','敏感','机密','开放','限定范围'].includes(fields.classification) && text(fields.businessLine) &&
       (fields.shareMode!=='指定组织' || list(fields.targetOrgs)) && (fields.shareMode!=='指定人员' || list(fields.targetAccounts)) &&
       (fields.shareMode!=='随应用发布' || text(fields.relatedAppId) && text(fields.relatedWorkspaceId)) &&
       (!fields.expiresAt || Date.parse(fields.expiresAt)>Date.now()),400,'INVALID_FIELDS')
@@ -508,6 +509,19 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
     if(row.pendingDisposition)void linkDisposition(row)
     return row
   }
+  function saveServiceRestart(row) {
+    check(row?.ticketType==='SVC-01' && /^SVC-01-[a-f0-9]{40}$/.test(row.ticketNo),400,'INVALID_TICKET')
+    check(row.account==='system_event' && row.org==='系统服务' && row.creationMode==='系统巡检' && row.approvalMode==='自动审批',400,'INVALID_SERVICE_RESTART')
+    check(typeof row.submission?.resourceId==='string' && row.submission.resourceId && typeof row.snapshot?.snapshotId==='string' &&
+      Number.isInteger(row.revision) && row.revision>0 && Array.isArray(row.history),400,'INVALID_SERVICE_RESTART')
+    const previous=applications.get(row.ticketNo)
+    if(previous) {
+      check(previous.ticketType==='SVC-01' && previous.submission.resourceId===row.submission.resourceId,409,'TICKET_TYPE_CONFLICT')
+      check(row.revision===previous.revision+1,409,'VERSION_CONFLICT')
+    } else check(row.revision===1,409,'VERSION_CONFLICT')
+    return applications.put(row.ticketNo,row)
+  }
   return {handle,ingestDatasetAlert,ingestDatasetChanges,ingestPluginAlert:pluginSafety.ingest,records:applications.all,
+    serviceRestart:ticketNo=>applications.get(ticketNo),saveServiceRestart,
     close(){closed=true;pluginSafety.close();clearInterval(timer);applications.close()}}
 }
