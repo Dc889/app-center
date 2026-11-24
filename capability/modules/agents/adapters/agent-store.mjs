@@ -15,7 +15,7 @@ export async function listDifyApps({workspaceId, openLedger} = {}) {
     check(Array.isArray(data?.data), 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用列表响应格式错误')
     for (const app of data.data) {
       check(typeof app?.id === 'string' && app.id, 502, 'UPSTREAM_INVALID_RESPONSE', 'Dify 应用缺少真实标识')
-      const appScope = app.workspace_id || configuredWorkspace
+      const appScope = app.workspace_id || workspaceId || configuredWorkspace
       if (scope && appScope && appScope !== scope) continue
       const synced = openLedger ? openLedger('synced-apps').get(app.id) : null
       map.set(app.id, {
@@ -25,6 +25,7 @@ export async function listDifyApps({workspaceId, openLedger} = {}) {
         workspaceId: appScope || null,
         revision: synced?.revision ?? 0,
         mode: app.mode ?? null,
+        description: typeof app.description === 'string' ? app.description : null,
         ownerAccount: resolveProductOwner([app.owner_account, app.ownerAccount, app.created_by], {product: 'DIFY'}),
         webSiteEnabled: app.enable_site ?? app.webSiteEnabled ?? null,
         publicationVersionId: app.publication_version_id ?? app.publicationVersionId ?? app.workflow?.id ?? null,

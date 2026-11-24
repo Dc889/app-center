@@ -7,4 +7,5 @@ export {
   difyPluginDaemonFetch,
   hydrateDifyConnector,
   setDifyConnectorMeta,
+  difyRequestContext,
 } from './config.mjs'

@@ -1,5 +1,6 @@
 import {readFileSync} from 'node:fs'
 import {body, check, client, json, ledger, listen, prefix, same} from '../../../runtime/http.mjs'
+import {difyRequestContext} from '../dify/public.mjs'
 import {extractIdentity, routeReads} from './read-router.mjs'
 import {handleDownloadRoute} from './delivery.mjs'
 
@@ -134,7 +135,7 @@ export async function startExecutionServer(options, registry) {
   }
 
   return listen(
-    async (req, res, path) => {
+    async (req, res, path) => difyRequestContext.run({account: String(req.headers['x-account'] ?? '')}, async () => {
       if (req.method === 'GET' && path === prefix + '/capabilities') {
         return json(res, registry.capabilities(new URL(req.url, 'http://localhost').searchParams.get('workspaceId')))
       }
@@ -229,7 +230,7 @@ export async function startExecutionServer(options, registry) {
       if (await handleDownloadRoute({req, res, path, store, skill: clients.skill})) return
 
       check(false, 404, 'NOT_FOUND')
-    },
+    }),
     {...options, close: closeAll},
   )
 }

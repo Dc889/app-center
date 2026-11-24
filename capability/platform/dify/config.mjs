@@ -1,3 +1,7 @@
+import {AsyncLocalStorage} from 'node:async_hooks'
+
+export const difyRequestContext = new AsyncLocalStorage()
+
 function parseOwnerMap(raw) {
   if (!raw) return {}
   try {
@@ -94,10 +98,15 @@ export async function difyConsoleFetch(path, {method = 'GET', headers = {}, body
   const cfg = getDifyConfig()
   if (!cfg.isReal) throw Object.assign(new Error('未配置真实 Dify 连接凭证'), {status: 501, code: 'UPSTREAM_UNSUPPORTED'})
   const url = path.startsWith('http://') || path.startsWith('https://') ? path : `${cfg.base}${path}`
+  const reqCtx = difyRequestContext.getStore()
+  const tenantHeaders = reqCtx?.account && !['system', 'system_event'].includes(reqCtx.account)
+    ? {'x-dify-account': String(reqCtx.account)}
+    : {}
   const buildInit = currentToken => ({
     method,
     headers: {
       ...(currentToken ? {Authorization: `Bearer ${currentToken}`} : {}),
+      ...tenantHeaders,
       ...headers,
     },
     ...(body !== undefined ? {body} : {}),

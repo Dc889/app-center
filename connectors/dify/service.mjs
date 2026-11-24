@@ -33,6 +33,32 @@ export function readDifyUpstreamConfig() {
 }
 
 let refreshInFlight = null
+const tenantTokens = new Map()
+const TENANT_EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || 'kpw.com'
+const TENANT_DEFAULT_PASSWORD = process.env.DEFAULT_USER_PASSWORD || 'Kpw@2026!'
+
+async function resolveTenantToken(base, account, forceRefresh = false) {
+  const clean = String(account || '').trim()
+  if (!clean || ['system', 'system_event'].includes(clean)) return null
+  const email = clean.includes('@') ? clean.toLowerCase() : `${clean.toLowerCase()}@${TENANT_EMAIL_DOMAIN}`
+  if (!forceRefresh && tenantTokens.has(email)) return tenantTokens.get(email)
+  try {
+    const res = await fetch(`${base}/console/api/login`, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({email, password: TENANT_DEFAULT_PASSWORD, remember_me: true}),
+      signal: AbortSignal.timeout(10000),
+    })
+    const data = await res.json().catch(() => null)
+    if (res.ok && data?.result === 'success' && typeof data?.data?.access_token === 'string') {
+      tenantTokens.set(email, data.data.access_token)
+      return data.data.access_token
+    }
+  } catch {
+    // Fall back to default admin token if tenant login fails
+  }
+  return null
+}
 async function refreshConsoleToken(base) {
   const email = process.env.DIFY_CONSOLE_EMAIL
   const password = process.env.DIFY_CONSOLE_PASSWORD
@@ -161,9 +187,14 @@ export function startDifyConnector({token, port = 0, host} = {}) {
           ...(rawBody !== undefined ? {body: rawBody} : {}),
           signal: AbortSignal.timeout(25000),
         })
-        let upstream = await fetch(`${cfg.base}${upstreamPath}`, buildInit(cfg.token))
+        const requestedAccount = String(req.headers['x-dify-account'] ?? '').trim()
+        const tenantToken = requestedAccount ? await resolveTenantToken(cfg.base, requestedAccount) : null
+        const initialToken = tenantToken || cfg.token
+        let upstream = await fetch(`${cfg.base}${upstreamPath}`, buildInit(initialToken))
         if (upstream.status === 401) {
-          const refreshed = await refreshConsoleToken(cfg.base)
+          const refreshed = tenantToken
+            ? await resolveTenantToken(cfg.base, requestedAccount, true)
+            : await refreshConsoleToken(cfg.base)
           if (refreshed) {
             upstream = await fetch(`${cfg.base}${upstreamPath}`, buildInit(refreshed))
           }
