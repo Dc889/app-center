@@ -50,7 +50,7 @@ export function managementApi(options) {
   const identities = ledger(options.dir,"demo-sessions")
   const events = ledger(options.dir,'reported-events',actorSnapshot)
   const types = typeRegistry(options.dir,cap,actorSnapshot,{organizations:()=>directory.catalog.orgs,currentOrg:()=>auditContext.getStore()?.org ?? null})
-  const subsystems = subsystemRegistry(options.dir,actorSnapshot)
+  const subsystems = subsystemRegistry(options.dir,actorSnapshot,{directory})
   const configs = platformConfigs(options.dir,actorSnapshot)
   const drafts=draftApi(options.dir,directory.owns,{activeVersion:types.activeVersion,actorSnapshot,
     findSubmission(draft){
@@ -381,7 +381,7 @@ export function managementApi(options) {
       return json(res,await response.json())
     }
     if (['/api/drafts','/api/drafts/restore','/api/drafts/recover'].includes(path)) return drafts.handle(req,res,identity,path)
-    if (path==='/api/auth/login' || path==='/api/auth/session' || path==='/api/auth/logout' || path==='/api/demo-session' || path.startsWith('/api/types') || path==='/api/subsystems' || path.startsWith('/api/subsystems/') || path==='/api/organizations' || path.startsWith('/api/organizations/') || path==='/api/keyword-rules' || path.startsWith('/api/keyword-rules/') || path==='/api/mcp-test-suites' || path.startsWith('/api/mcp-test-suites/') || path==='/api/config-tickets' || path.startsWith('/api/config-tickets/')) {
+    if (path==='/api/auth/login' || path==='/api/auth/session' || path==='/api/auth/logout' || path==='/api/auth/complete-profile' || path==='/api/demo-session' || path.startsWith('/api/types') || path==='/api/subsystems' || path.startsWith('/api/subsystems/') || path==='/api/organizations' || path.startsWith('/api/organizations/') || path==='/api/keyword-rules' || path.startsWith('/api/keyword-rules/') || path==='/api/mcp-test-suites' || path.startsWith('/api/mcp-test-suites/') || path==='/api/config-tickets' || path.startsWith('/api/config-tickets/')) {
       check(!req.headers.origin || new URL(req.headers.origin).host===req.headers.host,403,'ACCESS_DENIED')
       if (path==='/api/auth/session') {
         if (req.method==='DELETE') {
@@ -393,7 +393,18 @@ export function managementApi(options) {
         if (!identity?.active) return json(res,{active:false})
         const profile=directory.get(identity.subjectId)
         if (!directory.isActive(profile)) return json(res,{active:false})
-        return json(res,{active:true,account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.roles?.[0] ?? profile.roles[0],subjectId:profile.subjectId})
+        return json(res,{active:true,account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole:identity.roles?.[0] ?? profile.roles[0],subjectId:profile.subjectId,needsOnboarding:Boolean(profile.needsOnboarding),workspaceName:profile.workspaceName || ''})
+      }
+      if (path==='/api/auth/complete-profile') {
+        check(req.method==='POST',405,'METHOD_NOT_ALLOWED')
+        check(identity?.active,401,'UNAUTHORIZED','请先登录')
+        const input=await body(req)
+        const updated=directory.completeOnboarding(identity.subjectId,{name:input?.name,org:input?.org})
+        const actingRole=identity.roles?.[0] ?? updated.roles[0]
+        if (token) {
+          identities.put(digest(token),{account:updated.account,subjectId:updated.subjectId,profileRevision:updated.revision,actingRole,active:true})
+        }
+        return json(res,{active:true,account:updated.account,email:updated.email,name:updated.name,org:updated.org,businessLine:updated.businessLine,roles:updated.roles,actingRole,subjectId:updated.subjectId,needsOnboarding:false,workspaceName:updated.workspaceName || ''})
       }
       if (path==='/api/auth/logout') {
         check(req.method==='POST' || req.method==='DELETE',405,'METHOD_NOT_ALLOWED')
@@ -407,7 +418,67 @@ export function managementApi(options) {
         const username=String(input.username ?? input.account ?? '').trim()
         const password=String(input.password ?? '')
         check(username && password,400,'INVALID_CREDENTIALS','请输入账号和密码')
-        const profile=directory.authenticate(username, password)
+        let profile=directory.authenticate(username, password)
+        if (!profile && username.includes('@')) {
+          const dify=subsystems.defaultDify?.()
+          const rawDifyBase=(dify?.apiBase || process.env.DIFY_API_BASE || '').replace(/\/+$/,'')
+          const candidateBases=[rawDifyBase]
+          if (/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(rawDifyBase)) {
+            candidateBases.push(rawDifyBase.replace(/127\.0\.0\.1|localhost/i,'host.docker.internal'))
+          }
+          if (process.env.DIFY_API_BASE) {
+            const envBase=process.env.DIFY_API_BASE.replace(/\/+$/,'')
+            if (!candidateBases.includes(envBase)) candidateBases.push(envBase)
+          }
+          for (const difyBase of candidateBases.filter(Boolean)) {
+            try {
+              const loginRes=await fetch(`${difyBase}/console/api/login`,{
+                method:'POST',
+                headers:{'content-type':'application/json'},
+                body:JSON.stringify({email:username,password,remember_me:true}),
+                signal:AbortSignal.timeout(8000),
+              })
+              const loginJson=await loginRes.json().catch(()=>null)
+              const accessToken=loginRes.ok && loginJson?.data?.access_token ? loginJson.data.access_token : ''
+              if (accessToken) {
+                const authHeaders={authorization:`Bearer ${accessToken}`}
+                const [profRes,wsRes]=await Promise.all([
+                  fetch(`${difyBase}/console/api/account/profile`,{headers:authHeaders,signal:AbortSignal.timeout(8000)}),
+                  fetch(`${difyBase}/console/api/workspaces/current`,{headers:authHeaders,signal:AbortSignal.timeout(8000)}),
+                ])
+                const profJson=profRes.ok ? await profRes.json().catch(()=>null) : null
+                const wsJson=wsRes.ok ? await wsRes.json().catch(()=>null) : null
+                if (profJson?.id) {
+                  let isOwner=wsJson?.role==='owner'
+                  if (!isOwner) {
+                    const memRes=await fetch(`${difyBase}/console/api/workspaces/current/members`,{headers:authHeaders,signal:AbortSignal.timeout(8000)}).catch(()=>null)
+                    const memJson=memRes?.ok ? await memRes.json().catch(()=>null) : null
+                    const members=Array.isArray(memJson?.accounts) ? memJson.accounts : []
+                    isOwner=members.some(m=>m.id===profJson.id && m.role==='owner')
+                  }
+                  const existingLocal=directory.byLogin(profJson.email || username)
+                  if (isOwner || existingLocal?.difyRole==='owner') {
+                    const upserted=directory.upsertDifyOwner({
+                      difyAccountId:profJson.id,
+                      email:profJson.email || username,
+                      name:profJson.name,
+                      workspaceId:wsJson?.id ?? null,
+                      workspaceName:wsJson?.name ?? '',
+                      status:profJson.status || 'active',
+                      lastLoginAt:new Date().toISOString(),
+                    })
+                    profile=upserted.profile
+                  } else {
+                    check(false,403,'NOT_DIFY_OWNER','仅支持 Dify 租户所有者账号登录管理平台')
+                  }
+                }
+              }
+              break
+            } catch (err) {
+              if (err?.code==='NOT_DIFY_OWNER') throw err
+            }
+          }
+        }
         check(profile,401,'INVALID_CREDENTIALS','账号或密码错误')
         check(directory.isActive(profile),403,'ACCOUNT_INACTIVE','该账号已被停用或已过期')
         const actingRole=profile.roles.includes('admin')?'admin':profile.roles.includes('operator')?'operator':'user'
@@ -415,7 +486,7 @@ export function managementApi(options) {
         const fresh=id()
         identities.put(digest(fresh),{account:profile.account,subjectId:profile.subjectId,profileRevision:profile.revision,actingRole,active:true})
         res.setHeader('set-cookie','management_identity='+fresh+'; Path=/api; HttpOnly; SameSite=Strict')
-        return json(res,{active:true,account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole,subjectId:profile.subjectId})
+        return json(res,{active:true,account:profile.account,email:profile.email,name:profile.name,org:profile.org,businessLine:profile.businessLine,roles:profile.roles,actingRole,subjectId:profile.subjectId,needsOnboarding:Boolean(profile.needsOnboarding),workspaceName:profile.workspaceName || ''})
       }
       if (path==='/api/demo-session') {
         if (req.method==='GET') {

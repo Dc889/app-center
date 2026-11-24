@@ -42,12 +42,12 @@ export function identityDirectory(dir,initialSubjects=seedSubjects,now=Date.now,
   // Backfill email and passwordHash for existing persisted accounts (e.g. shared MySQL)
   for(const p of subjects()) {
     const needsEmail=!p.email
-    const needsHash=!p.passwordHash
+    const needsHash=!p.passwordHash && p.authSource!=='dify'
     if(needsEmail || needsHash) {
       store.put('person:'+p.subjectId,{
         ...p,
         email:p.email || `${p.account}@${EMAIL_DOMAIN}`,
-        passwordHash:p.passwordHash || hashPassword(DEFAULT_USER_PASSWORD),
+        passwordHash:needsHash ? hashPassword(DEFAULT_USER_PASSWORD) : (p.passwordHash ?? ''),
       })
     }
   }
@@ -124,6 +124,95 @@ export function identityDirectory(dir,initialSubjects=seedSubjects,now=Date.now,
     if(!profile || !verifyPassword(password, profile.passwordHash)) return null
     return profile
   }
+  function sanitizeAccountSlug(email, difyAccountId) {
+    const local = String(email ?? '').split('@')[0].replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 64)
+    let base = local && /^[a-zA-Z0-9]/.test(local) ? local : `dify_${String(difyAccountId ?? '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)}`
+    if (!base) base = 'dify_user'
+    let candidate = base
+    let idx = 1
+    while (subjects().some(p => p.account.toLowerCase() === candidate.toLowerCase())) {
+      candidate = `${base.slice(0, 56)}_${idx++}`
+    }
+    return candidate
+  }
+
+  function upsertDifyOwner({difyAccountId, email, name, workspaceId, workspaceName, status, lastLoginAt}) {
+    const cleanEmail = String(email ?? '').trim().toLowerCase()
+    check(cleanEmail && difyAccountId, 400, 'INVALID_DIFY_OWNER')
+    const all = subjects()
+    const existing = all.find(p => (p.difyAccountId && p.difyAccountId === difyAccountId) || (p.email || '').toLowerCase() === cleanEmail)
+    const nowIso = new Date().toISOString()
+    if (existing) {
+      const updated = {
+        ...existing,
+        difyAccountId,
+        workspaceId: workspaceId ?? existing.workspaceId ?? null,
+        workspaceName: workspaceName ?? existing.workspaceName ?? '',
+        difyRole: 'owner',
+        difyStatus: status ?? existing.difyStatus ?? 'active',
+        lastLoginAt: lastLoginAt ?? existing.lastLoginAt ?? null,
+        syncedAt: nowIso,
+      }
+      store.put('person:' + existing.subjectId, updated)
+      return {action: 'updated', profile: updated}
+    }
+    const cleanId = String(difyAccountId).replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)
+    const subjectId = `dify-${cleanId}`
+    const account = sanitizeAccountSlug(cleanEmail, difyAccountId)
+    const created = {
+      kind: 'person',
+      subjectId,
+      account,
+      email: cleanEmail,
+      name: String(name ?? '').trim() || account,
+      roles: ['user'],
+      org: '',
+      businessLine: '',
+      active: status !== 'banned',
+      revision: 1,
+      aliases: [],
+      ragflowPermission: '个人',
+      difyRole: 'owner',
+      ragflowAccountId: null,
+      difyAccountId,
+      workspaceId: workspaceId ?? null,
+      workspaceName: workspaceName ?? '',
+      difyStatus: status ?? 'active',
+      lastLoginAt: lastLoginAt ?? null,
+      authSource: 'dify',
+      needsOnboarding: true,
+      passwordHash: '',
+      pendingChange: null,
+      syncedAt: nowIso,
+    }
+    store.put('person:' + subjectId, created)
+    return {action: 'created', profile: created}
+  }
+
+  function completeOnboarding(subjectId, {name, org}) {
+    const profile = get(subjectId)
+    check(profile, 404, 'NOT_FOUND', '用户不存在')
+    const cleanName = String(name ?? '').trim()
+    const cleanOrg = String(org ?? '').trim()
+    check(cleanName && cleanName.length <= 60, 400, 'INVALID_NAME', '请填写有效的真实姓名')
+    check(cleanOrg && cleanOrg.length <= 120, 400, 'INVALID_ORG', '请选择所属组织机构')
+    const updated = {
+      ...profile,
+      name: cleanName,
+      org: cleanOrg,
+      businessLine: profile.businessLine || cleanOrg,
+      needsOnboarding: false,
+      onboardedAt: new Date().toISOString(),
+      revision: (profile.revision ?? 1) + 1,
+    }
+    store.put('person:' + subjectId, updated)
+    const cat = store.get('catalog')
+    if (cat && !cat.orgs.includes(cleanOrg)) {
+      store.put('catalog', {...cat, orgs: [...cat.orgs, cleanOrg]})
+    }
+    return updated
+  }
+
   const isActive=p=>!!p?.active && (!p.expiresAt || Date.parse(p.expiresAt)>now())
   function session(saved) {
     if(!saved?.active)return null
@@ -132,10 +221,11 @@ export function identityDirectory(dir,initialSubjects=seedSubjects,now=Date.now,
     const role=saved.actingRole ?? (profile.roles.includes('admin')?'admin':profile.roles.includes('operator')?'operator':'user')
     if(!profile.roles.includes(role))return null
     return {active:true,account:profile.account,email:profile.email || `${profile.account}@${EMAIL_DOMAIN}`,subjectId:profile.subjectId,roles:[role],assignedRoles:profile.roles,org:profile.org,
+      needsOnboarding:Boolean(profile.needsOnboarding),workspaceName:profile.workspaceName || '',authSource:profile.authSource || 'local',
       profileRevision:profile.revision,restricted:!!profile.pendingChange && Date.parse(profile.pendingChange.effectiveAt)<=now()}
   }
   const owns=(account,identity)=>{const p=identity && get(identity.subjectId);return !!p && (p.account===account || p.aliases.includes(account))}
-  return {store,subjects,get,byAccount,byLogin,authenticate,isActive,session,owns,catalog:store.get('catalog'),
+  return {store,subjects,get,byAccount,byLogin,authenticate,upsertDifyOwner,completeOnboarding,isActive,session,owns,catalog:store.get('catalog'),
     resolveOrg,orgIdOf,migrateOrg,
     accounts:{has:account=>!!byAccount(account),get:account=>byAccount(account)?.org,
       role:account=>{const roles=byAccount(account)?.roles ?? [];return account==='system_event'?'system':roles.includes('user')?'user':roles.includes('operator')?'operator':roles.includes('admin')?'admin':null}},

@@ -2,6 +2,7 @@ import {useCallback,useEffect,useMemo,useRef,useState} from 'react'
 import type {Role,View} from '../../shared-ui/UiContextData'
 import {identities,personOf} from '../../shared-ui/UiContextData'
 import {Login,Sidebar,Topbar} from './Shell'
+import {OnboardingGate} from './OnboardingGate'
 import {ChatApplication} from './ChatApplication'
 import {adminTicketTypes,ticketTypes} from './ticket-catalog'
 import {ManualApplication,TicketList,WorkOrderDrawer} from './WorkOrderPages'
@@ -20,6 +21,8 @@ type SessionProfile = {
   roles?: string[]
   actingRole: string
   subjectId: string
+  needsOnboarding?: boolean
+  workspaceName?: string
 }
 
 function toUiRole(actingRole: string): Role {
@@ -32,6 +35,7 @@ export function App() {
   const initialRoute = useMemo(() => parseRoute(typeof window === 'undefined' ? '/' : window.location.pathname), [])
   const [sessionReady, setSessionReady] = useState(false)
   const [role, setRole] = useState<Role | null>(null)
+  const [sessionProfile, setSessionProfile] = useState<SessionProfile | null>(null)
   const [view, setView] = useState<View>(initialRoute.view ?? 'overview')
   const [manualTicketType, setManualTicketType] = useState<string | null>(initialRoute.ticketType)
   const intendedRoute = useRef<{view: View; ticketType: string | null} | null>(
@@ -44,7 +48,7 @@ export function App() {
   const identity = useMemo(() => {
     const entry = identities.find(item => item.role === role)
     return entry && role ? {...entry, ...personOf(role)} : entry
-  }, [role])
+  }, [role, sessionProfile])
 
   useEffect(() => {
     let active = true
@@ -59,12 +63,14 @@ export function App() {
           const parsed = parseRoute(window.location.pathname)
           const nextView = resolveViewForRole(parsed.view, restoredRole)
           const nextTicket = nextView === 'manual' ? parsed.ticketType : null
+          setSessionProfile(profile)
           setRole(restoredRole)
           setView(nextView)
           setManualTicketType(nextTicket)
           replacePath(buildPath(nextView, nextTicket))
         } else {
           sessionStorage.removeItem('session-person')
+          setSessionProfile(null)
           if (window.location.pathname === '/') replacePath('/login')
         }
       })
@@ -133,6 +139,7 @@ export function App() {
       nextRole = toUiRole(profile.actingRole)
       sessionStorage.setItem('session-person', JSON.stringify({...profile, role: nextRole}))
       if (nextRole === 'ops') sessionStorage.setItem('operator', profile.account)
+      setSessionProfile(profile)
     } catch {
       setLoginError('管理服务未连接，请重试')
       return
@@ -148,12 +155,19 @@ export function App() {
     pushPath(buildPath(nextView, nextTicket))
   }
 
+  const completeOnboarding = (updated: SessionProfile) => {
+    const nextRole = toUiRole(updated.actingRole)
+    sessionStorage.setItem('session-person', JSON.stringify({...updated, role: nextRole}))
+    setSessionProfile({...updated, needsOnboarding: false})
+  }
+
   const logout = async () => {
     const r = await fetch('/api/auth/logout', {method: 'POST'})
     if (r.ok) {
       sessionStorage.removeItem('session-person')
       sessionStorage.removeItem('operator')
       intendedRoute.current = null
+      setSessionProfile(null)
       setRole(null)
       setView('overview')
       setManualTicketType(null)
@@ -164,6 +178,9 @@ export function App() {
   if (!sessionReady) return null
   if (!role || !identity || !safeView) {
     return <Login onLogin={login} error={loginError} />
+  }
+  if (sessionProfile?.needsOnboarding) {
+    return <OnboardingGate profile={sessionProfile} onCompleted={completeOnboarding} onLogout={logout} />
   }
 
   const moduleContent = renderModuleView(safeView, {role, onNavigate: navigate, onWorkOrder: setDrawer})

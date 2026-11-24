@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {CheckCircle2, Cpu, Database, Globe, Pencil, Plus, RefreshCw, Search, ServerCog, ShieldCheck, Star, Trash2, Wifi, X, XCircle} from 'lucide-react'
+import {CheckCircle2, Cpu, Database, Globe, Pencil, Plus, RefreshCw, Search, ServerCog, ShieldCheck, Star, Trash2, Users, Wifi, X, XCircle} from 'lucide-react'
 import {PageHeader} from '../../shared-ui/UiContext'
 
 type SubsystemType = 'dify' | 'ragflow' | 'model_gateway' | 'custom'
@@ -12,6 +12,15 @@ type TestResult = {
   message: string
 }
 
+type SyncResult = {
+  at?: string
+  ok: boolean
+  totalOwners: number
+  created: number
+  updated: number
+  message: string
+}
+
 type SubsystemRecord = {
   id: string
   name: string
@@ -21,6 +30,10 @@ type SubsystemRecord = {
   workspaceId: string
   consoleEmail: string
   pluginDaemonBase: string
+  dbHost?: string
+  dbPort?: number
+  dbName?: string
+  dbUser?: string
   tenantId: string
   externalEndpoint: string
   enabled: boolean
@@ -29,6 +42,7 @@ type SubsystemRecord = {
   hasSecrets: Record<string, boolean>
   secretMasks: Record<string, string>
   lastTest: TestResult | null
+  lastSync?: SyncResult | null
   revision: number
   updatedAt: string
 }
@@ -45,6 +59,11 @@ type FormState = {
   consolePassword: string
   pluginDaemonBase: string
   pluginDaemonKey: string
+  dbHost: string
+  dbPort: string
+  dbName: string
+  dbUser: string
+  dbPassword: string
   tenantId: string
   externalEndpoint: string
   apiKey: string
@@ -81,6 +100,11 @@ function emptyForm(type: SubsystemType = 'dify'): FormState {
     consolePassword: '',
     pluginDaemonBase: '',
     pluginDaemonKey: '',
+    dbHost: type === 'dify' ? 'dify171-db_postgres-1' : '',
+    dbPort: '5432',
+    dbName: 'dify',
+    dbUser: 'postgres',
+    dbPassword: '',
     tenantId: '',
     externalEndpoint: '',
     apiKey: '',
@@ -104,6 +128,11 @@ function fromRecord(item: SubsystemRecord): FormState {
     consolePassword: '',
     pluginDaemonBase: item.pluginDaemonBase || '',
     pluginDaemonKey: '',
+    dbHost: item.dbHost || '',
+    dbPort: String(item.dbPort || 5432),
+    dbName: item.dbName || 'dify',
+    dbUser: item.dbUser || '',
+    dbPassword: '',
     tenantId: item.tenantId || '',
     externalEndpoint: item.externalEndpoint || '',
     apiKey: '',
@@ -126,6 +155,7 @@ export function SubsystemsPage() {
   const [form, setForm] = useState<FormState>(() => emptyForm('dify'))
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState<string | null>(null)
+  const [syncingId, setSyncingId] = useState<string | null>(null)
   const [draftTest, setDraftTest] = useState<TestResult | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
 
@@ -190,6 +220,13 @@ export function SubsystemsPage() {
       setNotice('请填写子系统名称与 API 地址')
       return
     }
+    if (form.type === 'dify') {
+      const hasSavedDbPwd = Boolean(editingRecord?.hasSecrets?.dbPassword)
+      if (!form.dbHost.trim() || !form.dbName.trim() || !form.dbUser.trim() || (!form.dbPassword.trim() && !hasSavedDbPwd)) {
+        setNotice('配置 Dify 子系统时必须填写数据库主机、库名、只读账号与密码')
+        return
+      }
+    }
     setSaving(true)
     setNotice('')
     try {
@@ -203,7 +240,9 @@ export function SubsystemsPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw Error(data.error?.message ?? '保存失败')
-      setNotice(isNew ? `已新增纳管子系统：${data.name}` : `已保存并应用配置：${data.name}`)
+      const baseMsg = isNew ? `已新增纳管子系统：${data.name}` : `已保存并应用配置：${data.name}`
+      const syncMsg = data.syncResult?.message ? `；${data.syncResult.message}` : ''
+      setNotice(`${baseMsg}${syncMsg}`)
       setCreating(false)
       setEditingId(data.id)
       setForm(fromRecord(data))
@@ -212,6 +251,22 @@ export function SubsystemsPage() {
       setNotice(err instanceof Error ? err.message : '保存失败')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function syncExisting(item: SubsystemRecord) {
+    setSyncingId(item.id)
+    setNotice('')
+    try {
+      const res = await fetch(`/api/subsystems/${encodeURIComponent(item.id)}/sync-accounts`, {method: 'POST'})
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw Error(data.error?.message ?? '同步账号失败')
+      setNotice(`${item.name} · ${data.sync?.message ?? '账号更新完成'}`)
+      setReloadTick(t => t + 1)
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : '同步账号失败')
+    } finally {
+      setSyncingId(null)
     }
   }
 
@@ -396,6 +451,21 @@ export function SubsystemsPage() {
                       )}
                     </dd>
                   </div>
+                  {item.type === 'dify' && (
+                    <div>
+                      <dt>账号同步</dt>
+                      <dd>
+                        {item.lastSync ? (
+                          <span className={`sub-health ${item.lastSync.ok ? 'ok' : 'bad'}`}>
+                            {item.lastSync.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                            <span>{item.lastSync.ok ? `已同步 ${item.lastSync.totalOwners} 个租户` : '同步失败'}</span>
+                          </span>
+                        ) : (
+                          <span className="org-muted-text">尚未同步</span>
+                        )}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
 
                 <div className="sub-card-footer">
@@ -403,6 +473,12 @@ export function SubsystemsPage() {
                     <Wifi size={13} />
                     <span>{testingId === item.id ? '测试中' : '测试连接'}</span>
                   </button>
+                  {item.type === 'dify' && (
+                    <button type="button" className="app-icon-btn" disabled={syncingId === item.id} data-testid={`sync-accounts-${item.id}`} onClick={() => void syncExisting(item)}>
+                      <Users size={13} />
+                      <span>{syncingId === item.id ? '同步中' : '更新账号'}</span>
+                    </button>
+                  )}
                   <button type="button" className="app-icon-btn" onClick={() => startEdit(item)}>
                     <Pencil size={13} />
                     <span>编辑</span>
@@ -553,6 +629,61 @@ export function SubsystemsPage() {
                           onChange={e => setForm(f => ({...f, pluginDaemonKey: e.target.value}))}
                         />
                       </label>
+                    </div>
+                    <div style={{marginTop: 6, paddingTop: 10, borderTop: '1px solid var(--border-subtle, #e2e8f0)'}}>
+                      <div style={{fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8}}>
+                        Dify 数据库只读连接（必填，保存后自动同步租户账号）
+                      </div>
+                      <div className="sub-form-2col">
+                        <label className="org-field">
+                          <span>数据库主机 *</span>
+                          <input
+                            aria-label="Dify 数据库主机"
+                            value={form.dbHost}
+                            placeholder="dify171-db_postgres-1"
+                            onChange={e => setForm(f => ({...f, dbHost: e.target.value}))}
+                          />
+                        </label>
+                        <label className="org-field">
+                          <span>端口 *</span>
+                          <input
+                            aria-label="Dify 数据库端口"
+                            value={form.dbPort}
+                            placeholder="5432"
+                            onChange={e => setForm(f => ({...f, dbPort: e.target.value}))}
+                          />
+                        </label>
+                      </div>
+                      <label className="org-field" style={{marginTop: 8}}>
+                        <span>数据库名称 *</span>
+                        <input
+                          aria-label="Dify 数据库名称"
+                          value={form.dbName}
+                          placeholder="dify"
+                          onChange={e => setForm(f => ({...f, dbName: e.target.value}))}
+                        />
+                      </label>
+                      <div className="sub-form-2col" style={{marginTop: 8}}>
+                        <label className="org-field">
+                          <span>数据库账号 *</span>
+                          <input
+                            aria-label="Dify 数据库账号"
+                            value={form.dbUser}
+                            placeholder="postgres"
+                            onChange={e => setForm(f => ({...f, dbUser: e.target.value}))}
+                          />
+                        </label>
+                        <label className="org-field">
+                          <span>数据库密码 * {editingRecord?.hasSecrets?.dbPassword && <em className="sub-secret-tag">已加密</em>}</span>
+                          <input
+                            aria-label="Dify 数据库密码"
+                            type="password"
+                            value={form.dbPassword}
+                            placeholder={editingRecord?.hasSecrets?.dbPassword ? '留空保持不变' : '输入只读数据库密码'}
+                            onChange={e => setForm(f => ({...f, dbPassword: e.target.value}))}
+                          />
+                        </label>
+                      </div>
                     </div>
                   </>
                 )}

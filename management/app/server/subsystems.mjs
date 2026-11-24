@@ -1,8 +1,9 @@
 import {createCipheriv, createDecipheriv, createHash, randomBytes} from 'node:crypto'
+import pg from 'pg'
 import {body, check, id, json, ledger} from '../../../runtime/http.mjs'
 
 const ALLOWED_TYPES = ['dify', 'ragflow', 'model_gateway', 'custom']
-const SECRET_FIELDS = ['consoleToken', 'consolePassword', 'pluginDaemonKey', 'apiKey', 'authToken']
+const SECRET_FIELDS = ['consoleToken', 'consolePassword', 'pluginDaemonKey', 'dbPassword', 'apiKey', 'authToken']
 
 function cipherKey() {
   const seed = process.env.SUBSYSTEM_SECRET_KEY || process.env.INTERNAL_TOKEN || 'app-center-subsystem-default-key'
@@ -59,7 +60,7 @@ function toPublicView(record) {
   for (const field of SECRET_FIELDS) {
     const plain = decryptSecret(secrets[field])
     hasSecrets[field] = Boolean(plain)
-    secretMasks[field] = field === 'consolePassword' ? (plain ? '********' : '') : maskSecret(plain)
+    secretMasks[field] = (field === 'consolePassword' || field === 'dbPassword') ? (plain ? '********' : '') : maskSecret(plain)
   }
   const {secrets: _hidden, ...rest} = record
   return {...rest, hasSecrets, secretMasks}
@@ -172,7 +173,85 @@ async function probeSubsystem(spec) {
   }
 }
 
-export function subsystemRegistry(dir, actorSnapshot) {
+async function syncDifyOwnerAccounts(record, directory) {
+  const nowIso = new Date().toISOString()
+  if (!directory) {
+    return {at: nowIso, ok: false, totalOwners: 0, created: 0, updated: 0, message: '身份目录未就绪'}
+  }
+  const host = String(record.dbHost ?? '').trim()
+  const port = Number(record.dbPort || 5432)
+  const database = String(record.dbName ?? 'dify').trim()
+  const user = String(record.dbUser ?? '').trim()
+  const password = decryptSecret(record.secrets?.dbPassword)
+  if (!host || !database || !user || !password) {
+    return {at: nowIso, ok: false, totalOwners: 0, created: 0, updated: 0, message: '缺少 Dify 只读数据库连接信息'}
+  }
+  const client = new pg.Client({
+    host,
+    port: Number.isFinite(port) && port > 0 ? port : 5432,
+    database,
+    user,
+    password,
+    connectionTimeoutMillis: 8000,
+    statement_timeout: 10000,
+  })
+  try {
+    await client.connect()
+    const sql = `
+      SELECT DISTINCT ON (a.id)
+        a.id::text AS dify_account_id,
+        a.email,
+        a.name AS dify_name,
+        a.status AS dify_status,
+        a.last_login_at,
+        t.id::text AS workspace_id,
+        t.name AS workspace_name
+      FROM accounts a
+      JOIN tenant_account_joins taj ON taj.account_id = a.id AND taj.role = 'owner'
+      JOIN tenants t ON t.id = taj.tenant_id
+      ORDER BY a.id, taj.current DESC, taj.created_at ASC
+    `
+    const result = await client.query(sql)
+    let created = 0
+    let updated = 0
+    for (const row of result.rows) {
+      if (!row.email || !row.dify_account_id) continue
+      const res = directory.upsertDifyOwner({
+        difyAccountId: row.dify_account_id,
+        email: row.email,
+        name: row.dify_name,
+        workspaceId: row.workspace_id,
+        workspaceName: row.workspace_name,
+        status: row.dify_status,
+        lastLoginAt: row.last_login_at ? new Date(row.last_login_at).toISOString() : null,
+      })
+      if (res.action === 'created') created++
+      else updated++
+    }
+    const totalOwners = created + updated
+    return {
+      at: nowIso,
+      ok: true,
+      totalOwners,
+      created,
+      updated,
+      message: `同步成功，共同步 ${totalOwners} 个租户账号（新增 ${created} 个，更新 ${updated} 个）`,
+    }
+  } catch (err) {
+    return {
+      at: nowIso,
+      ok: false,
+      totalOwners: 0,
+      created: 0,
+      updated: 0,
+      message: `同步失败：${err instanceof Error ? err.message : '无法连接 Dify 数据库'}`,
+    }
+  } finally {
+    await client.end().catch(() => {})
+  }
+}
+
+export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
   const store = ledger(dir, 'managed-subsystems', actorSnapshot)
 
   function bootstrapFromEnv() {
@@ -192,6 +271,10 @@ export function subsystemRegistry(dir, actorSnapshot) {
         workspaceId: process.env.DIFY_WORKSPACE_ID || '',
         consoleEmail: process.env.DIFY_CONSOLE_EMAIL || '',
         pluginDaemonBase: process.env.DIFY_PLUGIN_DAEMON_BASE || '',
+        dbHost: process.env.DIFY_DB_HOST || '',
+        dbPort: Number(process.env.DIFY_DB_PORT || 5432),
+        dbName: process.env.DIFY_DB_NAME || 'dify',
+        dbUser: process.env.DIFY_DB_USER || '',
         tenantId: '',
         externalEndpoint: '',
         enabled: true,
@@ -201,8 +284,10 @@ export function subsystemRegistry(dir, actorSnapshot) {
           consoleToken: encryptSecret(process.env.DIFY_CONSOLE_TOKEN || ''),
           consolePassword: encryptSecret(process.env.DIFY_CONSOLE_PASSWORD || ''),
           pluginDaemonKey: encryptSecret(process.env.DIFY_PLUGIN_DAEMON_KEY || ''),
+          dbPassword: encryptSecret(process.env.DIFY_DB_PASSWORD || ''),
         },
         lastTest: null,
+        lastSync: null,
         revision: 1,
         createdAt: nowIso,
         updatedAt: nowIso,
@@ -279,6 +364,14 @@ export function subsystemRegistry(dir, actorSnapshot) {
       check(typeof input.name === 'string' && input.name.trim() && input.name.length <= 120, 400, 'INVALID_NAME', '请填写子系统名称')
       const apiBase = normalizeUrl(input.apiBase)
       check(apiBase, 400, 'INVALID_URL', '请填写有效的 API 地址')
+      const dbHost = String(input.dbHost ?? '').trim().slice(0, 128)
+      const dbPort = Number(input.dbPort || 5432)
+      const dbName = String(input.dbName ?? 'dify').trim().slice(0, 128)
+      const dbUser = String(input.dbUser ?? '').trim().slice(0, 128)
+      if (input.type === 'dify') {
+        check(dbHost && dbName && dbUser && typeof input.dbPassword === 'string' && input.dbPassword.trim(),
+          400, 'DIFY_DB_REQUIRED', '配置 Dify 子系统时必须填写只读数据库主机、库名、账号与密码')
+      }
       const recordId = typeof input.id === 'string' && /^[a-zA-Z0-9_-]{2,64}$/.test(input.id.trim())
         ? input.id.trim()
         : `${input.type}-${id().slice(0, 8)}`
@@ -302,6 +395,10 @@ export function subsystemRegistry(dir, actorSnapshot) {
         workspaceId: String(input.workspaceId ?? '').trim().slice(0, 128),
         consoleEmail: String(input.consoleEmail ?? '').trim().slice(0, 128),
         pluginDaemonBase: input.pluginDaemonBase ? normalizeUrl(input.pluginDaemonBase) : '',
+        dbHost,
+        dbPort: Number.isFinite(dbPort) && dbPort > 0 ? dbPort : 5432,
+        dbName,
+        dbUser,
         tenantId: String(input.tenantId ?? '').trim().slice(0, 128),
         externalEndpoint: input.externalEndpoint ? normalizeUrl(input.externalEndpoint) : '',
         enabled: input.enabled !== false,
@@ -309,22 +406,45 @@ export function subsystemRegistry(dir, actorSnapshot) {
         notes: String(input.notes ?? '').trim().slice(0, 500),
         secrets,
         lastTest: null,
+        lastSync: null,
         revision: 1,
         createdAt: nowIso,
         updatedAt: nowIso,
         history: [{at: nowIso, actor, action: `新增纳管子系统 ${input.name.trim()}`}],
       }
       if (isDefault) clearOtherDefaults(record.type, record.id)
-      const saved = store.put(record.id, record)
+      let saved = store.put(record.id, record)
       applyDefaultToEnv(saved)
-      return json(res, toPublicView(saved), 201)
+      let syncResult = null
+      if (saved.type === 'dify' && directory) {
+        syncResult = await syncDifyOwnerAccounts(saved, directory)
+        saved = store.put(saved.id, {
+          ...saved,
+          lastSync: syncResult,
+          updatedAt: syncResult.at,
+          history: [...(saved.history ?? []), {at: syncResult.at, actor, action: `自动同步 Dify 租户账号：${syncResult.message}`}],
+        })
+      }
+      return json(res, {...toPublicView(saved), syncResult}, 201)
     }
 
-    const itemMatch = /^\/api\/subsystems\/([a-zA-Z0-9_-]+)(?:\/(test|default))?$/.exec(path)
+    const itemMatch = /^\/api\/subsystems\/([a-zA-Z0-9_-]+)(?:\/(test|default|sync-accounts))?$/.exec(path)
     check(itemMatch, 404, 'NOT_FOUND')
     const [, targetId, action] = itemMatch
     const existing = store.get(targetId)
     check(existing, 404, 'NOT_FOUND', '子系统实例不存在')
+
+    if (action === 'sync-accounts' && req.method === 'POST') {
+      check(existing.type === 'dify', 400, 'UNSUPPORTED_SYNC', '仅 Dify 子系统支持自动同步租户账号')
+      const sync = await syncDifyOwnerAccounts(existing, directory)
+      const updated = store.put(existing.id, {
+        ...existing,
+        lastSync: sync,
+        updatedAt: sync.at,
+        history: [...(existing.history ?? []), {at: sync.at, actor, action: `手动更新 Dify 租户账号：${sync.message}`}],
+      })
+      return json(res, {sync, item: toPublicView(updated)})
+    }
 
     if (action === 'test' && req.method === 'POST') {
       const result = await probeSubsystem({
@@ -372,9 +492,17 @@ export function subsystemRegistry(dir, actorSnapshot) {
           mergedSecrets[field] = encryptSecret(input[field].trim())
         }
       }
+      const nextDbHost = input.dbHost !== undefined ? String(input.dbHost).trim().slice(0, 128) : (existing.dbHost ?? '')
+      const nextDbPort = input.dbPort !== undefined ? Number(input.dbPort || 5432) : (existing.dbPort ?? 5432)
+      const nextDbName = input.dbName !== undefined ? String(input.dbName).trim().slice(0, 128) : (existing.dbName ?? 'dify')
+      const nextDbUser = input.dbUser !== undefined ? String(input.dbUser).trim().slice(0, 128) : (existing.dbUser ?? '')
+      if (existing.type === 'dify') {
+        check(nextDbHost && nextDbName && nextDbUser && Boolean(decryptSecret(mergedSecrets.dbPassword)),
+          400, 'DIFY_DB_REQUIRED', '配置 Dify 子系统时必须填写只读数据库主机、库名、账号与密码')
+      }
       const nextDefault = typeof input.isDefault === 'boolean' ? input.isDefault : existing.isDefault
       if (nextDefault) clearOtherDefaults(existing.type, existing.id)
-      const updated = store.put(existing.id, {
+      let updated = store.put(existing.id, {
         ...existing,
         name: input.name.trim(),
         version: String(input.version ?? existing.version ?? '').trim().slice(0, 64),
@@ -382,6 +510,10 @@ export function subsystemRegistry(dir, actorSnapshot) {
         workspaceId: String(input.workspaceId ?? existing.workspaceId ?? '').trim().slice(0, 128),
         consoleEmail: String(input.consoleEmail ?? existing.consoleEmail ?? '').trim().slice(0, 128),
         pluginDaemonBase: input.pluginDaemonBase !== undefined ? (input.pluginDaemonBase ? normalizeUrl(input.pluginDaemonBase) : '') : (existing.pluginDaemonBase ?? ''),
+        dbHost: nextDbHost,
+        dbPort: Number.isFinite(nextDbPort) && nextDbPort > 0 ? nextDbPort : 5432,
+        dbName: nextDbName,
+        dbUser: nextDbUser,
         tenantId: String(input.tenantId ?? existing.tenantId ?? '').trim().slice(0, 128),
         externalEndpoint: input.externalEndpoint !== undefined ? (input.externalEndpoint ? normalizeUrl(input.externalEndpoint) : '') : (existing.externalEndpoint ?? ''),
         enabled: typeof input.enabled === 'boolean' ? input.enabled : existing.enabled,
@@ -393,7 +525,17 @@ export function subsystemRegistry(dir, actorSnapshot) {
         history: [...(existing.history ?? []), {at: nowIso, actor, action: '更新子系统配置'}],
       })
       applyDefaultToEnv(updated)
-      return json(res, toPublicView(updated))
+      let syncResult = null
+      if (updated.type === 'dify' && directory) {
+        syncResult = await syncDifyOwnerAccounts(updated, directory)
+        updated = store.put(updated.id, {
+          ...updated,
+          lastSync: syncResult,
+          updatedAt: syncResult.at,
+          history: [...(updated.history ?? []), {at: syncResult.at, actor, action: `保存后自动同步 Dify 租户账号：${syncResult.message}`}],
+        })
+      }
+      return json(res, {...toPublicView(updated), syncResult})
     }
 
     if (!action && req.method === 'DELETE') {
@@ -422,6 +564,10 @@ export function subsystemRegistry(dir, actorSnapshot) {
       return handle(req, res, path, actor)
     },
     list: () => store.all().filter(r => !r.deleted).map(toPublicView),
+    defaultDify: () => {
+      const all = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled)
+      return all.find(r => r.isDefault) ?? all[0] ?? null
+    },
     close: store.close,
   }
 }
