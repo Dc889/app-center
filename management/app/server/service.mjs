@@ -452,6 +452,10 @@ export function managementApi(options) {
       check(identity?.active && hasRole(identity,'admin'),403,'ACCESS_DENIED','仅系统管理员可管理工单类型')
       return types.handle(req,res,path,identity.account)
     }
+    if ((path === '/internal/v1/keyword-rules' || path === '/internal/v1/mcp-test-suites') && req.method === 'GET') {
+      check(req.headers.authorization === 'Bearer '+options.token,403,'ACCESS_DENIED')
+      return configs.handle(req,res,path.replace('/internal/v1','/api'),{account:'system_executor',roles:['admin'],active:true})
+    }
     const approved = /^\/internal\/v1\/approved-inputs\/([\w-]+)(\/documents)?$/.exec(path)
     if (approved && req.method === 'GET') {
       check(req.headers.authorization === 'Bearer '+options.token,403,'ACCESS_DENIED')

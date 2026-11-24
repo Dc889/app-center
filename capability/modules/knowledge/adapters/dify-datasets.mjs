@@ -1,6 +1,6 @@
 import {isDeepStrictEqual} from 'node:util'
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig, resolveProductOwner, difyConsoleFetch} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, resolveProductOwner, difyConsoleFetch, difyRequestContext} from '../../../platform/dify/public.mjs'
 import {getRagflowConfig} from '../../../platform/ragflow/public.mjs'
 import {computeManifest} from './knowledge-store.mjs'
 
@@ -76,7 +76,7 @@ export async function createDifyExternalBinding({name, targetWorkspaceId, endpoi
     method: 'POST',
     body: {
       name: `ragflow-${externalKnowledgeId.slice(0, 12)}-${Date.now().toString(36)}`,
-      settings: {endpoint, api_key: rag.token},
+      settings: {endpoint, api_key: rag.externalApiKey || rag.token},
     },
   })
   const apiId = String(apiRes?.id ?? apiRes?.data?.id ?? '')
@@ -121,6 +121,8 @@ export async function createDifyExternalBinding({name, targetWorkspaceId, endpoi
 function requireWorkspace(workspaceId) {
   const cfg = getDifyConfig()
   check(cfg.isReal, 501, 'UPSTREAM_UNSUPPORTED', '未配置真实 Dify 连接凭证')
+  const tenantAccount = difyRequestContext?.getStore?.()?.account
+  if (cfg.mode === 'connector' && tenantAccount && typeof workspaceId === 'string' && workspaceId.trim()) return
   check(cfg.workspaceId && cfg.workspaceId === workspaceId, 501, 'UPSTREAM_UNSUPPORTED', '缺少目标工作区的已核验产品身份')
 }
 

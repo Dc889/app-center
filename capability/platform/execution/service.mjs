@@ -104,7 +104,7 @@ export async function startExecutionServer(options, registry) {
     try {
       const execute = registry.handler(command)
       if (execute) {
-        await execute({
+        await difyRequestContext.run({account: command.account || ''}, () => execute({
           command,
           state,
           row,
@@ -115,7 +115,7 @@ export async function startExecutionServer(options, registry) {
           stamp,
           openLedger: name => openModuleLedger(spec.moduleId, name),
           getExecution,
-        })
+        }))
       } else {
         state.status = 'failed'
         state.result = failure('UPSTREAM_UNSUPPORTED', '无法自动执行：此动作尚未接入')

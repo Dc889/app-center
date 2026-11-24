@@ -55,6 +55,7 @@ export function startRagflowConnector({token, port = 0, host} = {}) {
           adapterVersion: cfg.adapterVersion,
           tenantId: cfg.tenantId,
           externalEndpoint: cfg.externalEndpoint,
+          externalApiKey: cfg.token,
           configured: cfg.configured,
           ownerMap: cfg.ownerMap,
         })

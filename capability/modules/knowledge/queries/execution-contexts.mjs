@@ -10,28 +10,111 @@ async function fetchLiveDataset(dataset) {
   return getDifyDatasetDetail(dataset.sourceResourceId, dataset.sourceScopeId)
 }
 
+async function fetchKeywordRules(clients) {
+  if (!clients?.management) return {ruleSetVersion: 0, rules: []}
+  try {
+    const res = await clients.management('/keyword-rules')
+    const data = await res.json()
+    const items = Array.isArray(data?.items) ? data.items : []
+    const rules = items.filter(r => r && r.enabled !== false && (!Array.isArray(r.targets) || r.targets.includes('知识库文档')))
+    return {ruleSetVersion: data?.ruleSetVersion ?? 1, rules}
+  } catch {
+    return {ruleSetVersion: 0, rules: []}
+  }
+}
+
+function scanTextAgainstRules(text, rules) {
+  if (!text || !rules.length) return []
+  const hits = []
+  for (const rule of rules) {
+    let matched = false
+    try {
+      if (rule.matchMode === '正则表达式') {
+        matched = new RegExp(rule.pattern, 'i').test(text)
+      } else {
+        matched = text.toLowerCase().includes(String(rule.pattern || '').toLowerCase())
+      }
+    } catch {
+      // 忽略非法正则
+    }
+    if (matched) {
+      hits.push({ruleId: rule.ruleId, category: rule.category, severity: rule.severity, pattern: rule.pattern, note: rule.note ?? ''})
+    }
+  }
+  return hits
+}
+
+async function autoSyncDatasetIfMissing(openLedger, resourceId, workspaceId, identity) {
+  const db = openLedger('datasets')
+  const existing = db.get(resourceId)
+  if (existing) return existing
+
+  // 尝试从真实 RAGFlow / Dify 自动纳管（免去已取消的 KB-01 工单）
+  let live = null
+  let sourceSystem = 'RAGFlow'
+  try {
+    live = await getRagflowDatasetDetail(resourceId)
+    sourceSystem = 'RAGFlow'
+  } catch {
+    try {
+      live = await getDifyDatasetDetail(resourceId, workspaceId || undefined)
+      sourceSystem = 'Dify'
+    } catch {
+      return null
+    }
+  }
+  const now = new Date().toISOString()
+  const record = {
+    resourceId,
+    name: live.name || resourceId,
+    sourceSystem,
+    sourceResourceId: resourceId,
+    sourceScopeId: sourceSystem === 'RAGFlow' ? (live.tenantId || workspaceId || '') : (live.workspaceId || workspaceId || ''),
+    ownerAccount: identity?.account || live.ownerAccount || '',
+    status: '已纳管',
+    revision: 1,
+    documents: live.documents ?? [],
+    manifestSnapshotId: live.manifestSnapshotId,
+    manifestSha256: live.manifestSha256,
+    syncedAt: now,
+    updatedAt: now,
+  }
+  db.put(resourceId, record)
+  return record
+}
+
 function activeBindingsFor(openLedger, resourceId) {
   const bindings = openLedger('bindings')
   return bindings.all().filter(b => b.catalogResourceId === resourceId && b.status === 'active')
 }
 
 export async function kb02Context(ctx) {
-  const {query, res, openLedger} = ctx
+  const {query, res, openLedger, clients, identity} = ctx
   const action = query.get('action') ?? 'publish_dataset'
   check(action === 'publish_dataset', 400, 'INVALID_ACTION')
   const resourceId = query.get('resourceId')
+  const workspaceId = (query.get('workspaceId') ?? '').trim()
   check(typeof resourceId === 'string' && resourceId.trim(), 400, 'INVALID_REQUEST')
 
-  const dataset = openLedger('datasets').get(resourceId)
+  const dataset = await autoSyncDatasetIfMissing(openLedger, resourceId, workspaceId, identity)
   check(dataset, 404, 'NOT_FOUND', '未找到已纳管的知识库')
   const live = await fetchLiveDataset(dataset)
+  const {ruleSetVersion, rules} = await fetchKeywordRules(clients)
 
-  const docs = live.documents.map(d => ({
-    documentId: d.documentId,
-    name: d.name,
-    sha256: d.sha256,
-    autoVerdict: d.autoVerdict,
-  }))
+  const docs = live.documents.map(d => {
+    const sampleText = [d.name, d.previewText, d.content].filter(Boolean).join('\n')
+    const hits = scanTextAgainstRules(sampleText, rules)
+    const blocked = hits.some(h => h.severity === '阻断')
+    return {
+      documentId: d.documentId,
+      name: d.name,
+      sha256: d.sha256,
+      autoVerdict: blocked ? '不通过' : d.autoVerdict,
+      ...(hits.length ? {matchedRules: hits} : {}),
+    }
+  })
+  const blockedCount = docs.filter(d => d.autoVerdict !== '通过').length
+  const warnCount = docs.filter(d => Array.isArray(d.matchedRules) && d.matchedRules.some(r => r.severity === '告警')).length
 
   return json(res, {
     snapshotId: `kb02-${id()}`,
@@ -47,6 +130,8 @@ export async function kb02Context(ctx) {
       文档清单快照ID: live.manifestSnapshotId,
       文档数: docs.length,
       模型目录核对结果: live.modelVerified ? '一致' : '不一致',
+      关键词扫描规则版本: ruleSetVersion ? `v${ruleSetVersion}（启用 ${rules.length} 条规则，零留存流式扫描）` : '未启用外部词库',
+      关键词扫描结论: blockedCount > 0 ? `阻断（${blockedCount} 份文档命中阻断词）` : warnCount > 0 ? `告警放行（${warnCount} 份文档命中告警词）` : '通过（未命中敏感关键词）',
       文档审查明细: docs,
     },
     preconditions: [

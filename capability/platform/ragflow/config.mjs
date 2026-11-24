@@ -37,6 +37,7 @@ export function getRagflowConfig() {
       token,
       tenantId: process.env.RAGFLOW_TENANT_ID ?? ragflowConnectorMeta?.tenantId ?? null,
       externalEndpoint: process.env.RAGFLOW_EXTERNAL_ENDPOINT ?? ragflowConnectorMeta?.externalEndpoint ?? '',
+      externalApiKey: process.env.RAGFLOW_API_KEY ?? ragflowConnectorMeta?.externalApiKey ?? '',
       adapterVersion: ragflowConnectorMeta?.adapterVersion ?? process.env.RAGFLOW_VERSION ?? '0.22.1',
       isReal: configured,
     }
