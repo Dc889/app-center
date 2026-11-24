@@ -1,5 +1,13 @@
 import { check } from '../../../../runtime/http.mjs'
 
+const MODE_LABELS = {
+  'advanced-chat': 'Chatflow',
+  workflow: 'Workflow',
+  'agent-chat': 'Agent',
+  chat: 'Chatbot',
+  completion: '文本生成',
+}
+
 export function agentWarehouseReport({
   query,
   identity,
@@ -23,27 +31,34 @@ export function agentWarehouseReport({
     if (!agent) {
       // 允许新发布生效的智能体动态进入仓库
       if (app.ticketType === 'AG-01' || app.ticketType === 'AG-02') {
+        const fields = app.submission?.fields ?? {}
+        const resolvedName = app.snapshot?.name || app.snapshot?.data?.name || fields.name || targetAgentId
+        const resolvedDesc = fields.scenario || fields.instructions || fields.description || '已上架发布的智能体。'
+        const resolvedTags = [fields.businessLine, fields.classification].filter(Boolean)
+        const resolvedMethods = Array.isArray(fields.usages) && fields.usages.length ? fields.usages : ['run', 'api']
+        const resolvedVisibleOrgs = fields.scope === 'orgs' && Array.isArray(fields.targetOrgs) ? fields.targetOrgs : []
+        const rawMode = app.snapshot?.data?.mode
         agent = {
           id: targetAgentId,
-          name: app.submission?.fields?.name ?? targetAgentId,
+          name: resolvedName,
           emoji: '🤖',
           developer: app.account,
           developerAccount: app.account,
           org: app.org,
-          description: app.submission?.fields?.description ?? '已上架发布的新智能体。',
-          tags: ['工单发布'],
+          description: resolvedDesc,
+          tags: resolvedTags.length ? resolvedTags : ['工单发布'],
           directlyUsable: true,
-          methods: ['run', 'api'],
+          methods: resolvedMethods,
           unavailableReason: '',
-          visibleOrgs: [],
-          mode: 'Chatflow',
+          visibleOrgs: resolvedVisibleOrgs,
+          mode: MODE_LABELS[rawMode] ?? rawMode ?? 'Chatflow',
           baseSuccessCount: 0,
           releases: [
             {
               version: app.snapshot?.data?.publicationVersionId ?? 'v1.0',
               publishedAt: new Date(app.createdAt ?? now).toLocaleDateString('zh-CN'),
               changedAt: new Date(app.updatedAt ?? now).toLocaleDateString('zh-CN'),
-              summary: '通过工单审核发布上架',
+              summary: fields.instructions || '通过工单审核发布上架',
               ticket: app.ticketNo,
             },
           ],
