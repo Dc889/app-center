@@ -169,8 +169,8 @@ export function SkillWarehouse({role}: {role: Role; onWorkOrder?: (title: string
           onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接下载' | '申请下载')}
         >
           <option value="全部方式">使用方式</option>
-          <option value="直接下载">直接下载（即办）</option>
-          <option value="申请下载">申请下载（待核验）</option>
+          <option value="直接下载">直接下载</option>
+          <option value="申请下载">申请下载</option>
         </select>
         <button className="secondary-button" disabled={loading} onClick={() => { setCatalog([]); setError(''); setLoading(true); setCursor(''); setNextCursor(null); setRefresh(value => value + 1) }}>刷新目录</button>
         {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多</button>}

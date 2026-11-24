@@ -125,7 +125,7 @@ function InvocationTrace({ log, onClose }: { log: InvocationLog; onClose: () => 
         <div>
           <span className="mini-label">调用溯源</span>
           <h4>{log.appName} <em>序号 {log.seq}</em></h4>
-          <p>{log.time} · {log.ownerName}（{log.ownerAccount}）· {log.sourceIp}</p>
+          <p>{log.time} · {log.ownerName} · {log.ownerAccount} · {log.sourceIp}</p>
         </div>
         <div>
           <span className={`status ${log.result === '成功' ? 'success' : 'danger'}`}>{log.result}</span>

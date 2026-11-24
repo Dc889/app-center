@@ -185,7 +185,7 @@ export function SkillMonitor({ role }: { role: 'user' | 'ops' | 'admin' }) {
               <div className="panel-header">
                 <div>
                   <h3>下载趋势</h3>
-                  <small>成功下载 / 失败或取消次数（{range} 窗口）</small>
+                  <small>成功下载与失败取消趋势 · {range}</small>
                 </div>
               </div>
               <div style={{ width: '100%', height: 230 }}>
@@ -206,7 +206,7 @@ export function SkillMonitor({ role }: { role: 'user' | 'ops' | 'admin' }) {
               <div className="panel-header">
                 <div>
                   <h3>下载人组织分布</h3>
-                  <small>成功交付人员所属组织（已去重 {data.uniqueAccounts} 人）</small>
+                  <small>交付组织分布 · 去重 {data.uniqueAccounts} 人</small>
                 </div>
               </div>
               <div style={{ width: '100%', height: 230 }}>
@@ -231,7 +231,7 @@ export function SkillMonitor({ role }: { role: 'user' | 'ops' | 'admin' }) {
           <section className="panel table-panel">
             <div className="panel-header table-header">
               <div>
-                <h3>下载明细（结算流水台账）</h3>
+                <h3>下载明细</h3>
                 <small>共 {data.deliveries.total} 条交付记录，当前窗口成功去重账户数：{data.uniqueAccounts}</small>
               </div>
               <form onSubmit={handleSearch} className="filter-form">
@@ -299,7 +299,7 @@ export function SkillMonitor({ role }: { role: 'user' | 'ops' | 'admin' }) {
             {data.deliveries.total > 0 && (
               <div className="pagination-bar">
                 <span>
-                  第 {data.deliveries.page} 页，共 {Math.ceil(data.deliveries.total / data.deliveries.pageSize)} 页（共 {data.deliveries.total} 条）
+                  第 {data.deliveries.page} / {Math.ceil(data.deliveries.total / data.deliveries.pageSize)} 页 · 共 {data.deliveries.total} 条
                 </span>
                 <div className="pagination-buttons">
                   <button

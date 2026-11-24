@@ -176,8 +176,8 @@ export function PluginWarehouse({role}: {role: Role}) {
           onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接安装' | '申请安装')}
         >
           <option value="全部方式">使用方式</option>
-          <option value="直接安装">直接安装（即办）</option>
-          <option value="申请安装">申请安装（审批）</option>
+          <option value="直接安装">直接安装</option>
+          <option value="申请安装">申请安装</option>
         </select>
         <button className="secondary-button" disabled={loading} onClick={() => { setItems([]); setCursor(''); setNextCursor(null); setLoading(true); setReload(value => value + 1) }}>刷新目录</button>
         {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多</button>}

@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {Check, Play, Plus, RefreshCw, ShieldAlert, X} from 'lucide-react'
+import {AlertTriangle, Check, CheckCircle2, Play, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, X} from 'lucide-react'
 import {PageHeader} from '../../shared-ui/UiContext'
 
 type KeywordRule = {
@@ -26,16 +26,18 @@ type DryRunResult = {
   hits: Array<{ruleId: string; category: string; pattern: string; severity: string; matchCount: number; sample: string}>
 }
 
+const CATEGORIES = ['全部', '涉密标识', '个人隐私', '凭据明文', '业务合规']
+
 export function KeywordRulesPage() {
   const [version, setVersion] = useState(1)
   const [items, setItems] = useState<KeywordRule[]>([])
   const [tickets, setTickets] = useState<ConfigTicket[]>([])
   const [catTab, setCatTab] = useState('全部')
+  const [keyword, setKeyword] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [reload, setReload] = useState(0)
 
-  // Add form -> CFG-02
   const [category, setCategory] = useState('涉密标识')
   const [pattern, setPattern] = useState('')
   const [matchMode, setMatchMode] = useState('关键词包含')
@@ -43,7 +45,6 @@ export function KeywordRulesPage() {
   const [note, setNote] = useState('')
   const [reason, setReason] = useState('')
 
-  // Dry-run scanner
   const [sampleText, setSampleText] = useState('')
   const [dryRun, setDryRun] = useState<DryRunResult | null>(null)
 
@@ -61,7 +62,12 @@ export function KeywordRulesPage() {
     return () => { active = false }
   }, [reload])
 
-  const filtered = catTab === '全部' ? items : items.filter(i => i.category === catTab)
+  const q = keyword.trim().toLowerCase()
+  const filtered = items.filter(i => {
+    if (catTab !== '全部' && i.category !== catTab) return false
+    if (!q) return true
+    return [i.pattern, i.category, i.note, i.matchMode].some(v => (v || '').toLowerCase().includes(q))
+  })
 
   async function runDryScan() {
     if (!sampleText.trim()) return
@@ -74,7 +80,8 @@ export function KeywordRulesPage() {
   }
 
   async function submitAdd() {
-    if (!pattern.trim() || !reason.trim()) { setNotice('请填写关键词/正则与变更原因'); return }
+    if (!pattern.trim()) { setNotice('请填写关键词或正则表达式'); return }
+    const finalReason = reason.trim() || `新增${category}规则：${pattern.trim()}`
     setBusy(true)
     try {
       const res = await fetch('/api/config-tickets', {
@@ -82,13 +89,13 @@ export function KeywordRulesPage() {
         headers: {'content-type': 'application/json'},
         body: JSON.stringify({
           ticketType: 'CFG-02',
-          reason: reason.trim(),
+          reason: finalReason,
           payload: {operation: '新增词条', category, pattern: pattern.trim(), matchMode, severity, targets: ['知识库文档', 'Skill 包', 'MCP 响应'], note: note.trim()},
         }),
       })
       const data = await res.json()
       if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交 ${data.ticketNo}，批准后更新词库版本`)
+      setNotice(`已提交变更单 ${data.ticketNo}，请在下方审批记录中批准生效`)
       setPattern('')
       setNote('')
       setReason('')
@@ -140,111 +147,208 @@ export function KeywordRulesPage() {
     }
   }
 
+  const enabledCount = items.filter(i => i.enabled).length
+  const blockCount = items.filter(i => i.enabled && i.severity === '阻断').length
+  const pendingCount = tickets.filter(t => t.status === '待受理').length
+
   return (
-    <div data-testid="keyword-rules-page">
-      <div className="warehouse-top-bar">
+    <div className="org-page-stack" data-testid="keyword-rules-page">
+      <div className="org-header-row">
         <PageHeader view="keywordRules" />
-        <div className="warehouse-kpi-strip">
-          <div className="warehouse-kpi-pill"><ShieldAlert size={15} /><span>词库版本</span><strong>v{version}</strong></div>
-          <div className="warehouse-kpi-pill"><span>启用词条</span><strong>{items.filter(i => i.enabled).length}</strong></div>
-          <div className="warehouse-kpi-pill"><span>阻断级</span><strong>{items.filter(i => i.enabled && i.severity === '阻断').length}</strong></div>
+        <button type="button" className="app-icon-btn" onClick={() => setReload(v => v + 1)}>
+          <RefreshCw size={14} />
+          <span>刷新数据</span>
+        </button>
+      </div>
+
+      {/* 4 等宽对齐 KPI 指标卡 */}
+      <div className="org-kpi-grid">
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon blue"><ShieldCheck size={18} /></div>
+          <div className="org-kpi-meta"><span>当前词库版本</span><strong>v{version}</strong></div>
+        </div>
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon green"><Check size={18} /></div>
+          <div className="org-kpi-meta"><span>启用词条数</span><strong>{enabledCount}</strong></div>
+        </div>
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon amber"><ShieldAlert size={18} /></div>
+          <div className="org-kpi-meta"><span>阻断级词条</span><strong>{blockCount}</strong></div>
+        </div>
+        <div className="org-kpi-card">
+          <div className="org-kpi-icon slate"><AlertTriangle size={18} /></div>
+          <div className="org-kpi-meta"><span>待审批变更</span><strong>{pendingCount}</strong></div>
         </div>
       </div>
 
-      {notice && <p role="status" data-testid="kw-notice">{notice}</p>}
+      {notice && <div className="app-banner info" role="status" data-testid="kw-notice">{notice}</div>}
 
-      {/* 在线试扫测试 */}
-      <section className="panel" style={{padding: 16}}>
-        <div className="panel-header" style={{marginBottom: 8}}>
-          <h3>在线敏感词试扫验证（模拟知识库文档扫描，不留存文本）</h3>
-          <button type="button" className="secondary-button" onClick={() => setReload(v => v + 1)}><RefreshCw size={14} /> 刷新</button>
+      {/* 卡片 1：在线试扫验证 */}
+      <section className="org-card">
+        <div className="org-card-head">
+          <h3>在线敏感词试扫验证</h3>
+          <span className="app-type-tag">零留存内存扫描</span>
         </div>
-        <div className="warehouse-toolbar">
-          <input style={{flex: 1, minWidth: 260}} placeholder="粘贴测试文本（如：本文件为内部涉密材料，password=123456）" value={sampleText} onChange={e => setSampleText(e.target.value)} />
-          <button type="button" className="primary-button" onClick={() => void runDryScan()}><Play size={14} /> 立即试扫</button>
+        <div className="cfg-inline-grid">
+          <label className="org-field">
+            <span>测试文本</span>
+            <input
+              placeholder="输入或粘贴待检测文本，如：本文件为内部涉密材料，password=123456"
+              value={sampleText}
+              onChange={e => setSampleText(e.target.value)}
+            />
+          </label>
+          <div className="org-field org-field-action">
+            <span aria-hidden="true">&nbsp;</span>
+            <button type="button" className="primary-button" onClick={() => void runDryScan()}>
+              <Play size={14} /> 立即试扫
+            </button>
+          </div>
         </div>
         {dryRun && (
-          <div style={{marginTop: 10, padding: '10px 12px', borderRadius: 8, background: dryRun.verdict === '通过' ? '#ecfdf3' : '#fef3f2', color: dryRun.verdict === '通过' ? '#067647' : '#b42318', fontSize: 13}}>
-            <strong>扫描结论：{dryRun.verdict}</strong>（词库 v{dryRun.ruleSetVersion}）
-            {dryRun.hits.length > 0 && ` · 命中 ${dryRun.hits.map(h => `[${h.severity}] ${h.pattern}`).join('、')}`}
+          <div className={`app-banner ${dryRun.verdict === '通过' ? 'info' : 'danger'}`}>
+            {dryRun.verdict === '通过' ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+            <span>
+              <strong>扫描结论：{dryRun.verdict}</strong> · 词库 v{dryRun.ruleSetVersion}
+              {dryRun.hits.length > 0 && ` · 命中 ${dryRun.hits.map(h => `${h.severity} ${h.pattern}`).join('、')}`}
+            </span>
           </div>
         )}
       </section>
 
-      {/* 新增敏感词 -> CFG-02 */}
-      <section className="panel" style={{padding: 16}}>
-        <div className="panel-header" style={{marginBottom: 10}}><h3>新增敏感词条（提交 CFG-02 变更工单）</h3></div>
-        <div className="warehouse-toolbar">
-          <select value={category} onChange={e => setCategory(e.target.value)}>
-            <option>涉密标识</option><option>个人隐私</option><option>凭据明文</option><option>业务合规</option>
-          </select>
-          <select value={matchMode} onChange={e => setMatchMode(e.target.value)}>
-            <option>关键词包含</option><option>正则表达式</option>
-          </select>
-          <select value={severity} onChange={e => setSeverity(e.target.value)}>
-            <option>阻断</option><option>告警</option>
-          </select>
-          <input placeholder="关键词或正则表达式" value={pattern} onChange={e => setPattern(e.target.value)} />
-          <input placeholder="说明备注" value={note} onChange={e => setNote(e.target.value)} />
-          <input placeholder="变更原因（必填）" value={reason} onChange={e => setReason(e.target.value)} />
-          <button type="button" className="primary-button" disabled={busy} onClick={() => void submitAdd()}><Plus size={14} /> 提交 CFG-02</button>
+      {/* 卡片 2：新增敏感词条 */}
+      <section className="org-card">
+        <div className="org-card-head">
+          <h3>新增敏感词条</h3>
+        </div>
+        <div className="cfg-kw-grid">
+          <label className="org-field">
+            <span>规则分类</span>
+            <select value={category} onChange={e => setCategory(e.target.value)}>
+              <option>涉密标识</option><option>个人隐私</option><option>凭据明文</option><option>业务合规</option>
+            </select>
+          </label>
+          <label className="org-field">
+            <span>匹配方式</span>
+            <select value={matchMode} onChange={e => setMatchMode(e.target.value)}>
+              <option>关键词包含</option><option>正则表达式</option>
+            </select>
+          </label>
+          <label className="org-field">
+            <span>处置级别</span>
+            <select value={severity} onChange={e => setSeverity(e.target.value)}>
+              <option>阻断</option><option>告警</option>
+            </select>
+          </label>
+          <label className="org-field">
+            <span>关键词或正则</span>
+            <input placeholder="输入匹配表达式" value={pattern} onChange={e => setPattern(e.target.value)} />
+          </label>
+          <label className="org-field">
+            <span>规则说明</span>
+            <input placeholder="选填" value={note} onChange={e => setNote(e.target.value)} />
+          </label>
+          <label className="org-field">
+            <span>变更原因</span>
+            <input placeholder="留空自动生成" value={reason} onChange={e => setReason(e.target.value)} />
+          </label>
+          <div className="org-field org-field-action">
+            <span aria-hidden="true">&nbsp;</span>
+            <button type="button" className="primary-button" disabled={busy} onClick={() => void submitAdd()}>
+              <Plus size={14} /> 新增词条
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* 词库分类列表 */}
-      <div className="warehouse-toolbar">
-        <div className="usable-switch">
-          {['全部', '涉密标识', '个人隐私', '凭据明文', '业务合规'].map(c => (
-            <button key={c} type="button" className={catTab === c ? 'active' : ''} onClick={() => setCatTab(c)}>{c}</button>
-          ))}
+      {/* 卡片 3：敏感词库列表 */}
+      <section className="org-card">
+        <div className="org-card-head">
+          <div className="org-level-tabs">
+            {CATEGORIES.map(c => {
+              const count = c === '全部' ? items.length : items.filter(i => i.category === c).length
+              return (
+                <button key={c} type="button" className={catTab === c ? 'is-active' : ''} onClick={() => setCatTab(c)}>
+                  <span>{c}</span><em>{count}</em>
+                </button>
+              )
+            })}
+          </div>
+          <div className="app-list-search org-table-search">
+            <Search size={14} />
+            <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="搜索关键词、分类或说明" />
+          </div>
         </div>
-      </div>
 
-      <section className="panel table-panel">
-        <table className="data-table">
-          <thead>
-            <tr><th>分类</th><th>关键词 / 正则</th><th>匹配方式</th><th>级别</th><th>适用范围</th><th>状态</th><th>操作</th></tr>
-          </thead>
-          <tbody>
-            {filtered.map(r => (
-              <tr key={r.ruleId}>
-                <td>{r.category}</td>
-                <td><code>{r.pattern}</code></td>
-                <td>{r.matchMode}</td>
-                <td><span className={`status ${r.severity === '阻断' ? 'danger' : 'warning'}`}>{r.severity}</span></td>
-                <td>{r.targets.join('、')}</td>
-                <td><span className={`status ${r.enabled ? 'success' : 'warning'}`}>{r.enabled ? '启用' : '已停用'}</span></td>
-                <td>{r.enabled ? <button type="button" className="secondary-button" disabled={busy} onClick={() => void disableRule(r)}>申请停用</button> : '—'}</td>
+        <div className="org-table-wrap">
+          <table className="org-table">
+            <thead>
+              <tr>
+                <th>分类</th>
+                <th>关键词 / 正则</th>
+                <th>匹配方式</th>
+                <th>级别</th>
+                <th>适用范围</th>
+                <th>状态</th>
+                <th style={{textAlign: 'right'}}>操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map(r => (
+                <tr key={r.ruleId}>
+                  <td><span className="app-type-tag">{r.category}</span></td>
+                  <td><code className="org-code-chip">{r.pattern}</code></td>
+                  <td className="org-muted-cell">{r.matchMode}</td>
+                  <td><span className={`app-status-pill tone-${r.severity === '阻断' ? 'danger' : 'pending'}`}>{r.severity}</span></td>
+                  <td className="org-muted-cell">{r.targets.join('、')}</td>
+                  <td><span className={`app-status-pill tone-${r.enabled ? 'success' : 'muted'}`}>{r.enabled ? '启用' : '停用'}</span></td>
+                  <td style={{textAlign: 'right'}}>
+                    {r.enabled ? (
+                      <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void disableRule(r)}>申请停用</button>
+                    ) : <span className="org-muted-text">—</span>}
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={7} className="org-empty-cell">当前筛选条件下暂无词条</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <section className="panel table-panel">
-        <div className="panel-header"><h3>CFG-02 敏感词库变更工单</h3></div>
-        <table className="data-table">
-          <thead><tr><th>工单号</th><th>发起人</th><th>变更原因</th><th>状态</th><th>操作</th></tr></thead>
-          <tbody>
-            {tickets.map(t => (
-              <tr key={t.ticketNo}>
-                <td><code>{t.ticketNo}</code></td>
-                <td>{t.account}</td>
-                <td>{t.reason}</td>
-                <td><span className={`status ${t.status === '已完成' ? 'success' : t.status === '已驳回' ? 'danger' : 'warning'}`}>{t.status}</span></td>
-                <td>
-                  {t.status === '待受理' ? (
-                    <div className="draft-toolbar">
-                      <button type="button" className="primary-button" disabled={busy} onClick={() => void reviewTicket(t.ticketNo, '批准')}><Check size={14} /> 批准生效</button>
-                      <button type="button" className="secondary-button" disabled={busy} onClick={() => void reviewTicket(t.ticketNo, '驳回')}><X size={14} /> 驳回</button>
-                    </div>
-                  ) : '—'}
-                </td>
-              </tr>
-            ))}
-            {tickets.length === 0 && <tr><td colSpan={5} style={{textAlign: 'center', padding: 16}}>暂无 CFG-02 变更工单</td></tr>}
-          </tbody>
-        </table>
+      {/* 卡片 4：变更审批记录 */}
+      <section className="org-card">
+        <div className="org-card-head">
+          <h3>敏感词库变更工单</h3>
+          <span className="app-count-badge">{tickets.length}</span>
+        </div>
+        <div className="org-table-wrap">
+          <table className="org-table">
+            <thead>
+              <tr><th>工单号</th><th>发起人</th><th>变更原因</th><th>状态</th><th style={{textAlign: 'right'}}>操作</th></tr>
+            </thead>
+            <tbody>
+              {tickets.map(t => (
+                <tr key={t.ticketNo}>
+                  <td><code className="org-code-chip">{t.ticketNo}</code></td>
+                  <td>{t.account}</td>
+                  <td>{t.reason}</td>
+                  <td><span className={`app-status-pill tone-${t.status === '已完成' ? 'success' : t.status === '已驳回' ? 'danger' : 'pending'}`}>{t.status}</span></td>
+                  <td style={{textAlign: 'right'}}>
+                    {t.status === '待受理' ? (
+                      <div className="org-row-actions">
+                        <button type="button" className="primary-button org-btn-sm" disabled={busy} onClick={() => void reviewTicket(t.ticketNo, '批准')}><Check size={13} /> 批准</button>
+                        <button type="button" className="danger-outline-button org-btn-sm" disabled={busy} onClick={() => void reviewTicket(t.ticketNo, '驳回')}><X size={13} /> 驳回</button>
+                      </div>
+                    ) : <span className="org-muted-text">—</span>}
+                  </td>
+                </tr>
+              ))}
+              {tickets.length === 0 && <tr><td colSpan={5} className="org-empty-cell">暂无变更工单记录</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   )

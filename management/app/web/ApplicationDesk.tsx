@@ -264,7 +264,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
               </div>
 
               <div className="app-sheet-meta-bar">
-                <span><User size={13} /> 申请人：<strong>{row.account}</strong>{row.org ? `（${row.org}）` : ''}</span>
+                <span><User size={13} /> 申请人：<strong>{row.account}</strong>{row.org ? ` · ${row.org}` : ''}</span>
                 <span><Calendar size={13} /> 提交时间：<strong>{when(row.history?.[0]?.at)}</strong></span>
                 <span><Clock size={13} /> 当前修订：<strong>v{row.revision}</strong></span>
               </div>
@@ -423,7 +423,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
                     <textarea
                       value={note}
                       onChange={e=>setNote(e.target.value)}
-                      placeholder={applicantAction ? '请输入撤回原因（必填）' : '请输入审批意见（必填，例如：组件核验通过，同意上架）'}
+                      placeholder={applicantAction ? '请输入撤回原因' : '请输入审批意见'}
                       rows={3}
                     />
                   </label>
@@ -466,7 +466,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
               {error && <div className="app-banner danger" role="alert"><AlertTriangle size={15}/> {error}</div>}
 
               <details className="app-raw-payload">
-                <summary>查看工单审计报文（供排障使用）</summary>
+                <summary>查看工单审计报文</summary>
                 <pre>{JSON.stringify({ticketNo:row.ticketNo,snapshotId:row.snapshot.snapshotId,submission:row.submission.fields,verification:row.snapshot.fields ?? null},null,2)}</pre>
               </details>
             </div>

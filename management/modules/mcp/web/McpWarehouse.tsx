@@ -176,8 +176,8 @@ export function McpWarehouse({role}: {role: Role}) {
           onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接绑定' | '申请绑定')}
         >
           <option value="全部方式">使用方式</option>
-          <option value="直接绑定">直接绑定（即办）</option>
-          <option value="申请绑定">申请绑定（审批）</option>
+          <option value="直接绑定">直接绑定</option>
+          <option value="申请绑定">申请绑定</option>
         </select>
         <button className="secondary-button" disabled={loading} onClick={() => { setItems([]); setCursor(''); setNextCursor(null); setLoading(true); setReload(value => value + 1) }}>刷新目录</button>
         {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多</button>}

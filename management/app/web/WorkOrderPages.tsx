@@ -369,7 +369,7 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
     {activeTab === 'accounts' && role === 'admin' && <AccountDesk view={view}/>}
     {activeTab === 'skills' && role === 'ops' && view === 'todo' && <SkillCancellationDesk/>}
     {activeTab === 'tickets' && view !== 'todo' && <section className="panel list-panel">
-      <div className="panel-header"><div><h3>即办执行工单</h3><small>免审批、提交后直接下发执行的工单（如插件安装、MCP 绑定、Skill 文件领取）。</small></div></div>
+      <div className="panel-header"><div><h3>即办执行工单</h3></div></div>
       <div className="list-toolbar"><input aria-label="搜索执行工单" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索工单号、类型或申请对象"/>
       <select aria-label="执行状态" value={status} onChange={e=>setStatus(e.target.value)}><option value="">全部状态</option>{[...new Set(items.map(row=>row[3]))].map(s=><option key={s}>{s}</option>)}</select>
       <button className="secondary-button" onClick={()=>setReload(v=>v+1)}>刷新</button></div>

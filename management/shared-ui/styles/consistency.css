@@ -1819,3 +1819,29 @@ input[type='checkbox'], input[type='radio'] {
   padding-top: 12px;
   border-top: 1px solid #eaecf0;
 }
+
+/* Aligned form grids for /keyword-rules and /mcp-test-suites */
+.cfg-inline-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.cfg-kw-grid {
+  display: grid;
+  grid-template-columns: 120px 130px 100px minmax(150px, 1.2fr) minmax(120px, 0.9fr) minmax(140px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.cfg-mcp-grid {
+  display: grid;
+  grid-template-columns: 140px 160px minmax(200px, 1.4fr) minmax(150px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 1180px) {
+  .cfg-kw-grid,
+  .cfg-mcp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

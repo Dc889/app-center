@@ -94,9 +94,9 @@
 | 组织机构管理 | `/organizations` | ✅ 已完成 | 4 等宽 KPI + 全宽对齐卡片 + 直接命名新增 + 零括号文案 |
 | 纳管子系统 | `/subsystems` | ✅ 已完成 | 4 等宽 KPI + 3 列对齐卡片网格 + 侧栏配置抽屉 |
 | 四大资源仓库 | `/agents`, `/plugins`, `/mcps`, `/skills` | ✅ 已完成 | 统一 5 段式 Dify 风格商业化卡片布局 |
-| 敏感关键词词库 | `/keyword-rules` | ⬜ 待按本规范对齐 | 建议复用 `.org-page-stack` + 4 列 KPI + 去括号文案 |
-| MCP 预设测试集 | `/mcp-test-suites` | ⬜ 待按本规范对齐 | 建议复用 `.org-page-stack` + 4 列 KPI + 去括号文案 |
-| 各类监控大屏与日志页 | `/agent-monitor`, `/knowledge-monitor`, `/service-monitor` 等 | ⬜ 待按本规范微调 | 统一卡片边距、去掉多余小字与括号 |
+| 敏感关键词词库 | `/keyword-rules` | ✅ 已完成 | 4 等宽 KPI + 在线试扫卡 + 38px 对齐新增网格 + 角标分类表 |
+| MCP 预设测试集 | `/mcp-test-suites` | ✅ 已完成 | 4 等宽 KPI + 在线探测联调卡 + 38px 对齐新增网格 + 角标分类表 |
+| 各类监控大屏与日志页 | `/agent-monitor`, `/knowledge-monitor`, `/service-monitor` 等 | ✅ 已完成 | 清理全部括号说明与冗余小字，统一卡片与指标文案 |
 
 ---
 
