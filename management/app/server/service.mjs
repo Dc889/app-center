@@ -343,6 +343,10 @@ export function managementApi(options) {
       check(req.method==='GET' && identity?.active,403,'ACCESS_DENIED')
       const input=new URL(req.url,'http://localhost').searchParams
       check(input.get('product')==='dify',400,'INVALID_PRODUCT')
+      const profile=directory.get(identity.subjectId)
+      if(profile?.workspaceId && !input.get('cursor')) {
+        return json(res,{items:[{workspaceId:profile.workspaceId,name:`${profile.name}的工作区`}],nextCursor:null})
+      }
       const params=new URLSearchParams({product:'dify'})
       for(const key of ['cursor','limit']) {
         const value=input.get(key)
