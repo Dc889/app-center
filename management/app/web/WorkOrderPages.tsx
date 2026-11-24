@@ -331,8 +331,8 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
       const {items:tickets}=await response.json()
       const labels:Record<string,string>={succeeded:'已完成',failed:'执行失败',cancelled:'已终止',queued:'等待执行',running:'执行中',reconciling:'正在查证',awaiting_delivery:'待领取文件'}
       if(active) {
-        setItems(tickets.map((t:{ticketNo:string;ticketType:string;selection:string;status:string;account:string;updatedAt:string;cancelStatus?:string;deliveryClosed?:boolean})=>
-          [t.ticketNo,t.ticketType,t.selection,t.status==='awaiting_delivery' && (t.cancelStatus || t.deliveryClosed)?t.cancelStatus?'取消待查证':'交付已封存':labels[t.status] ?? t.status,t.account,Number.isFinite(Date.parse(t.updatedAt))?new Date(t.updatedAt).toLocaleString('zh-CN',{hour12:false}):t.updatedAt]))
+        setItems(tickets.map((t:{ticketNo:string;ticketType:string;selection:string;resourceName?:string;status:string;account:string;updatedAt:string;cancelStatus?:string;deliveryClosed?:boolean})=>
+          [t.ticketNo,t.ticketType,t.resourceName || t.selection,t.status==='awaiting_delivery' && (t.cancelStatus || t.deliveryClosed)?t.cancelStatus?'取消待查证':'交付已封存':labels[t.status] ?? t.status,t.account,Number.isFinite(Date.parse(t.updatedAt))?new Date(t.updatedAt).toLocaleString('zh-CN',{hour12:false}):t.updatedAt]))
         setError('')
       }
     }).catch(()=>{if(active)setError('读取工单失败，请刷新重试')})

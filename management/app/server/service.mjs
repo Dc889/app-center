@@ -506,9 +506,11 @@ export function managementApi(options) {
         check(row.selection===input.resourceId && row.command.ticketType===input.ticketType && (input.version===undefined || row.command.payload.version===input.version),409,'EXECUTION_CONFLICT')
       } else {
         const command={executionId:id(),ticketNo:input.ticketNo,ticketType:input.ticketType,ticketTypeVersion:types.activeVersion(input.ticketType,input.ticketType==='PLG-03'?process.env.DIFY_WORKSPACE_ID:''),action:input.action,resourceId:input.resourceId,account:input.account,org:demoAccounts.get(input.account)}
+        let resourceName = ''
         if (input.ticketType==='SKL-03') {
           const item=await findSkill(input.resourceId,command)
           command.resourceId=item.resourceId
+          resourceName=item.name || ''
           let version=item
           if(input.version!==undefined) {
             version=await(await cap('/catalog/skill/'+encodeURIComponent(item.resourceId)+'?version='+encodeURIComponent(input.version),
@@ -521,6 +523,7 @@ export function managementApi(options) {
           check(options.resolveInstallAccount && await options.resolveInstallAccount(req)===input.account,501,'UPSTREAM_UNSUPPORTED','真实安装需要已验证的管理端会话')
           check(process.env.DIFY_INSTALL_ACCOUNT===input.account && process.env.DIFY_WORKSPACE_ID,501,'UPSTREAM_UNSUPPORTED','无法自动执行：未配置 Dify 安装身份')
           const item = await (await cap('/catalog/plugin/'+encodeURIComponent(input.resourceId),'GET',undefined,ownerHeaders({command}))).json()
+          resourceName=item.name || ''
           command.payload={version:item.data.version,sha256:item.data.sha256,workspaceId:process.env.DIFY_WORKSPACE_ID}
         }
         // Recheck after asynchronous preflight, before inserting the frozen command.
@@ -531,7 +534,7 @@ export function managementApi(options) {
             409,'TYPE_VERSION_CHANGED','类型版本已变化，请重新申请')
           const p=directory.byAccount(input.account)
           row=tickets.put(input.ticketNo,{ticketNo:input.ticketNo,owner,ownerSubjectId:p.subjectId,ownerRevision:p.revision,originDraft:req.draftClaim ?? null,
-            ownerRole:identity?.roles[0] ?? demoAccounts.role(input.account),selection:input.resourceId,command,state:null,
+            ownerRole:identity?.roles[0] ?? demoAccounts.role(input.account),selection:input.resourceId,resourceName:resourceName || input.resourceId,command,state:null,
             history:[{at:new Date().toISOString(),actor:input.account,action:'提交执行申请'}]})
         }
       }
@@ -550,7 +553,7 @@ export function managementApi(options) {
         return owns(row) && (row.command.account===account || account===identity?.account && directory.owns(row.command.account,identity))
       }).reverse().map(row=>({
         ...(!staffQuery && row.state ? visible(row) : {}),
-        ticketNo:row.ticketNo,ticketType:row.command.ticketType,selection:row.selection,executionId:row.command.executionId,
+        ticketNo:row.ticketNo,ticketType:row.command.ticketType,selection:row.selection,resourceName:row.resourceName || row.selection,executionId:row.command.executionId,
         cancelStatus:row.cancelRequest?.status ?? null,cancelError:row.cancelRequest?.error ?? null,deliveryClosed:!!row.deliveryClosure,
         status:row.state?.status ?? 'reconciling',failureReason:row.state?.result?.failureReason ?? '',
         updatedAt:row.state?.updatedAt ?? '',account:row.command.account,

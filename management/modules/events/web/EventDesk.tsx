@@ -17,6 +17,7 @@ export function EventDesk({view,account}:{view:string;account:string}) {
   const [note,setNote]=useState('')
   const [error,setError]=useState('')
   const [named,setNamed]=useState<{id:string;name:string}|null>(null)
+  const [nameMap,setNameMap]=useState<Record<string,string>>({})
   const [related,setRelated]=useState<Related[]>([])
   const [picked,setPicked]=useState<string[]>([])
   const [reload,setReload]=useState(0)
@@ -26,10 +27,25 @@ export function EventDesk({view,account}:{view:string;account:string}) {
     fetch('/api/events?view='+view).then(async response=>{
       if(!response.ok) throw Error('无法读取事件工单')
       const data=await response.json()
-      if(active) {setItems(data.items);setError('')}
+      if(active) {
+        setItems(data.items)
+        setSelected(prev=>data.items.some((i:Entry)=>i.ticketNo===prev)?prev:(data.items[0]?.ticketNo ?? ''))
+        setError('')
+      }
     }).catch(e=>{if(active)setError(e.message)})
     return ()=>{active=false}
   },[view,reload])
+  useEffect(()=>{
+    if(!items.length)return
+    let active=true
+    Promise.all(['agent','plugin','mcp','skill'].map(k=>fetch('/api/catalog?kind='+k).then(r=>r.ok?r.json():{items:[]}).catch(()=>({items:[]})))).then(results=>{
+      if(!active)return
+      const map:Record<string,string>={}
+      for(const res of results) for(const it of (res.items ?? [])) if(it?.resourceId && it?.name) map[it.resourceId]=it.name
+      setNameMap(map)
+    })
+    return ()=>{active=false}
+  },[items])
   const row=items.find(item=>item.ticketNo===selected)
   const objectKind=({插件:'plugin',MCP:'mcp',智能体:'agent',智能体仓库:'agent'} as Record<string,string>)[row?.objectType ?? '']
   const objectName=!row || !objectKind ? '未采集' : named?.id===row.resourceId ? named.name : '未采集'
@@ -73,7 +89,7 @@ export function EventDesk({view,account}:{view:string;account:string}) {
     finally {setBusy(false)}
   }
   return <section className="panel list-panel"><h3>事件工单</h3><button className="secondary-button" disabled={busy} onClick={()=>setReload(v=>v+1)}>刷新事件</button>
-    {items.map(item=><button key={item.ticketNo} disabled={busy} className="secondary-button" onClick={()=>{setSelected(item.ticketNo);setLinkedNumbers(item.disposition?.linkedTicketNos?.join(', ') ?? '');setDeadline('');setNote('');setError('');setDisposition(item.disposition ? {...item.disposition,recovered:item.disposition.recovered ?? false,recoveredAt:item.disposition.recoveredAt ?? ''} : {actions:['观察'],result:'',recovered:false,recoveredAt:''});setAssessment(item.assessment ?? {severity:'一般',conclusion:'真实故障',cause:'未知',impact:''})}}>{item.ticketNo} · {item.resourceId} · {item.status}</button>)}
+    {items.map(item=><button key={item.ticketNo} disabled={busy} className="secondary-button" onClick={()=>{setSelected(item.ticketNo);setLinkedNumbers(item.disposition?.linkedTicketNos?.join(', ') ?? '');setDeadline('');setNote('');setError('');setDisposition(item.disposition ? {...item.disposition,recovered:item.disposition.recovered ?? false,recoveredAt:item.disposition.recoveredAt ?? ''} : {actions:['观察'],result:'',recovered:false,recoveredAt:''});setAssessment(item.assessment ?? {severity:'一般',conclusion:'真实故障',cause:'未知',impact:''})}}>{nameMap[item.resourceId] ? `${nameMap[item.resourceId]} · ` : ''}{item.ticketNo} · {item.status}</button>)}
     {row && <div className="editor-section"><p>{row.account} · {row.objectType} · {row.alertId} · {row.facts}</p>
       <p>目录对象名称 · {objectName}</p>
       <div data-testid="event-attachments">{(row.attachments ?? []).map(item=><p key={item.evidenceId}><a href={'/api/evidence/'+item.evidenceId+'/file'}>{item.filename}</a> · {item.sha256}</p>)}

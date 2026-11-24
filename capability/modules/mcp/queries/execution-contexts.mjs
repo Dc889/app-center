@@ -61,8 +61,10 @@ export async function mcp03Context({res, query, clients, identity, openLedger}) 
     ticketType: 'MCP-03',
     action,
     resourceId: item.resourceId,
+    name: item.name,
     capturedAt: new Date().toISOString(),
     fields: {
+      'MCP名称': item.name,
       '绑定清单快照ID': `bset-${item.resourceId}-r${item.revision}-${deduped.length}`,
       '绑定清单完整': true,
       '绑定清单': deduped,
