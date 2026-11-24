@@ -32,7 +32,6 @@ function isDirectlyUsable(item: CatalogItem & {install: string}): boolean {
 }
 
 export function PluginWarehouse({role}: {role: Role}) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [workspaceId, setWorkspaceId] = useState('')
   const [items, setItems] = useState<Array<CatalogItem & {install: string}>>([])
   const [cursor, setCursor] = useState('')
@@ -43,10 +42,6 @@ export function PluginWarehouse({role}: {role: Role}) {
   const [usableTab, setUsableTab] = useState<'全部' | '可直接使用' | '暂不可用'>('全部')
   const [methodFilter, setMethodFilter] = useState<'全部方式' | '直接安装' | '申请安装'>('全部方式')
   const [selectedId, setSelectedId] = useState('')
-  const [operation, setOperation] = useState('安装')
-  const [purpose, setPurpose] = useState('')
-  const [notice, setNotice] = useState('')
-  const [busy, setBusy] = useState(false)
   const request = useRef(0)
   const [reload, setReload] = useState(0)
 
@@ -56,7 +51,6 @@ export function PluginWarehouse({role}: {role: Role}) {
     readDirectoryPages('/api/workspaces?product=dify', isWorkspace, controller.signal)
       .then(rows => {
         if (!active) return
-        setWorkspaces(rows)
         if (rows.length > 0) setWorkspaceId(prev => prev || rows[0].workspaceId)
       })
       .catch(() => {})
@@ -88,18 +82,6 @@ export function PluginWarehouse({role}: {role: Role}) {
     return () => controller.abort()
   }, [workspaceId, cursor, reload])
 
-  function chooseWorkspace(next: string) {
-    request.current += 1
-    setWorkspaceId(next)
-    setItems([])
-    setCursor('')
-    setNextCursor(null)
-    setSelectedId('')
-    setNotice('')
-    setError('')
-    setLoading(true)
-  }
-
   const availableCount = items.filter(item => !isUnavailable(item.status)).length
   const ranked = [...items]
     .filter(item => !isUnavailable(item.status))
@@ -119,34 +101,6 @@ export function PluginWarehouse({role}: {role: Role}) {
     return true
   })
   const selected = filtered.find(item => item.resourceId === selectedId) ?? filtered[0]
-
-  async function submit() {
-    if (!selected || !workspaceId || !purpose.trim()) {
-      setNotice(!workspaceId ? '请先选择目标工作区' : '请填写使用目的')
-      return
-    }
-    const installationId = typeof selected.data?.installationId === 'string' ? selected.data.installationId : ''
-    if ((operation === '升级' || operation === '卸载') && !installationId) {
-      setNotice('当前工作区没有已采集的安装实例，不能' + operation)
-      return
-    }
-    setBusy(true)
-    try {
-      const ticketNo = 'PLG-03-' + crypto.randomUUID()
-      const response = await fetch('/api/applications', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({ticketNo, ticketType: 'PLG-03', resourceId: selected.resourceId, workspaceId, fields: {operation, purpose, installationId}}),
-      })
-      const data = await response.json()
-      if (!response.ok) throw Error(data.error?.message ?? '插件操作提交失败')
-      setNotice(data.ticketNo + ' · ' + data.status)
-    } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : '插件操作提交失败')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <div data-testid="plugin-warehouse">
@@ -215,14 +169,16 @@ export function PluginWarehouse({role}: {role: Role}) {
             </button>
           ))}
         </div>
-        <label className="log-filter">
-          <span>使用方式</span>
-          <select aria-label="插件使用方式筛选" value={methodFilter} onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接安装' | '申请安装')}>
-            <option value="全部方式">全部方式</option>
-            <option value="直接安装">直接安装（即办）</option>
-            <option value="申请安装">申请安装（审批）</option>
-          </select>
-        </label>
+        <select
+          className="warehouse-method"
+          aria-label="使用方式"
+          value={methodFilter}
+          onChange={event => setMethodFilter(event.target.value as '全部方式' | '直接安装' | '申请安装')}
+        >
+          <option value="全部方式">使用方式</option>
+          <option value="直接安装">直接安装（即办）</option>
+          <option value="申请安装">申请安装（审批）</option>
+        </select>
         <button className="secondary-button" disabled={loading} onClick={() => { setItems([]); setCursor(''); setNextCursor(null); setLoading(true); setReload(value => value + 1) }}>刷新目录</button>
         {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多</button>}
       </div>
@@ -270,35 +226,6 @@ export function PluginWarehouse({role}: {role: Role}) {
             {filtered.length === 0 && !loading && <div className="agent-empty">没有符合当前筛选的插件。</div>}
           </div>
         </div>
-
-        {selected && (
-          <aside className="panel" data-testid="plugin-detail">
-            <h3>{selected.name}</h3>
-            <p className="version-meta">状态 · {selected.status} · {selected.install}</p>
-            {workspaces.length > 0 && (
-              <label>
-                目标工作区
-                <select aria-label="插件仓库工作区" value={workspaceId} onChange={event => chooseWorkspace(event.target.value)}>
-                  {workspaces.map(row => <option key={row.workspaceId} value={row.workspaceId}>{row.name}</option>)}
-                </select>
-              </label>
-            )}
-            <label>
-              操作
-              <select aria-label="仓库插件操作" value={operation} onChange={event => setOperation(event.target.value)}>
-                <option>安装</option>
-                <option>升级</option>
-                <option>卸载</option>
-              </select>
-            </label>
-            <label>
-              使用目的
-              <textarea aria-label="插件仓库使用目的" value={purpose} onChange={event => setPurpose(event.target.value)} />
-            </label>
-            <button className="primary-button" disabled={busy} onClick={() => void submit()}>提交 PLG-03</button>
-            {notice && <p role="status" data-testid="plugin-notice">{notice}</p>}
-          </aside>
-        )}
       </div>
       <p data-role={role} hidden>插件仓库</p>
     </div>

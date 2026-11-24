@@ -7,6 +7,8 @@ export * from './server/dataset-disposition.mjs'
 export * from './server/dataset-review.mjs'
 export * from './server/knowledge-monitor.mjs'
 export * from './server/routeKnowledgeMonitor.mjs'
+export * from './server/routeKnowledgeWarehouse.mjs'
+export * from './server/knowledge-warehouse.mjs'
 export * from './server/submitKB02.mjs'
 export * from './server/submitKB03.mjs'
 export * from './server/submitKB05.mjs'
@@ -16,12 +18,14 @@ import {check} from '../../../runtime/http.mjs'
 import {bindingCandidates,bindingContext} from './server/dataset-binding.mjs'
 import {datasetDispositionCandidates,datasetDispositionContext} from './server/dataset-disposition.mjs'
 import {routeKnowledgeMonitor} from './server/routeKnowledgeMonitor.mjs'
+import {routeKnowledgeWarehouse} from './server/routeKnowledgeWarehouse.mjs'
 import {knowledgeWorkflows} from './server/workflows.mjs'
 
 export const moduleServer=Object.freeze({
   id:'knowledge',
   routes:Object.freeze([
     Object.freeze({match:path=>path==='/api/knowledge-monitor',handle:routeKnowledgeMonitor}),
+    Object.freeze({match:path=>path==='/api/knowledge-warehouse',handle:routeKnowledgeWarehouse}),
   ]),
   workflows:knowledgeWorkflows,
   executionContexts:Object.freeze({

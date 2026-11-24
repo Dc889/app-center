@@ -86,16 +86,20 @@ async function resolveDifyToken() {
     }
   }
   if (base && creds.dify?.email && creds.dify?.password) {
-    const loginRes = await fetch(`${base}/console/api/login`, {
-      method: 'POST',
-      headers: {'content-type': 'application/json'},
-      body: JSON.stringify({email: creds.dify.email, password: creds.dify.password, remember_me: true}),
-      signal: AbortSignal.timeout(10000),
-    })
-    const loginBody = await loginRes.json().catch(() => null)
-    if (loginRes.ok && loginBody?.result === 'success' && typeof loginBody?.data?.access_token === 'string') {
-      console.log('Refreshed expired Dify console token via local credentials.')
-      return loginBody.data.access_token
+    try {
+      const loginRes = await fetch(`${base}/console/api/login`, {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({email: creds.dify.email, password: creds.dify.password, remember_me: true}),
+        signal: AbortSignal.timeout(10000),
+      })
+      const loginBody = await loginRes.json().catch(() => null)
+      if (loginRes.ok && loginBody?.result === 'success' && typeof loginBody?.data?.access_token === 'string') {
+        console.log('Refreshed expired Dify console token via local credentials.')
+        return loginBody.data.access_token
+      }
+    } catch {
+      console.log(`Dify 登录不可用，继续使用已保存的令牌：${base}`)
     }
   }
   return token

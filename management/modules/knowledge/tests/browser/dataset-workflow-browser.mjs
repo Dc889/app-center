@@ -6,6 +6,7 @@ import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 import {createServer} from 'vite'
 import {body,json,listen} from '../../../../../runtime/http.mjs'
+import {DEFAULT_USER_PASSWORD} from '../../../../platform/identity/public.server.mjs'
 const dir=await mkdtemp(join(tmpdir(),'dataset-browser-'))
 process.env.APP_DATA_DIR=dir
 let server,browser,capability
@@ -27,31 +28,32 @@ try {
   server=await createServer({cacheDir:join(dir,'vite-cache'),server:{port:0,host:'127.0.0.1'}})
   await server.listen()
   browser=await chromium.launch({channel:'msedge',headless:true})
-  async function login(role) {
+  async function login(account) {
     const page=await browser.newPage()
-    await page.goto(server.resolvedUrls.local[0])
-    await page.getByRole('button',{name:new RegExp('^'+role)}).click()
+    page.setDefaultTimeout(15000)
+    await page.goto(server.resolvedUrls.local[0]+'login')
+    await page.getByPlaceholder('例如 chen.yu 或 chen.yu@kpw.com').fill(account)
+    await page.locator('input[name="password"]').fill(DEFAULT_USER_PASSWORD)
+    await page.getByRole('button',{name:'登录'}).click()
     await page.locator('.app-shell').waitFor()
     return page
   }
-  const user=await login('用户')
+  const user=await login('chen.yu')
   await user.getByRole('button',{name:'手工申请',exact:true}).click()
-  await user.getByRole('button',{name:/KB-02.*知识库发布/}).click()
-  await user.getByRole('button',{name:'读取可用工作区',exact:true}).click()
-  await user.getByRole('option',{name:'知识库工作区 · ws',exact:true}).waitFor({state:'attached'})
-  await user.getByLabel('workspace ID（Dify 来源填写）',{exact:true}).selectOption('ws')
-  await user.getByRole('button',{name:'读取可选资源',exact:true}).click()
-  await user.getByRole('option',{name:'源知识库 · dataset',exact:true}).waitFor({state:'attached'})
-  await user.getByLabel('源知识库 ID',{exact:true}).selectOption('dataset')
+  await user.getByRole('button',{name:/KB-02.*知识库分享申请/}).click()
+  await user.getByText('申请部门',{exact:true}).waitFor()
+  await user.getByRole('option',{name:'源知识库',exact:true}).waitFor({state:'attached'})
+  await user.getByLabel('知识库名称',{exact:true}).selectOption('dataset')
+  await user.getByRole('button',{name:'读取文档审查与模型核对',exact:true}).waitFor()
   await user.getByRole('button',{name:'读取文档审查与模型核对',exact:true}).click()
-  for(const [label,value] of [['业务用途','知识共享'],['组织边界（逗号分隔）','业务一部'],['业务线','业务'],['目录展示名称','共享测试库'],['目录简介','测试说明'],['目录标签（逗号分隔）','测试']]) {
+  for(const [label,value] of [['申请说明','知识共享'],['组织边界（逗号分隔）','业务一部'],['业务线','业务'],['目录展示名称','共享测试库'],['目录简介','测试说明'],['目录标签（逗号分隔）','测试']]) {
     await user.getByLabel(label,{exact:true}).fill(value)
   }
   const submitted=user.waitForResponse(r=>r.url().endsWith('/api/applications') && r.request().method()==='POST')
-  await user.getByRole('button',{name:'提交知识库分享审批',exact:true}).click()
+  await user.getByRole('button',{name:'提交申请',exact:true}).click()
   const row=await(await submitted).json()
   assert.equal(row.status,'待受理')
-  const ops=await login('运维人员')
+  const ops=await login('zhou.min')
   await ops.getByRole('button',{name:/^我的待办/}).click()
   await ops.getByRole('button',{name:new RegExp(row.ticketNo)}).click()
   await ops.getByLabel('办理意见',{exact:true}).fill('逐项安全复核')

@@ -5,6 +5,7 @@ export * from './web/KnowledgeBindingPicker'
 export * from './web/KnowledgeDeskReview'
 export * from './web/KnowledgeMonitor'
 export * from './web/KnowledgeSync'
+export * from './web/KnowledgeWarehouse'
 
 import {createElement} from 'react'
 import {defineWebModule} from '../../shared-ui/module-contracts'
@@ -13,11 +14,13 @@ import {DatasetPublicationContext} from './web/DatasetPublicationContext'
 import {KnowledgeAccessForm} from './web/KnowledgeAccessForm'
 import {KnowledgeMonitor} from './web/KnowledgeMonitor'
 import {KnowledgeSync} from './web/KnowledgeSync'
+import {KnowledgeWarehouse} from './web/KnowledgeWarehouse'
 
 export const moduleWeb = defineWebModule({
   id: 'knowledge',
   views: {
     knowledge: ({role, onWorkOrder}) => createElement(KnowledgeMonitor, {key: role, role, onWorkOrder}),
+    knowledgeWarehouse: ({role, onWorkOrder}) => createElement(KnowledgeWarehouse, {key: role, role, onWorkOrder}),
   },
   ticketForms: {
     'KB-01': () => createElement(KnowledgeSync),

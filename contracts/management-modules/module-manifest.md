@@ -11,9 +11,10 @@
 | `audit` | 管理审计、审计追踪六区块与双表导出 | 视图：`audit` | 路由：`/api/audit`, `/api/audit-report`, `/api/audit-report/export` | 无（只读注入台账） |
 | `events` | 安全事件 `EVT-01` 办理、监控六区块与五块证据 | 视图：`security` | 路由：`/api/events`, `/api/events/transition`, `/api/event-monitor*` | 无（只读关联执行） |
 | `keys` | 密钥 `KEY-01/02` 申请、审批与登记候选 | 表单：`KEY-01`, `KEY-02` | 路由：`/api/key-registrations`；工单：`KEY-01/02`；上下文：`KEY-02` | 无 |
-| `knowledge` | 知识库 `KB-01~05`、逐文档审查、处置与监控 | 视图：`knowledge`；表单：`KB-01~03`, `KB-05` | 路由：`/api/knowledge-monitor`；工单：`KB-01~03`, `KB-05`；上下文/候选：`KB-03`, `KB-05` | `agents/public.*`（目标应用与随应用发布选择） |
+| `knowledge` | 知识库 `KB-01~05`、逐文档审查、处置、监控与共享仓库 | 视图：`knowledge`、`knowledgeWarehouse`；表单：`KB-01~03`, `KB-05` | 路由：`/api/knowledge-monitor`、`/api/knowledge-warehouse`；工单：`KB-01~03`, `KB-05`；上下文/候选：`KB-03`, `KB-05` | `agents/public.*`（目标应用与随应用发布选择） |
 | `mcp` | MCP `MCP-01~03` 注册、绑定、处置与监控 | 视图：`mcp`；表单：`MCP-01`, `MCP-03` | 路由：`/api/mcp-binding-context`, `/api/mcp-monitor`；工单：`MCP-01~03`；上下文：`MCP-03` | `agents/public.*`（目标应用绑定核验） |
 | `overview` | 统一概览与服务健康汇总 | 视图：`overview` | 路由：`/api/overview` | 无（只读聚合） |
+| `services` | Dify 与 RAGFlow 容器巡检，以及不可用容器的 `SVC-01` 自动审批重启 | 视图：`serviceMonitor` | 路由：`/api/service-monitor` | 无（工单写入由装配层注入的申请台账完成） |
 | `plugins` | 插件 `PLG-01~04` 上架、操作、安全禁用与监控 | 视图：`plugins`；表单：`PLG-01`, `PLG-03` | 路由：`/api/plugin-operation-context`, `/api/plugin-monitor`；工单：`PLG-01/03` | 无 |
 | `skills` | Skill `SKL-01~04` 上架、下载、取消、下架与监控 | 视图：`skills`；表单：`SKL-01`, `SKL-03` | 路由：`/api/skill-monitor`；工单：`SKL-01/04`；上下文：`SKL-04` | 无 |
 | `tools` | 工具批准 `TOL-01` 首次/变更/撤销审批 | 表单：`TOL-01` | 工单：`TOL-01`；上下文：`TOL-01` | 无 |

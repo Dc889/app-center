@@ -125,6 +125,12 @@ test('知识库监控指标计算、来源状态分布、逐文档审查与任�
   assert.equal(report1.sources.catalog, 'not_collected')
   // 待确认文档：KB-02 的 2 篇 + KB-04 的 1 篇 = 3 篇
   assert.equal(report1.metrics.pendingDocCount, 3)
+  assert.equal(report1.quantity.subsystems.source, 'not_collected')
+  assert.equal(report1.quantity.warehouseListed, 0)
+  assert.equal(report1.quantity.warehousePending, 1)
+  assert.equal(report1.securityAudits.find(row => row.ticketNo === 'KB-02-102').scene, '上架审核')
+  assert.equal(report1.securityAudits.find(row => row.ticketNo === 'KB-02-102').keywordScan, '未通过')
+  assert.equal(report1.securityAudits.find(row => row.ticketNo === 'KB-02-102').subsystemScan, '未采集')
 
   // 2. 带有能力端盘点目录
   const mockCap = async path => {

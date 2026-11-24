@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Users, Bot, Layers3, Activity, Search, X } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Users, Bot, Layers3, Search, X } from 'lucide-react'
 
 export type InvocationLog = {
   seq: number
@@ -69,6 +70,39 @@ export type AgentMonitorModel = {
     pageSize: number
     items: InvocationLog[]
   }
+  overview?: {
+    difyAccountCount: number | null
+    ragflowAccountCount: number | null
+    difyAppCount: number | null
+    warehouseAppCount: number
+  }
+  analysis?: {
+    runDistribution: { label: string; count: number }[] | null
+    callSeries: { hour: { label: string; count: number }[]; day: { label: string; count: number }[]; month: { label: string; count: number }[] } | null
+    tokenDistribution: { label: string; count: number }[] | null
+    tokenRanking: RankingRow[]
+    modelCallRanking: RankingRow[]
+    usage: null | {
+      appId: string
+      appName: string
+      description: string | null
+      iterationCount: number | null
+      versions: { version: string; publishedAt?: string; at?: string }[]
+      ipDistribution: { ip: string; count: number }[] | null
+    }
+  }
+}
+
+type RankingRow = {
+  appId: string
+  appName: string
+  totalTokens: number | null
+  totalCalls: number
+  models: { model: string; calls: number; tokens: number }[]
+}
+
+function metricText(value: number | null | undefined) {
+  return value === null || value === undefined ? '未采集' : String(value)
 }
 
 function displayList(items: string[], empty: string) {
@@ -146,6 +180,12 @@ export function AgentMonitor({
   const [keyword, setKeyword] = useState('')
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null)
   const [page, setPage] = useState(1)
+  const [usageApp, setUsageApp] = useState('')
+  const [usageFrom, setUsageFrom] = useState('')
+  const [usageTo, setUsageTo] = useState('')
+  const [callGrain, setCallGrain] = useState<'hour' | 'day' | 'month'>('hour')
+  const [tokenModel, setTokenModel] = useState('全部模型')
+  const [callModel, setCallModel] = useState('全部模型')
   const [data, setData] = useState<AgentMonitorModel | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -161,6 +201,9 @@ export function AgentMonitor({
     if (mcp !== '全部 MCP') params.set('mcp', mcp)
     if (plugin !== '全部插件') params.set('plugin', plugin)
     if (keyword.trim()) params.set('q', keyword.trim())
+    if (usageApp) params.set('usageApp', usageApp)
+    if (usageFrom) params.set('usageFrom', new Date(usageFrom).toISOString())
+    if (usageTo) params.set('usageTo', new Date(usageTo).toISOString())
     params.set('page', String(page))
     params.set('pageSize', '20')
 
@@ -187,11 +230,10 @@ export function AgentMonitor({
       })
 
     return () => controller.abort()
-  }, [account, appName, ip, model, knowledge, mcp, plugin, keyword, page])
+  }, [account, appName, ip, model, knowledge, mcp, plugin, keyword, page, usageApp, usageFrom, usageTo])
 
   const groups = data?.accountGroups ?? []
   const appTotal = groups.reduce((sum, group) => sum + group.apps.length, 0)
-  const outsideCount = groups.reduce((sum, group) => sum + group.apps.filter(app => !app.inWarehouse).length, 0)
   const accountApps = account === '全部账户'
     ? groups.flatMap(group => group.apps.map(app => app.name))
     : groups.find(group => group.account === account)?.apps.map(app => app.name) ?? []
@@ -250,32 +292,13 @@ export function AgentMonitor({
       )}
 
       {/* 四大指标卡 */}
-      <div className="metric-grid four">
-        <article className="metric-card">
-          <div className="metric-icon tone-1"><Users size={19} /></div>
-          <span>Dify 账户</span>
-          <strong>{data?.metrics.accountCount ?? groups.length}</strong>
-          <small>有应用的开发账户</small>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon tone-2"><Bot size={19} /></div>
-          <span>全部应用</span>
-          <strong>{data?.metrics.totalAppCount ?? appTotal}</strong>
-          <small>含未走工单的应用</small>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon tone-3"><Layers3 size={19} /></div>
-          <span>未进仓库</span>
-          <strong>{data?.metrics.outsideAppCount ?? outsideCount}</strong>
-          <small>只存在于 Dify</small>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon tone-5"><Activity size={19} /></div>
-          <span>调用记录</span>
-          <strong>{data?.metrics.callCount ?? totalLogs}</strong>
-          <small>当前样本可逐条溯源</small>
-        </article>
+      <div className="metric-grid four" data-testid="agent-metric-grid">
+        <article className="metric-card"><div className="metric-icon tone-1"><Users size={19} /></div><span>Dify 账户数量</span><strong>{metricText(data?.overview?.difyAccountCount ?? (data?.sources.difyCatalog === 'collected' ? data.metrics.accountCount : null))}</strong><small>Dify 上有应用的账户</small></article>
+        <article className="metric-card"><div className="metric-icon tone-2"><Users size={19} /></div><span>RAGFlow 账户数量</span><strong>{metricText(data?.overview?.ragflowAccountCount)}</strong><small>RAGFlow 账户目录</small></article>
+        <article className="metric-card"><div className="metric-icon tone-3"><Bot size={19} /></div><span>Dify 应用数量</span><strong>{metricText(data?.overview?.difyAppCount ?? (data?.sources.difyCatalog === 'collected' ? data.metrics.totalAppCount : null))}</strong><small>子系统内全部应用</small></article>
+        <article className="metric-card"><div className="metric-icon tone-4"><Layers3 size={19} /></div><span>仓库应用数量</span><strong>{data ? data.overview?.warehouseAppCount ?? 0 : '—'}</strong><small>已进入智能体仓库</small></article>
       </div>
+      <AgentAnalysis data={data} groups={groups} usageApp={usageApp} setUsageApp={setUsageApp} usageFrom={usageFrom} setUsageFrom={setUsageFrom} usageTo={usageTo} setUsageTo={setUsageTo} callGrain={callGrain} setCallGrain={setCallGrain} tokenModel={tokenModel} setTokenModel={setTokenModel} callModel={callModel} setCallModel={setCallModel} />
 
       {/* 监控主体布局 */}
       <div className="monitor-layout">
@@ -317,7 +340,7 @@ export function AgentMonitor({
         <section className="panel table-panel log-panel">
           <div className="panel-title">
             <div>
-              <h3>调用记录</h3>
+              <h3>所有应用调用记录明细</h3>
               
             </div>
             <button className="secondary-button compact" onClick={clearFilters}>清空筛选</button>
@@ -459,6 +482,106 @@ export function AgentMonitor({
           {selectedLog && <InvocationTrace log={selectedLog} onClose={() => setSelectedSeq(null)} />}
         </section>
       </div>
+    </div>
+  )
+}
+
+function rankedValue(row: RankingRow, model: string, field: 'tokens' | 'calls') {
+  if (model === '全部模型') return field === 'tokens' ? row.totalTokens : row.totalCalls
+  const found = row.models.find(item => item.model === model)
+  return found ? found[field] : 0
+}
+
+function AgentAnalysis({
+  data, groups, usageApp, setUsageApp, usageFrom, setUsageFrom, usageTo, setUsageTo, callGrain, setCallGrain, tokenModel, setTokenModel, callModel, setCallModel,
+}: {
+  data: AgentMonitorModel | null
+  groups: AccountGroup[]
+  usageApp: string
+  setUsageApp: (value: string) => void
+  usageFrom: string
+  setUsageFrom: (value: string) => void
+  usageTo: string
+  setUsageTo: (value: string) => void
+  callGrain: 'hour' | 'day' | 'month'
+  setCallGrain: (value: 'hour' | 'day' | 'month') => void
+  tokenModel: string
+  setTokenModel: (value: string) => void
+  callModel: string
+  setCallModel: (value: string) => void
+}) {
+  const analysis = data?.analysis
+  const apps = groups.flatMap(group => group.apps)
+  const models = [...new Set((analysis?.tokenRanking ?? analysis?.modelCallRanking ?? []).flatMap(row => row.models.map(item => item.model)))]
+  const callSeries = analysis?.callSeries?.[callGrain] ?? null
+  const tokenRows = [...(analysis?.tokenRanking ?? [])].sort((a, b) => (rankedValue(b, tokenModel, 'tokens') ?? 0) - (rankedValue(a, tokenModel, 'tokens') ?? 0))
+  const callRows = [...(analysis?.modelCallRanking ?? [])].sort((a, b) => (rankedValue(b, callModel, 'calls') ?? 0) - (rankedValue(a, callModel, 'calls') ?? 0))
+  return (
+    <>
+      <section className="panel" data-testid="agent-run-analysis" style={{ marginTop: 16 }}>
+        <div className="panel-title"><div><h3>智能体次数分析</h3><p>运行数量按应用累计调用次数分档。调用趋势按北京时间统计每小时、每天和每月。</p></div></div>
+        {analysis?.runDistribution ? (
+          <div style={{ height: 220 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={analysis.runDistribution}><CartesianGrid stroke="#edf0f5" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" name="应用数量" fill="#6366f1" /></BarChart></ResponsiveContainer></div>
+        ) : <p>调用次数未采集，暂不能划分 10万及以上、5万～10万、1万～5万、小于1万。</p>}
+        <div className="usable-switch" style={{ margin: '12px 0' }}>
+          {([['hour', '每小时'], ['day', '每天'], ['month', '每月']] as const).map(([key, label]) => <button key={key} type="button" className={callGrain === key ? 'active' : ''} onClick={() => setCallGrain(key)}>{label}</button>)}
+        </div>
+        {callSeries ? (
+          <div style={{ height: 220 }}><ResponsiveContainer width="100%" height="100%"><LineChart data={callSeries}><CartesianGrid stroke="#edf0f5" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} /><Tooltip /><Line dataKey="count" name="调用次数" stroke="#5b6cf9" dot={false} /></LineChart></ResponsiveContainer></div>
+        ) : <p>每小时、每天、每月调用次数未采集。</p>}
+      </section>
+      <section className="panel" data-testid="agent-usage-analysis" style={{ marginTop: 16 }}>
+        <div className="panel-title"><div><h3>智能体应用使用情况分析</h3><p>选择一个应用和时间范围后，查看调用 IP、应用介绍、迭代次数和版本时间。</p></div></div>
+        <div className="log-filters">
+          <label className="log-filter"><span>智能体应用</span>
+            <select aria-label="分析指定智能体" value={usageApp} onChange={event => setUsageApp(event.target.value)}>
+              <option value="">请选择应用</option>
+              {apps.map(app => <option key={app.appId} value={app.appId}>{app.name}</option>)}
+            </select>
+          </label>
+          <label className="log-filter"><span>开始时间</span><input aria-label="使用分析开始时间" type="datetime-local" value={usageFrom} onChange={event => setUsageFrom(event.target.value)} /></label>
+          <label className="log-filter"><span>结束时间</span><input aria-label="使用分析结束时间" type="datetime-local" value={usageTo} onChange={event => setUsageTo(event.target.value)} /></label>
+        </div>
+        {!analysis?.usage ? <p>请选择智能体应用。</p> : (
+          <div>
+            <p>应用介绍 · {analysis.usage.description ?? '未采集'}</p>
+            <p>迭代次数 · {metricText(analysis.usage.iterationCount)}</p>
+            <div className="table-wrap"><table><thead><tr><th>迭代版本</th><th>时间</th></tr></thead><tbody>{analysis.usage.versions.length ? analysis.usage.versions.map(version => <tr key={version.version}><td>{version.version}</td><td>{version.publishedAt || version.at || '未采集'}</td></tr>) : <tr><td colSpan={2}>迭代版本未采集</td></tr>}</tbody></table></div>
+            {analysis.usage.ipDistribution ? (
+              <div className="table-wrap"><table><thead><tr><th>调用 IP</th><th>次数</th></tr></thead><tbody>{analysis.usage.ipDistribution.length ? analysis.usage.ipDistribution.map(row => <tr key={row.ip}><td>{row.ip}</td><td>{row.count}</td></tr>) : <tr><td colSpan={2}>所选时间范围内没有调用 IP</td></tr>}</tbody></table></div>
+            ) : <p>调用 IP 分布未采集。</p>}
+          </div>
+        )}
+      </section>
+      <section className="panel" data-testid="agent-token-analysis" style={{ marginTop: 16 }}>
+        <div className="panel-title"><div><h3>智能体使用 token 数量分析</h3><p>按 token 区间统计应用数量，并分别按总消耗和指定模型查看 token 与调用次数排行。</p></div></div>
+        {analysis?.tokenDistribution ? (
+          <div style={{ height: 220 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={analysis.tokenDistribution}><CartesianGrid stroke="#edf0f5" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" name="应用数量" fill="#0f766e" /></BarChart></ResponsiveContainer></div>
+        ) : <p>token 消耗未采集，暂不能划分区间。</p>}
+        <RankingTable title="token 消耗排行" rows={tokenRows} model={tokenModel} setModel={setTokenModel} models={models} field="tokens" />
+        <RankingTable title="模型调用次数排行" rows={callRows} model={callModel} setModel={setCallModel} models={models} field="calls" />
+      </section>
+    </>
+  )
+}
+
+function RankingTable({ title, rows, model, setModel, models, field }: { title: string; rows: RankingRow[]; model: string; setModel: (value: string) => void; models: string[]; field: 'tokens' | 'calls' }) {
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="panel-title"><h3>{title}</h3>
+        <label className="log-filter"><span>模型</span>
+          <select aria-label={title + '模型筛选'} value={model} onChange={event => setModel(event.target.value)}>
+            <option>全部模型</option>
+            {models.map(item => <option key={item}>{item}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="table-wrap"><table><thead><tr><th>智能体应用</th><th>{field === 'tokens' ? 'token 数' : '调用次数'}</th><th>模型明细</th></tr></thead><tbody>
+        {rows.length ? rows.map(row => {
+          const value = rankedValue(row, model, field)
+          return <tr key={row.appId || row.appName}><td>{row.appName}</td><td>{value === null ? '未采集' : value}</td><td>{row.models.map(item => `${item.model} ${field === 'tokens' ? item.tokens : item.calls}`).join('、') || '未采集'}</td></tr>
+        }) : <tr><td colSpan={3}>未采集</td></tr>}
+      </tbody></table></div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import {execute as republish} from './handlers/republish.mjs'
 import {execute as withdraw_app} from './handlers/withdraw_app.mjs'
 import {catalogItem, catalogVersions, listCatalog} from './queries/catalog.mjs'
 import {difyAppResource} from './queries/resources-dify_app.mjs'
+import {listAgentInvocations} from './queries/invocations.mjs'
 import {applicationTargetDetail, listApplicationTargets} from './queries/application-targets.mjs'
 import {agentReplacementDetail, listAgentReplacements} from './queries/agent-replacements.mjs'
 
@@ -45,6 +46,7 @@ export const capabilityModule = Object.freeze({
     {method: 'GET', path: '/internal/v1/application-targets/:appId', handle: applicationTargetDetail},
     {method: 'GET', path: '/internal/v1/agent-replacements', handle: listAgentReplacements},
     {method: 'GET', path: '/internal/v1/agent-replacements/:resourceId', handle: agentReplacementDetail},
+    {method: 'GET', path: '/internal/v1/agent-invocations', handle: listAgentInvocations},
   ],
 })
 

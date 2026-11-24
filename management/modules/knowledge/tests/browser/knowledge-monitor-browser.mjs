@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { chromium, expect } from '@playwright/test'
 import { createServer } from 'vite'
 import { ledger, listen, json } from '../../../../../runtime/http.mjs'
+import { DEFAULT_USER_PASSWORD } from '../../../../platform/identity/public.server.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'kb-mon-browser-'))
 process.env.APP_DATA_DIR = dir
@@ -110,11 +111,15 @@ try {
 
   browser = await chromium.launch({ channel: 'msedge', headless: true })
 
+  const accounts = { 运维人员: 'zhou.min', 用户: 'chen.yu', 系统管理员: 'li.qiang' }
   async function login(roleName) {
     const p = await browser.newPage()
     p.setDefaultTimeout(15000)
-    await p.goto(server.resolvedUrls.local[0])
-    await p.getByRole('button', { name: new RegExp('^' + roleName) }).click()
+    await p.goto(server.resolvedUrls.local[0] + 'login')
+    await p.getByPlaceholder('例如 chen.yu 或 chen.yu@kpw.com').fill(accounts[roleName])
+    await p.locator('input[name="password"]').fill(DEFAULT_USER_PASSWORD)
+    await p.getByRole('button', { name: '登录' }).click()
+    await p.locator('.app-shell').waitFor()
     return p
   }
 
@@ -128,35 +133,22 @@ try {
   // 验证标题与视角徽章
   await expect(root.getByRole('heading',{name:'知识库监控',exact:true})).toBeVisible()
 
-  // 验证五大指标卡存在
-  await expect(root.getByText('纳入管理库')).toBeVisible()
-  await expect(root.getByText('已分享库')).toBeVisible()
+  await expect(root.getByRole('heading', { name: '数量监控' })).toBeVisible()
+  await expect(root.getByText('仓库已上架')).toBeVisible()
+  await expect(root.getByText('待审核')).toBeVisible()
   await expect(root.getByText('构建中任务')).toBeVisible()
-  await expect(root.getByText('异常/处置库')).toBeVisible()
-  await expect(root.getByText('待确认文档')).toBeVisible()
-
-  // 验证嵌入模型核对面板
-  await expect(root.getByRole('heading', { name: '嵌入模型核对' })).toBeVisible()
-  await expect(root.getByText('bge-large-zh', { exact: false })).toHaveCount(0)
-  await expect(root.getByText('text-embedding-v3', { exact: false })).toHaveCount(0)
+  await expect(root.getByText('异常知识库')).toBeVisible()
+  await expect(root.getByRole('heading', { name: '安全审计监控' })).toBeVisible()
 
   // 验证运维按组织隔离后的构建任务台账条目数（6条）
   await expect(root.getByText(/构建任务追踪 \(6\)/)).toBeVisible()
 
-  // Tab 切换测试：切换到“逐文档审查台账”
-  await root.getByRole('button', { name: /逐文档审查台账/ }).click()
   const auditsTable = root.getByTestId('knowledge-audits-table')
   await expect(auditsTable).toBeVisible()
+  await root.getByRole('button', { name: '上架审核', exact: true }).click()
+  await expect(auditsTable.getByText('当前没有符合筛选的安全审计记录')).toBeVisible()
 
-  // Tab 切换测试：切换到“安全与处置追踪”
-  await root.getByRole('button', { name: /安全与处置追踪/ }).click()
-  const alertsTable = root.getByTestId('knowledge-alerts-table')
-  await expect(alertsTable).toBeVisible()
-  await expect(alertsTable.getByText('暂停分享')).toBeVisible()
-
-  // 切回构建任务并搜索过滤（运维所属组织为平台运营组，库名为“个人业务库”）
-  await root.getByRole('button', { name: /构建任务追踪/ }).click()
-  await root.getByPlaceholder('搜索任务/文档/知识库/工单号...').fill('个人业务库')
+  await root.getByLabel('搜索构建任务').fill('个人业务库')
   await root.getByRole('button', { name: '搜索' }).click()
   await expect(root.getByText(/构建任务追踪 \(5\)/)).toBeVisible()
 
@@ -170,6 +162,8 @@ try {
 
   const adminRoot = admin.getByTestId('knowledge-monitor')
   await expect(adminRoot).toBeVisible()
+  await adminRoot.getByTestId('knowledge-security-audit').getByRole('button', { name: '上架审核', exact: true }).click()
+  await expect(adminRoot.getByTestId('knowledge-audits-table').getByText('上架审核').first()).toBeVisible()
 
   // 验证全量 12 条构建任务追踪
   await expect(adminRoot.getByText(/构建任务追踪 \(12\)/)).toBeVisible()

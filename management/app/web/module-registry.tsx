@@ -10,6 +10,7 @@ import {moduleWeb as keysModule} from '../../modules/keys/public.web'
 import {moduleWeb as knowledgeModule} from '../../modules/knowledge/public.web'
 import {moduleWeb as mcpModule} from '../../modules/mcp/public.web'
 import {moduleWeb as overviewModule} from '../../modules/overview/public.web'
+import {moduleWeb as servicesModule} from '../../modules/services/public.web'
 import {moduleWeb as pluginsModule} from '../../modules/plugins/public.web'
 import {moduleWeb as skillsModule} from '../../modules/skills/public.web'
 import {moduleWeb as toolsModule} from '../../modules/tools/public.web'
@@ -37,6 +38,7 @@ export const webModules: readonly WebModuleManifest[] = Object.freeze([
   knowledgeModule,
   mcpModule,
   overviewModule,
+  servicesModule,
   pluginsModule,
   skillsModule,
   toolsModule,

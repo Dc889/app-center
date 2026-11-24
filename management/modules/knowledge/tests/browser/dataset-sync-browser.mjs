@@ -6,6 +6,7 @@ import { chromium, expect } from '@playwright/test'
 import { createServer } from 'vite'
 import { listen, json, body } from '../../../../../runtime/http.mjs'
 import { mockExecution } from '../../../../../tests/support/execution-state.mjs'
+import { DEFAULT_USER_PASSWORD } from '../../../../platform/identity/public.server.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'kb-sync-browser-'))
 process.env.APP_DATA_DIR = dir
@@ -60,43 +61,26 @@ try {
   const page = await browser.newPage()
   page.setDefaultTimeout(10000)
 
-  await page.goto(base)
-  await page.getByRole('button', { name: /^用户/ }).click()
+  await page.goto(base + 'login')
+  await page.getByPlaceholder('例如 chen.yu 或 chen.yu@kpw.com').fill('chen.yu')
+  await page.locator('input[name="password"]').fill(DEFAULT_USER_PASSWORD)
+  await page.getByRole('button', { name: '登录' }).click()
+  await page.locator('.app-shell').waitFor()
 
-  // 进入手工申请 -> KB-01 知识库纳管同步
   await page.getByRole('button', { name: '手工申请', exact: true }).click()
-  await page.getByRole('button', { name: /^KB-01\b/ }).click()
+  await expect(page.getByRole('button', { name: /^KB-01\b/ })).toHaveCount(0)
+  await page.getByRole('button', { name: '知识库', exact: true }).click()
+  await expect(page.getByRole('button', { name: /^KB-01\b/ })).toHaveCount(0)
+  await page.getByRole('button', { name: /^KB-02\b/ }).click()
+  await expect(page.getByRole('heading', { name: '知识库分享申请', exact: true })).toBeVisible()
+  await expect(page.getByText('申请部门', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('密级', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('申请说明', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('知识库搜索', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '提交申请', exact: true })).toBeVisible()
+  await expect(page.getByLabel('源知识库 ID')).toHaveCount(0)
 
-  // 1. Dify 来源选择与快照
-  await page.getByRole('button', { name: '读取可用工作区', exact: true }).click()
-  await page.getByRole('option', { name: '一区 · ws1', exact: true }).waitFor({ state: 'attached' })
-  await page.getByLabel('workspace ID', { exact: true }).selectOption('ws1')
-
-  await page.getByRole('button', { name: '读取可选资源', exact: true }).click()
-  await page.getByRole('option', { name: '测试知识库 · ds_last', exact: true }).waitFor({ state: 'attached' })
-  await page.getByLabel('知识库', { exact: true }).selectOption('ds_last')
-  await expect(page.getByText(/^快照 · snapshot-/)).toBeVisible()
-
-  // 2. 切换到 RAGFlow 来源
-  await page.getByLabel('来源系统', { exact: true }).selectOption('RAGFlow')
-  await expect(page.getByRole('button', { name: '提交知识库同步', exact: true })).toBeDisabled()
-  await page.getByRole('button', { name: '读取可选资源', exact: true }).click()
-  await page.getByRole('option', { name: '测试知识库 · ds_last', exact: true }).waitFor({ state: 'attached' })
-  await page.getByLabel('知识库', { exact: true }).selectOption('ds_last')
-  await expect(page.getByText(/^快照 · snapshot-/)).toBeVisible()
-  await expect(page.getByLabel('tenant ID', { exact: true })).toHaveValue('tenant-rag-01')
-
-  // 3. 提交知识库同步
-  const submitPromise = page.waitForResponse((r) => r.url().endsWith('/api/applications') && r.request().method() === 'POST')
-  await page.getByRole('button', { name: '提交知识库同步', exact: true }).click()
-  const res = await submitPromise
-  assert.equal(res.status(), 201)
-
-  const application = await res.json()
-  assert.equal(application.ticketType, 'KB-01')
-  assert.equal(application.command.resourceId, 'ds_last')
-
-  console.log('PASS Edge: KB-01 知识库纳管同步 Dify/RAGFlow 来源切换、快照读取与提交已通过 Edge 页面验收')
+  console.log('PASS Edge: 个人知识库纳管不在申请目录，知识库分享申请显示部门、密级、申请说明和知识库名称')
 } finally {
   await browser?.close()
   await server?.close()

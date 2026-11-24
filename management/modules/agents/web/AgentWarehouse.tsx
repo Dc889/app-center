@@ -244,19 +244,18 @@ export function AgentWarehouse({
             </button>
           ))}
         </div>
-        <label className="log-filter">
-          <span>使用方式</span>
-          <select
-            data-testid="warehouse-method"
-            value={method}
-            onChange={(event) => setMethod(event.target.value as '全部方式' | UsageMethodId)}
-          >
-            <option>全部方式</option>
-            {usageMethodCatalog.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
-            ))}
-          </select>
-        </label>
+        <select
+          className="warehouse-method"
+          aria-label="使用方式"
+          data-testid="warehouse-method"
+          value={method}
+          onChange={(event) => setMethod(event.target.value as '全部方式' | UsageMethodId)}
+        >
+          <option value="全部方式">使用方式</option>
+          {usageMethodCatalog.map((item) => (
+            <option key={item.id} value={item.id}>{item.label}</option>
+          ))}
+        </select>
       </div>
 
       {/* 标签栏 */}

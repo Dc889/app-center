@@ -18,13 +18,14 @@
 /contracts/capability-api/          @dev-a @team-capability
 /contracts/repository-api/          @dev-a @team-capability
 
-# 开发 A 负责的业务功能模块（7 个）
+# 开发 A 负责的业务功能模块（8 个）
 /management/modules/agents/         @dev-a
 /management/modules/knowledge/      @dev-a
 /management/modules/keys/           @dev-a
 /management/modules/tools/          @dev-a
 /management/modules/accounts/       @dev-a
 /management/modules/overview/       @dev-a
+/management/modules/services/       @dev-a
 /management/modules/audit/          @dev-a
 
 # 开发 B 负责的业务功能模块（4 个，独立推进且无需修改 app/platform/shared-ui）

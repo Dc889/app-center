@@ -6,6 +6,7 @@ import {moduleServer as keysModule} from '../../modules/keys/public.server.mjs'
 import {moduleServer as knowledgeModule} from '../../modules/knowledge/public.server.mjs'
 import {moduleServer as mcpModule} from '../../modules/mcp/public.server.mjs'
 import {moduleServer as overviewModule} from '../../modules/overview/public.server.mjs'
+import {moduleServer as servicesModule} from '../../modules/services/public.server.mjs'
 import {moduleServer as pluginsModule} from '../../modules/plugins/public.server.mjs'
 import {moduleServer as skillsModule} from '../../modules/skills/public.server.mjs'
 import {moduleServer as toolsModule} from '../../modules/tools/public.server.mjs'
@@ -19,6 +20,7 @@ export const serverModules=Object.freeze([
   knowledgeModule,
   mcpModule,
   overviewModule,
+  servicesModule,
   pluginsModule,
   skillsModule,
   toolsModule,

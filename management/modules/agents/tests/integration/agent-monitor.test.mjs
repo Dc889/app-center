@@ -46,6 +46,36 @@ test('智能体监控指标统计、开发账户树、过滤选项与调用记�
     identity: { account: 'li.qiang', org: '信息技术处', roles: ['admin'] },
   })
   assert.equal(searchReport.logs.items.length, 0)
+  assert.equal(report.analysis.runDistribution, null)
+  assert.equal(report.overview.difyAccountCount, null)
+  assert.equal(report.overview.ragflowAccountCount, null)
+  assert.equal(report.overview.warehouseAppCount, 0)
+})
+
+test('智能体监控按已采集调用划分次数和 token 区间', async () => {
+  const cap = async path => {
+    if (path.includes('/resources?kind=dify_app')) return { ok: true, json: async () => ({ items: [{ resourceId: 'app-hot', name: '高频助手', ownerAccount: 'chen.yu', data: { description: '摘要应用', versions: [{ version: 'v2', publishedAt: '2026-11-01T00:00:00Z' }] } }] }) }
+    if (path.includes('/resources?kind=ragflow_account')) return { ok: true, json: async () => ({ items: [{ resourceId: 'rf-1' }, { resourceId: 'rf-2' }] }) }
+    if (path.includes('/agent-invocations')) return { ok: true, json: async () => ({ availability: 'collected', profiles: [{ appId: 'app-hot', description: '摘要应用', versions: [{ version: 'v2', publishedAt: '2026-11-01T00:00:00Z' }] }], items: [
+      { appId: 'app-hot', appName: '高频助手', time: '2026-11-19T09:00:00Z', sourceIp: '10.0.0.8', model: 'gpt', tokens: 12000 },
+      { appId: 'app-hot', appName: '高频助手', time: '2026-11-19T09:10:00Z', sourceIp: '10.0.0.9', model: 'gpt', tokens: 3000 },
+    ] }) }
+    return { ok: false, json: async () => ({}) }
+  }
+  const report = await agentMonitorReport({
+    query: new URLSearchParams('usageApp=app-hot'),
+    now,
+    cap,
+    identity: { account: 'li.qiang', org: '信息技术处', roles: ['admin'] },
+    applications: [],
+  })
+  assert.equal(report.overview.ragflowAccountCount, 2)
+  assert.equal(report.overview.difyAppCount, 1)
+  assert.equal(report.analysis.runDistribution.find(row => row.label === '小于1万').count, 1)
+  assert.equal(report.analysis.tokenRanking[0].totalTokens, 15000)
+  assert.equal(report.analysis.usage.ipDistribution.length, 2)
+  assert.equal(report.analysis.usage.iterationCount, 1)
+  assert.equal(report.analysis.usage.description, '摘要应用')
 })
 
 test('智能体监控 HTTP 鉴权与组织隔离', async t => {

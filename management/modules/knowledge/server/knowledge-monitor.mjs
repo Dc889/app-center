@@ -360,6 +360,10 @@ export async function knowledgeMonitorReport({
   const embeddingModels = []
   const failureCategories = []
 
+  const subsystemRows = catalogSource === 'collected' ? subsystemInventory(liveDatasets.length ? liveDatasets : (catalogItems ?? [])) : []
+  const warehouse = warehouseCounts(kbApps)
+  const securityAudits = securityAuditRows(kbApps, sourceFilter, q)
+
   // 分页截取 tasks
   const totalTasks = allTasks.length
   const startIndex = (page - 1) * pageSize
@@ -400,5 +404,123 @@ export async function knowledgeMonitorReport({
     },
     documentAudits: documentAudits.slice(0, 50),
     alerts: alerts.slice(0, 50),
+    quantity: {
+      subsystems: { source: catalogSource, items: subsystemRows },
+      warehouseListed: warehouse.listed,
+      warehousePending: warehouse.pending,
+    },
+    securityAudits,
   }
+}
+
+function subsystemInventory(datasets) {
+  const groups = new Map()
+  for (const dataset of datasets) {
+    const name = dataset.source || dataset.data?.sourceSystem || '未标明子系统'
+    if (!groups.has(name)) groups.set(name, { name, datasetCount: 0, documentCount: 0, complete: true })
+    const group = groups.get(name)
+    group.datasetCount += 1
+    const count = dataset.documentCount ?? dataset.data?.documentCount
+    if (typeof count === 'number' && Number.isFinite(count) && count >= 0) group.documentCount += count
+    else group.complete = false
+  }
+  return [...groups.values()].map(group => ({
+    name: group.name,
+    datasetCount: group.datasetCount,
+    documentCount: group.complete ? group.documentCount : null,
+  }))
+}
+
+function warehouseCounts(applications) {
+  const listed = new Set()
+  const pending = new Set()
+  const ordered = [...applications].sort((a, b) => Date.parse(a.createdAt ?? 0) - Date.parse(b.createdAt ?? 0))
+  for (const app of ordered) {
+    const id = app.submission?.resourceId || app.resourceId || app.ticketNo
+    if (!id) continue
+    if (app.ticketType === 'KB-02' && app.status === '已完成') {
+      listed.add(id)
+      pending.delete(id)
+    } else if (app.ticketType === 'KB-02' && ['待受理', '待审批', '待运维办理', '待运维确认', '待所有者提交', '待补正'].includes(app.status)) {
+      pending.add(id)
+    } else if (app.ticketType === 'KB-05' && app.status === '已完成') {
+      const actions = app.approvedFields?.['处置动作']
+      const target = app.submission?.fields?.target
+      if ((Array.isArray(actions) && actions.includes('目录下架')) || target === '整个知识库' || target === '目录下架') listed.delete(id)
+    }
+  }
+  return { listed: listed.size, pending: pending.size }
+}
+
+function documentList(app) {
+  const fields = app.snapshot?.fields ?? {}
+  const docs = fields['文档审查明细'] || fields['变更明细'] || fields['文档清单']
+  return Array.isArray(docs) ? docs : []
+}
+
+function keywordScan(app) {
+  const docs = documentList(app)
+  if (!docs.length) return '未采集'
+  if (docs.some(doc => doc.autoVerdict === '不通过')) return '未通过'
+  if (docs.every(doc => doc.autoVerdict === '通过')) return '通过'
+  return '未采集'
+}
+
+function subsystemScan(app) {
+  const value = app.snapshot?.fields?.['子平台安全扫描'] ?? app.submission?.fields?.subsystemSecurityConfirmed
+  if (value === true || value === '已确认' || value === '通过') return '已确认'
+  if (value === false || value === '未通过' || value === '未确认') return '未确认'
+  return '未采集'
+}
+
+function shareScope(app) {
+  const fields = app.submission?.fields ?? {}
+  const orgs = fields.targetOrgs ?? fields.boundaryOrgs ?? app.snapshot?.fields?.['目标组织']
+  if (fields.shareMode === '共享目录') return '全组织可使用'
+  if (Array.isArray(orgs) && orgs.length) return orgs.join('、')
+  if (fields.shareMode === '指定人员' && Array.isArray(fields.targetAccounts) && fields.targetAccounts.length) return '指定人员：' + fields.targetAccounts.join('、')
+  if (fields.shareMode) return '未规定分享范围'
+  return '未采集'
+}
+
+function securityAuditRows(applications, sourceFilter, q) {
+  const published = new Map()
+  for (const app of applications) {
+    const id = app.submission?.resourceId || app.resourceId
+    if (app.ticketType === 'KB-02' && app.status === '已完成' && id) published.set(id, app)
+  }
+  const rows = []
+  for (const app of applications) {
+    if (!['KB-02', 'KB-03', 'KB-04'].includes(app.ticketType)) continue
+    const source = app.snapshot?.fields?.['来源系统'] || app.submission?.fields?.sourceSystem || ''
+    if (sourceFilter !== '全部' && source && source !== sourceFilter) continue
+    const id = app.submission?.resourceId || app.resourceId || ''
+    const datasetName = app.snapshot?.fields?.['知识库名称'] || app.submission?.fields?.name || id || '知识库'
+    let scene = '上架审核'
+    let scope = shareScope(app)
+    if (app.ticketType === 'KB-03') {
+      const publication = published.get(id)
+      scope = publication ? shareScope(publication) : '未采集'
+      const fields = publication?.submission?.fields ?? {}
+      const orgs = fields.targetOrgs ?? fields.boundaryOrgs ?? []
+      const accounts = fields.targetAccounts ?? []
+      const open = !publication || fields.shareMode === '共享目录' || !fields.shareMode && !orgs.length && !accounts.length && publication
+      const inside = open || orgs.includes(app.org) || accounts.includes(app.account) || publication?.account === app.account
+      scene = publication && !inside ? '范围外使用申请' : publication ? '范围内使用申请' : '范围待核对'
+    }
+    const row = {
+      scene,
+      datasetName,
+      applicant: app.account || '',
+      org: app.org || '',
+      keywordScan: keywordScan(app),
+      subsystemScan: subsystemScan(app),
+      shareScope: scope,
+      status: app.status || '',
+      ticketNo: app.ticketNo,
+    }
+    if (q && ![row.scene, row.datasetName, row.applicant, row.org, row.ticketNo, row.shareScope].some(value => value && value.toLowerCase().includes(q))) continue
+    rows.push(row)
+  }
+  return rows.slice(0, 100)
 }

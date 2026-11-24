@@ -5,6 +5,7 @@ import {mkdtemp, rm} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {capabilityModule} from '../public.mjs'
+import {listAgentInvocations} from '../queries/invocations.mjs'
 import {createRegistry} from '../../../platform/registry/public.mjs'
 import {startExecutionServer} from '../../../platform/execution/public.mjs'
 import {startAgent} from '../../../repositories/agent/public.mjs'
@@ -22,6 +23,19 @@ test('agents 模块导出结构契约、动作与全部动态路由登记', () =
   assert.equal(typeof capabilityModule.resources.dify_app.list, 'function')
   assert.equal(typeof capabilityModule.resources.dify_app.detail, 'function')
   assert.equal(typeof capabilityModule.catalogs.agent.versions, 'function')
+})
+
+test('未配置 Dify 时智能体调用明细明确返回未采集', async () => {
+  const saved = ['DIFY_API_BASE', 'DIFY_CONSOLE_TOKEN', 'DIFY_CONNECTOR_URL'].map(key => [key, process.env[key]])
+  for (const [key] of saved) delete process.env[key]
+  try {
+    let body = ''
+    const res = {writeHead() {}, end(value) { body = value }}
+    await listAgentInvocations({res})
+    assert.equal(JSON.parse(body).availability, 'not_collected')
+  } finally {
+    for (const [key, value] of saved) if (value === undefined) delete process.env[key]; else process.env[key] = value
+  }
 })
 
 test('agents 未配置 Dify 环境时 sync_app 与 withdraw_app 抛出 501 UPSTREAM_UNSUPPORTED', async () => {

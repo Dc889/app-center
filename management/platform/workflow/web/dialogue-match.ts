@@ -1,7 +1,6 @@
 export type CatalogType = { code: string; name: string; mode: string; scene: string }
 export type DialogueMatch = CatalogType & { confidence: number; hits: string[] }
 const hints: Record<string, string[]> = {
-  'KB-01': ['知识库', '同步', '纳管'],
   'KB-02': ['知识库', '分享', '发布'],
   'KB-03': ['知识库', '绑定', '授权'],
   'KB-05': ['知识库', '下架', '违规', '处置'],

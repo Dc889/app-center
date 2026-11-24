@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { chromium, expect } from '@playwright/test'
 import { createServer } from 'vite'
 import { listen, json } from '../../../../../runtime/http.mjs'
+import { DEFAULT_USER_PASSWORD } from '../../../../platform/identity/public.server.mjs'
 
 const dir = await mkdtemp(join(tmpdir(), 'agent-mon-browser-'))
 process.env.APP_DATA_DIR = dir
@@ -28,11 +29,15 @@ try {
 
   browser = await chromium.launch({ channel: 'msedge', headless: true })
 
+  const accounts = { 运维人员: 'zhou.min', 用户: 'chen.yu', 系统管理员: 'li.qiang' }
   async function login(roleName) {
     const p = await browser.newPage()
     p.setDefaultTimeout(15000)
-    await p.goto(server.resolvedUrls.local[0])
-    await p.getByRole('button', { name: new RegExp('^' + roleName) }).click()
+    await p.goto(server.resolvedUrls.local[0] + 'login')
+    await p.getByPlaceholder('例如 chen.yu 或 chen.yu@kpw.com').fill(accounts[roleName])
+    await p.locator('input[name="password"]').fill(DEFAULT_USER_PASSWORD)
+    await p.getByRole('button', { name: '登录' }).click()
+    await p.locator('.app-shell').waitFor()
     return p
   }
 
@@ -48,31 +53,14 @@ try {
 
   // 验证四大指标卡
   const metricGrid = root.locator('.metric-grid')
-  await expect(metricGrid.getByText('Dify 账户')).toBeVisible()
-  await expect(metricGrid.getByText('全部应用')).toBeVisible()
-  await expect(metricGrid.getByText('未进仓库')).toBeVisible()
-  await expect(metricGrid.getByText('调用记录')).toBeVisible()
-
-  // 验证左侧账户树
-  const accountTree = root.getByTestId('account-tree')
-  await expect(accountTree).toBeVisible()
-  await expect(accountTree.getByText('周敏')).toBeVisible()
-
-  // 验证调用日志表格
-  const logTable = root.getByTestId('invocation-log')
-  await expect(logTable).toBeVisible()
-
-  // 点击溯源按钮打开抽屉
-  const firstTraceBtn = logTable.getByRole('button', { name: '溯源' }).first()
-  await firstTraceBtn.click()
-
-  const traceDrawer = root.getByTestId('invocation-trace')
-  await expect(traceDrawer).toBeVisible()
-  await expect(traceDrawer.getByText(/本次实际使用/)).toBeVisible()
-
-  // 关闭抽屉
-  await traceDrawer.getByLabel('关闭调用详情').click()
-  await expect(traceDrawer).toHaveCount(0)
+  await expect(metricGrid.getByText('Dify 账户数量')).toBeVisible()
+  await expect(metricGrid.getByText('RAGFlow 账户数量')).toBeVisible()
+  await expect(metricGrid.getByText('Dify 应用数量')).toBeVisible()
+  await expect(metricGrid.getByText('仓库应用数量')).toBeVisible()
+  await expect(root.getByRole('heading', { name: '智能体次数分析' })).toBeVisible()
+  await expect(root.getByRole('heading', { name: '智能体应用使用情况分析' })).toBeVisible()
+  await expect(root.getByRole('heading', { name: '智能体使用 token 数量分析' })).toBeVisible()
+  await expect(root.getByRole('heading', { name: '所有应用调用记录明细' })).toBeVisible()
 
   // 2. 普通用户视角：无法看到或进入监控页
   const user = await login('用户')
@@ -86,11 +74,7 @@ try {
   await expect(adminRoot).toBeVisible()
 
   // 验证跨组织全量开发账户（陈宇、郑毅等）
-  const adminTree = adminRoot.getByTestId('account-tree')
-  await expect(adminTree.getByText('陈宇')).toBeVisible()
-  await expect(adminTree.getByText('郑毅')).toBeVisible()
-
-  // 搜索过滤测试：搜 gpt-4.1
+  await expect(adminRoot.getByText('调用次数未采集').first()).toBeVisible()
   await adminRoot.getByTestId('log-search').fill('gpt-4.1')
   await expect(adminRoot.getByTestId('log-count')).toBeVisible()
 

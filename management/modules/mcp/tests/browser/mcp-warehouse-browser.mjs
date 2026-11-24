@@ -21,15 +21,13 @@ try {
   const page=await browser.newPage();await page.goto(server.resolvedUrls.local[0])
   await page.getByRole('button',{name:/^用户/}).click();await page.locator('.app-shell').waitFor()
   await page.getByRole('button',{name:'MCP仓库',exact:true}).click()
-  await expect(page.getByText('选择工作区查看',{exact:true})).toBeVisible()
-  await page.getByLabel('MCP仓库工作区',{exact:true}).selectOption('ws-m')
   await page.getByTestId('mcp-card-mcp-1').waitFor()
+  await expect(page.getByTestId('mcp-detail')).toHaveCount(0)
   await expect(page.getByTestId('mcp-card-mcp-1')).toContainText('需申请绑定')
-  await page.getByTestId('mcp-card-mcp-1').click()
   await expect(page.getByText('http://mcp.internal/raw')).toHaveCount(0)
   await expect(page.getByText('hidden-provider')).toHaveCount(0)
   assert.equal(await page.getByRole('button',{name:'提交 MCP-03 目录隔离',exact:true}).count(),0)
-  console.log('PASS mcp warehouse: 先选工作区，普通用户不展示 URL 与 provider')
+  console.log('PASS mcp warehouse: 不展示办理区，页面不出现 URL 与 provider')
 } finally {
   await browser?.close();await server?.close();await capability?.close();await rm(dir,{recursive:true,force:true})
 }

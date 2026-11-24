@@ -10,11 +10,19 @@ const labels: Record<string,string> = {
   callerName:'调用方',callerOrg:'调用组织',environment:'运行环境',allowedCidrs:'允许网段',peakQps:'峰值 QPS',
 }
 const roles: Record<string,string> = {admin:'系统管理员',operator:'运维人员',user:'用户'}
+const scopes: Record<string,string> = {all:'全网段公开',orgs:'指定组织',accounts:'指定人员'}
+const usages: Record<string,string> = {run:'运行',embed:'嵌入网站',api:'访问 API'}
+function word(value:string,key:string) {
+  if (key === 'roles') return roles[value] ?? value
+  if (key === 'scope') return scopes[value] ?? value
+  if (key === 'usages') return usages[value] ?? value
+  return value
+}
 function format(value:unknown,key:string):string {
-  if (value == null || value === '') return '—'
+  if (value == null || value === '') return '未填写'
   if (typeof value === 'boolean') return key === 'active' ? value ? '启用' : '停用' : value ? '是' : '否'
-  if (Array.isArray(value)) return value.map(item => typeof item === 'object' ? '明细' : key === 'roles' ? roles[String(item)] ?? String(item) : String(item)).join('、') || '—'
-  return String(value)
+  if (Array.isArray(value)) return value.map(item => typeof item === 'object' ? '明细' : word(String(item),key)).join('、') || '未填写'
+  return word(String(value),key)
 }
 export function RecordDetails({title,values}:{title:string;values:unknown}) {
   if (!values || typeof values !== 'object' || Array.isArray(values)) return null
