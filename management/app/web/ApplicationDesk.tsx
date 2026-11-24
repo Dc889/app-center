@@ -8,7 +8,36 @@ import {CheckCircle2,AlertTriangle,Clock,RefreshCw,Search,ShieldCheck,Layers,Plu
 
 type DependencyAuditItem={kind?:string;kindLabel?:string;id?:string;name:string;source?:string;approved:boolean;externalAllowed:boolean;status?:string;reason?:string}
 type DependencySummary={checkedAt?:string;workflowInspected?:boolean;total:number;passed:number;warnings:number;counts?:{knowledge?:number;plugin?:number;mcp?:number;tool?:number}}
-type Application={agentImpact?:AgentImpact;approvedImpact?:AgentImpact;canQueryExecution?:boolean;ticketNo:string;ticketType:string;account:string;org?:string;status:string;revision:number;isApplicant?:boolean;restoreRequest?:{reason:string;repairInfo:string;minutes:number};observeFrom?:string;observeUntil?:string;observation?:{verdict:string;complete:boolean};observationError?:{code:string};urgentEventNo?:string;alertEvidence?:unknown[];deliveryBlocked?:boolean;lastError?:{code:string};linkedDispositionTicketNo?:string;linkedReviewDispositionTicketNo?:string;relatedTicketNos?:string[];linkError?:{code:string};creationMode?:string;approvalMode?:string;node?:string;evidenceRefs?:{evidenceId:string;filename?:string}[];attempts?:{command:{executionId:string;action:string};execution?:{status:string}}[];revealState?:string;command?:{action:string};approvedFields?:{文档确认记录?:{documentId:string;sha256:string;verdict:string;actor:string;at:string}[]};execution?:{status:string;result?:{failureCode?:string;failureReason?:string;retryable?:boolean;details?:unknown}};submission:{resourceId:string;fields:Record<string,unknown>};snapshot:{snapshotId:string;name?:string;fields?:{文档审查明细?:{documentId:string;sha256:string;autoVerdict:string}[]};data?:{name?:string;mode?:string;dependencies?:DependencyAuditItem[];dependencySummary?:DependencySummary|null}};history:{at:string;actor:string;action:string;note?:string}[]}
+type Application={agentImpact?:AgentImpact;approvedImpact?:AgentImpact;canQueryExecution?:boolean;ticketNo:string;ticketType:string;account:string;org?:string;status:string;revision:number;isApplicant?:boolean;restoreRequest?:{reason:string;repairInfo:string;minutes:number};observeFrom?:string;observeUntil?:string;observation?:{verdict:string;complete:boolean};observationError?:{code:string};urgentEventNo?:string;alertEvidence?:unknown[];deliveryBlocked?:boolean;lastError?:{code:string};linkedDispositionTicketNo?:string;linkedReviewDispositionTicketNo?:string;relatedTicketNos?:string[];linkError?:{code:string};creationMode?:string;approvalMode?:string;node?:string;evidenceRefs?:{evidenceId:string;filename?:string}[];attempts?:{command:{executionId:string;action:string};execution?:{status:string}}[];revealState?:string;command?:{action:string};approvedFields?:{文档确认记录?:{documentId:string;sha256:string;verdict:string;actor:string;at:string}[]};execution?:{status:string;result?:{failureCode?:string;failureReason?:string;retryable?:boolean;details?:unknown}};originalCatalog?:{name?:string;data?:{name?:string}};targetApplication?:{name?:string};submission:{resourceId:string;fields:Record<string,unknown>};snapshot:{snapshotId:string;name?:string;fields?:Record<string,unknown>&{文档审查明细?:{documentId:string;sha256:string;autoVerdict:string}[]};data?:{name?:string;mode?:string;packageMetadata?:{name?:string};dependencies?:DependencyAuditItem[];dependencySummary?:DependencySummary|null}};history:{at:string;actor:string;action:string;note?:string}[]}
+
+const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function isReadableName(v: unknown): v is string {
+  return typeof v === 'string' && v.trim().length > 0 && !UUID_LIKE.test(v.trim())
+}
+function ticketDisplayName(item: Application): string {
+  const sf = item.snapshot?.fields
+  const sub = item.submission?.fields
+  const candidates: unknown[] = [
+    item.snapshot?.name,
+    item.snapshot?.data?.name,
+    item.snapshot?.data?.packageMetadata?.name,
+    sf?.['知识库名称'],
+    sf?.['目录展示名称'],
+    sf?.['MCP名称'],
+    sf?.['应用名称'],
+    sf?.['插件名称'],
+    sf?.['技能名称'],
+    sub?.name,
+    item.originalCatalog?.name,
+    item.originalCatalog?.data?.name,
+    item.targetApplication?.name,
+    sub?.callerName,
+  ]
+  for (const c of candidates) {
+    if (isReadableName(c)) return c.trim()
+  }
+  return item.submission.resourceId
+}
 
 const TICKET_NAMES: Record<string,string> = {
   'AG-02':'智能体发布申请','AG-03':'智能体受限授权','AG-04':'智能体版本更新','AG-05':'智能体下架处置',
@@ -82,7 +111,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
     if (statusFilter !== '全部' && item.status !== statusFilter) return false
     const q = search.trim().toLowerCase()
     if (!q) return true
-    const name = (item.snapshot?.name || item.snapshot?.data?.name || '').toLowerCase()
+    const name = ticketDisplayName(item).toLowerCase()
     return item.ticketNo.toLowerCase().includes(q) || name.includes(q) || item.account.toLowerCase().includes(q) || item.ticketType.toLowerCase().includes(q)
   })
   const row = filteredItems.find(i=>i.ticketNo===selected) ?? items.find(i=>i.ticketNo===selected)
@@ -165,7 +194,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
               <p>{items.length === 0 ? '当前暂无业务审批申请' : '没有匹配的审批单'}</p>
             </div>
           ) : filteredItems.map(item => {
-            const displayName = item.snapshot?.name || item.snapshot?.data?.name || item.submission.resourceId
+            const displayName = ticketDisplayName(item)
             const active = item.ticketNo === row?.ticketNo
             const submittedAt = item.history?.[0]?.at
             return (
@@ -205,7 +234,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
                 <div className="app-sheet-title-main">
                   <span className="app-type-tag lg">{row.ticketType}</span>
                   <div>
-                    <h2>{row.snapshot?.name || row.snapshot?.data?.name || row.submission.resourceId}</h2>
+                    <h2>{ticketDisplayName(row)}</h2>
                     <div className="app-sheet-subtitle">
                       <span>{TICKET_NAMES[row.ticketType] || row.ticketType}</span>
                       <span className="dot">·</span>
