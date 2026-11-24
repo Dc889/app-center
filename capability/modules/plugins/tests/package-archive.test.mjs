@@ -9,9 +9,14 @@ const errorCode = code => error => error.code === code
 
 test('插件身份来自 ZIP 内原始 manifest，文件名和外部 JSON 不能冒充', () => {
   const bytes = testPluginArchive({uniqueIdentifier: 'publisher/actual', name: 'Actual label', version: '1.2.3', dependencies: [{name: 'dify_plugin', version: '0.2.0'}]})
-  assert.deepEqual(parsePluginMetadata(bytes, 'fake@9.9.9.difypkg'), {uniqueIdentifier: 'publisher/actual', name: 'Actual label', version: '1.2.3', dependencies: [{name: 'dify_plugin', version: '==0.2.0', license: 'UNKNOWN'}]})
+  assert.deepEqual(parsePluginMetadata(bytes, 'fake@9.9.9.difypkg'), {
+    uniqueIdentifier: 'publisher/actual', name: 'Actual label', version: '1.2.3',
+    dependencies: [{name: 'dify_plugin', version: '==0.2.0', license: 'UNKNOWN'}],
+    codeAudit: {scannedPyFiles: 1, passed: true, findings: []},
+  })
   assert.equal(parsePluginMetadata(Buffer.from(JSON.stringify({uniqueIdentifier: 'fake', name: 'fake', version: '1.0.0'})), 'fake@1.0.0.difypkg'), null)
   assert.equal(parsePluginMetadata(Buffer.from('arbitrary bytes'), 'fake@1.0.0.difypkg'), null)
+  assert.throws(() => inspectPluginArchive(testPluginArchive({}, {'evil.py': strToU8('import os\nos.system("id")\n')})), errorCode('PLUGIN_SCAN_REJECTED'))
 })
 
 test('缺少真实 manifest 或伪造版本与缺失提供者文件不可解析为就绪插件', () => {

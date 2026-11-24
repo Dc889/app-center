@@ -66,6 +66,36 @@ export function inspectPluginArchive(bytes) {
     check(match && (!match[2] || /^(?:==|~=|>=|<=|>|<|!=|;)/.test(match[2])), 400, 'UNSUPPORTED_PLUGIN_DEPENDENCY', '依赖声明格式尚不支持完整核对')
     dependencies.push({name: match[1], version: match[2] || 'unconstrained', license: 'UNKNOWN'})
   }
+
+  // 静态 Python 代码安全扫描（不导入、不执行插件代码）
+  const BLOCKED_PATTERNS = [
+    {rule: 'PY_SHELL_EXEC', re: /\bos\.system\s*\(/, desc: '禁止调用 os.system 执行系统命令'},
+    {rule: 'PY_SUBPROCESS_SHELL', re: /\bsubprocess\.(?:Popen|run|call)\s*\([^)]*shell\s*=\s*True/, desc: '禁止 subprocess shell=True 执行任意命令'},
+    {rule: 'PY_DYNAMIC_EVAL', re: /(?:^|[^\w.])(?:eval|exec)\s*\(/, desc: '禁止使用 eval/exec 动态执行代码'},
+    {rule: 'PY_PICKLE_LOADS', re: /\bpickle\.loads\s*\(/, desc: '禁止使用不安全的 pickle.loads 反序列化'},
+  ]
+  const WARN_PATTERNS = [
+    {rule: 'PY_NETWORK_IO', re: /\b(?:requests|httpx|urllib|socket)\./, desc: '存在外部网络请求调用，需核对外联域名声明'},
+  ]
+  let scannedPyFiles = 0
+  const securityFindings = []
+  for (const [fileName, content] of Object.entries(files)) {
+    if (!fileName.endsWith('.py')) continue
+    scannedPyFiles += 1
+    const src = new TextDecoder('utf-8', {fatal: false}).decode(content)
+    for (const rule of BLOCKED_PATTERNS) {
+      if (rule.re.test(src)) {
+        check(false, 400, 'PLUGIN_SCAN_REJECTED', `代码安全扫描拦截（${fileName}）：${rule.desc}`)
+      }
+    }
+    for (const rule of WARN_PATTERNS) {
+      if (rule.re.test(src)) {
+        securityFindings.push({file: fileName, rule: rule.rule, severity: '告警', message: rule.desc})
+      }
+    }
+  }
+
   return {uniqueIdentifier: manifest.author ? `${manifest.author}/${manifest.name}` : manifest.name,
-    name: label.trim(), version: manifest.version, dependencies}
+    name: label.trim(), version: manifest.version, dependencies,
+    codeAudit: {scannedPyFiles, passed: true, findings: securityFindings}}
 }
