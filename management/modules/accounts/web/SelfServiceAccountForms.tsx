@@ -351,3 +351,249 @@ export function OrgRoleTicketForm() {
     </div>
   )
 }
+
+type ModelQuotaOption = {
+  key: string
+  workspaceId: string
+  workspaceName: string
+  ownerName: string
+  providerName: string
+  modelName: string
+  modelType: string
+  enabled: boolean
+  usedTokens: number
+  usedCalls: number
+  tokenLimit: number | null
+  callLimit: number | null
+  period: 'monthly' | 'total'
+  autoDisable: boolean
+}
+
+type ModelQuotaTicketRow = {
+  ticketNo: string
+  operationType?: string
+  workspaceName: string
+  modelName: string
+  requestedTokenLimit: number | null
+  requestedCallLimit: number | null
+  reason: string
+  applicantName: string
+  status: string
+  createdAt: string
+  reviewNote: string | null
+}
+
+export function ModelQuotaTicketForm() {
+  const [models, setModels] = useState<ModelQuotaOption[]>([])
+  const [tickets, setTickets] = useState<ModelQuotaTicketRow[]>([])
+  const [isStaff, setIsStaff] = useState(false)
+  const [selectedKey, setSelectedKey] = useState('')
+  const [operationType, setOperationType] = useState<'配置额度' | '禁用模型' | '恢复启用'>('配置额度')
+  const [period, setPeriod] = useState<'monthly' | 'total'>('monthly')
+  const [tokenLimit, setTokenLimit] = useState('')
+  const [callLimit, setCallLimit] = useState('')
+  const [autoDisable, setAutoDisable] = useState(true)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+  const [rev, setRev] = useState(0)
+
+  useEffect(() => {
+    const c = new AbortController()
+    fetch('/api/model-quotas', {signal: c.signal})
+      .then(async r => (r.ok ? r.json() : null))
+      .then(res => {
+        if (!res || c.signal.aborted) return
+        const list: ModelQuotaOption[] = res.items ?? []
+        setModels(list)
+        setTickets(res.tickets ?? [])
+        setIsStaff(Boolean(res.isStaff))
+        let prefill: any = null
+        try {
+          const raw = sessionStorage.getItem('mod01-prefill')
+          if (raw) {
+            prefill = JSON.parse(raw)
+            sessionStorage.removeItem('mod01-prefill')
+          }
+        } catch {}
+        if (prefill?.key && list.some(m => m.key === prefill.key)) {
+          const target = list.find(m => m.key === prefill.key)!
+          setSelectedKey(target.key)
+          if (prefill.operationType && ['配置额度', '禁用模型', '恢复启用'].includes(prefill.operationType)) {
+            setOperationType(prefill.operationType)
+          }
+          setTokenLimit(target.tokenLimit ? String(target.tokenLimit) : '')
+          setCallLimit(target.callLimit ? String(target.callLimit) : '')
+          setPeriod(target.period || 'monthly')
+          setAutoDisable(target.autoDisable !== false)
+        } else if (!selectedKey && list.length > 0) {
+          setSelectedKey(list[0].key)
+          setTokenLimit(list[0].tokenLimit ? String(list[0].tokenLimit) : '')
+          setCallLimit(list[0].callLimit ? String(list[0].callLimit) : '')
+        }
+      })
+      .catch(() => {})
+    return () => c.abort()
+  }, [rev])
+
+  const currentModel = models.find(m => m.key === selectedKey) ?? null
+
+  const selectModel = (key: string) => {
+    setSelectedKey(key)
+    const found = models.find(m => m.key === key)
+    if (found) {
+      setTokenLimit(found.tokenLimit ? String(found.tokenLimit) : '')
+      setCallLimit(found.callLimit ? String(found.callLimit) : '')
+      setPeriod(found.period || 'monthly')
+      setAutoDisable(found.autoDisable !== false)
+    }
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setErr(''); setMsg('')
+    if (!currentModel) { setErr('请选择目标工作区与模型'); return }
+    if (operationType === '配置额度' && !tokenLimit.trim() && !callLimit.trim()) {
+      setErr('请至少填写 Token 上限或调用次数上限')
+      return
+    }
+    if (!reason.trim()) { setErr('请输入申请原因'); return }
+    setBusy(true)
+    try {
+      const r = await fetch('/api/model-quotas/request', {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({
+          workspaceId: currentModel.workspaceId,
+          providerName: currentModel.providerName,
+          modelName: currentModel.modelName,
+          modelType: currentModel.modelType,
+          operationType,
+          period,
+          autoDisable,
+          requestedTokenLimit: operationType === '配置额度' && tokenLimit.trim() ? Number(tokenLimit) : null,
+          requestedCallLimit: operationType === '配置额度' && callLimit.trim() ? Number(callLimit) : null,
+          reason: reason.trim(),
+        }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '工单提交失败')
+      setMsg(`模型管控工单 ${body.ticket?.ticketNo} 已提交，待审批通过后自动在 Dify 生效`)
+      setReason('')
+      setRev(n => n + 1)
+    } catch (e: any) {
+      setErr(e?.message || '工单提交失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div data-testid="mod-01-form" className="org-page-stack">
+      <form onSubmit={submit} className="form-section">
+        <div className="section-heading">
+          <span>02</span>
+          <div><h4>模型配额与开关配置</h4></div>
+        </div>
+
+        <div className="form-row">
+          <FormField label="目标工作区与模型" source="用户" required>
+            <select value={selectedKey} onChange={e => selectModel(e.target.value)} required>
+              <option value="">请选择工作区模型</option>
+              {models.map(m => (
+                <option key={m.key} value={m.key}>{m.workspaceName} · {m.modelName}</option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label="工单操作类型" source="用户" required>
+            <select value={operationType} onChange={e => setOperationType(e.target.value as any)}>
+              <option value="配置额度">配置或调整额度</option>
+              {isStaff && <option value="禁用模型">紧急禁用模型</option>}
+              {isStaff && <option value="恢复启用">恢复启用模型</option>}
+            </select>
+          </FormField>
+
+          {operationType === '配置额度' && (
+            <FormField label="统计周期" source="用户" required>
+              <select value={period} onChange={e => setPeriod(e.target.value as any)}>
+                <option value="monthly">自然月统计</option>
+                <option value="total">历史累计统计</option>
+              </select>
+            </FormField>
+          )}
+        </div>
+
+        {currentModel && (
+          <div className="app-audit-card" style={{marginTop: 4}}>
+            <div className="app-audit-metrics">
+              <div><span>当前已用 Token</span><strong>{currentModel.usedTokens.toLocaleString()}</strong></div>
+              <div><span>当前调用次数</span><strong>{currentModel.usedCalls}</strong></div>
+              <div><span>当前额度上限</span><strong>{currentModel.tokenLimit ? currentModel.tokenLimit.toLocaleString() : '不限'}</strong></div>
+              <div><span>Dify 开关状态</span><strong>{currentModel.enabled ? '已启用' : '已禁用'}</strong></div>
+            </div>
+          </div>
+        )}
+
+        {operationType === '配置额度' && (
+          <div className="form-row">
+            <FormField label="Token 额度上限" source="用户">
+              <input type="number" min={0} value={tokenLimit} onChange={e => setTokenLimit(e.target.value)} placeholder="留空表示不限制" />
+            </FormField>
+            <FormField label="调用次数上限" source="用户">
+              <input type="number" min={0} value={callLimit} onChange={e => setCallLimit(e.target.value)} placeholder="留空表示不限制" />
+            </FormField>
+            <FormField label="超限自动熔断" source="用户">
+              <select value={autoDisable ? 'yes' : 'no'} onChange={e => setAutoDisable(e.target.value === 'yes')}>
+                <option value="yes">超限时自动在 Dify 禁用</option>
+                <option value="no">仅告警不自动禁用</option>
+              </select>
+            </FormField>
+          </div>
+        )}
+
+        <FormField label="申请原因" source="用户" required>
+          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} required placeholder="请输入额度调整或模型开关操作依据" />
+        </FormField>
+
+        {err && <p role="alert" style={{color: '#b42318', fontSize: 13, margin: 0}}>{err}</p>}
+        {msg && <p role="status" style={{color: '#027a48', fontSize: 13, fontWeight: 500, margin: 0}}>{msg}</p>}
+
+        <div className="form-actions">
+          <button type="submit" className="primary-button" disabled={busy}>
+            {busy ? '正在提交…' : '提交模型管控工单'}
+          </button>
+        </div>
+      </form>
+
+      {tickets.length > 0 && (
+        <section className="form-section">
+          <div className="section-heading">
+            <span>03</span>
+            <div><h4>模型管控工单记录</h4></div>
+          </div>
+          <div className="org-table-wrap">
+            <table className="org-table">
+              <thead>
+                <tr><th>工单号</th><th>操作类型</th><th>工作区与模型</th><th>目标额度</th><th>申请原因</th><th>状态</th></tr>
+              </thead>
+              <tbody>
+                {tickets.slice(0, 10).map(t => (
+                  <tr key={t.ticketNo}>
+                    <td><code className="org-code">{t.ticketNo}</code></td>
+                    <td>{t.operationType || '配置额度'}</td>
+                    <td>{t.workspaceName} · {t.modelName}</td>
+                    <td>{t.operationType === '配置额度' || !t.operationType ? `Token ${t.requestedTokenLimit ?? '不限'} / 次数 ${t.requestedCallLimit ?? '不限'}` : '-'}</td>
+                    <td>{t.reason}</td>
+                    <td><span className={`app-status-pill ${pillTone(t.status)}`}>{t.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}

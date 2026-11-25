@@ -394,9 +394,15 @@ export function ProfilePage({
                             className="secondary-button"
                             style={{padding: '3px 10px', fontSize: 12}}
                             onClick={() => {
-                              setReqModel(m)
-                              setReqTokens(String(Math.max((m.tokenLimit ?? 50000) * 2, 100000)))
-                              setReqCalls(String(Math.max((m.callLimit ?? 500) * 2, 1000)))
+                              try {
+                                sessionStorage.setItem('mod01-prefill', JSON.stringify({key: m.key, operationType: '配置额度'}))
+                              } catch {}
+                              if (onNavigate) onNavigate('manual', 'MOD-01')
+                              else {
+                                setReqModel(m)
+                                setReqTokens(String(Math.max((m.tokenLimit ?? 50000) * 2, 100000)))
+                                setReqCalls(String(Math.max((m.callLimit ?? 500) * 2, 1000)))
+                              }
                             }}
                           >
                             申请调额

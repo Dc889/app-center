@@ -290,13 +290,25 @@ export async function routeModelQuotas(services) {
   const store = directory.store
 
   if (req.method === 'GET' && path === '/api/model-quotas') {
-    check(isStaff, 403, 'ACCESS_DENIED')
     const url = new URL(req.url, 'http://localhost')
-    const refresh = url.searchParams.get('refresh') === '1'
+    const refresh = isStaff && url.searchParams.get('refresh') === '1'
     const inventory = refresh && subsystems?.refreshDifyInventory
       ? await subsystems.refreshDifyInventory()
       : (subsystems?.getDifyInventory?.() ?? {syncedAt: null, modelUsage: []})
-    return json(res, buildModelQuotaReport({inventory, directory, now}))
+    const report = buildModelQuotaReport({inventory, directory, now})
+    if (!isStaff) {
+      const me = directory.get(identity.subjectId) ?? directory.byAccount(identity.account)
+      const myWs = String(me?.difyWorkspaceId || '').trim()
+      const myAcc = String(identity.account || '').toLowerCase()
+      return json(res, {
+        ...report,
+        isStaff: false,
+        tenants: report.tenants.filter(t => t.account.toLowerCase() === myAcc || (myWs && t.workspaceId === myWs)),
+        items: report.items.filter(m => (myWs && m.workspaceId === myWs) || String(m.ownerAccount || '').toLowerCase() === myAcc),
+        tickets: report.tickets.filter(t => String(t.applicant || '').toLowerCase() === myAcc || (myWs && t.workspaceId === myWs)),
+      })
+    }
+    return json(res, {...report, isStaff: true})
   }
 
   check(req.method === 'POST' && (!req.headers.origin || new URL(req.headers.origin).host === req.headers.host), 403, 'ACCESS_DENIED')
@@ -382,13 +394,22 @@ export async function routeModelQuotas(services) {
     const providerName = String(input?.providerName ?? '').trim()
     const modelName = String(input?.modelName ?? '').trim()
     const modelType = String(input?.modelType ?? 'text-generation').trim() || 'text-generation'
+    const operationType = ['配置额度', '禁用模型', '恢复启用'].includes(String(input?.operationType ?? '配置额度'))
+      ? String(input?.operationType ?? '配置额度')
+      : '配置额度'
+    const period = input?.period === 'total' ? 'total' : 'monthly'
+    const autoDisable = input?.autoDisable !== false
     const requestedTokenLimit = input?.requestedTokenLimit ? Math.floor(Number(input.requestedTokenLimit)) : null
     const requestedCallLimit = input?.requestedCallLimit ? Math.floor(Number(input.requestedCallLimit)) : null
     const reason = String(input?.reason ?? '').trim()
 
-    check(workspaceId && providerName && modelName, 400, 'INVALID_MODEL_TARGET')
-    check((requestedTokenLimit && requestedTokenLimit > 0) || (requestedCallLimit && requestedCallLimit > 0), 400, 'INVALID_LIMIT', '请填写期望 Token 额度或调用次数上限')
-    check(reason.length >= 2 && reason.length <= 1000, 400, 'INVALID_REASON', '请填写申请/调额理由')
+    check(workspaceId && providerName && modelName, 400, 'INVALID_MODEL_TARGET', '请选择有效的工作区与模型')
+    if (operationType !== '配置额度') {
+      check(isStaff, 403, 'ACCESS_DENIED', '仅运维或管理员可发起模型禁启工单')
+    } else {
+      check((requestedTokenLimit && requestedTokenLimit > 0) || (requestedCallLimit && requestedCallLimit > 0), 400, 'INVALID_LIMIT', '请填写 Token 额度上限或调用次数上限')
+    }
+    check(reason.length >= 2 && reason.length <= 1000, 400, 'INVALID_REASON', '请填写工单申请原因')
 
     const key = quotaKey(workspaceId, providerName, modelName)
     const inv = subsystems?.getDifyInventory?.() ?? {modelUsage: []}
@@ -398,6 +419,9 @@ export async function routeModelQuotas(services) {
       kind: 'model-quota-ticket',
       ticketNo,
       key,
+      operationType,
+      period,
+      autoDisable,
       workspaceId,
       workspaceName: currentUsage?.workspaceName || workspaceId.slice(0, 8),
       providerName,
@@ -422,40 +446,68 @@ export async function routeModelQuotas(services) {
     check(isStaff, 403, 'ACCESS_DENIED')
     const ticketNo = String(input?.ticketNo ?? '').trim()
     const decision = input?.decision === 'reject' ? 'reject' : 'approve'
-    const reviewNote = String(input?.reviewNote ?? (decision === 'approve' ? '同意调额并恢复启用' : '驳回调额申请')).trim()
+    const reviewNote = String(input?.reviewNote ?? (decision === 'approve' ? '审批通过并执行生效' : '驳回申请')).trim()
     const existing = store.get(`model-quota-ticket:${ticketNo}`)
-    check(existing && existing.status === '待审批', 404, 'TICKET_NOT_PENDING', '该调额申请单不存在或已办理')
+    check(existing && existing.status === '待审批', 404, 'TICKET_NOT_PENDING', '该工单不存在或已办理')
 
-    let restored = false
+    let actionResult = null
     if (decision === 'approve') {
-      const prevPol = store.get(`model-quota:${existing.key}`)
-      store.put(`model-quota:${existing.key}`, {
-        kind: 'model-quota',
-        key: existing.key,
-        workspaceId: existing.workspaceId,
-        workspaceName: existing.workspaceName,
-        ownerAccount: prevPol?.ownerAccount || existing.applicant,
-        ownerName: prevPol?.ownerName || existing.applicantName,
-        org: prevPol?.org || existing.org,
-        providerName: existing.providerName,
-        modelName: existing.modelName,
-        modelType: existing.modelType || 'text-generation',
-        period: prevPol?.period || 'monthly',
-        tokenLimit: existing.requestedTokenLimit ?? prevPol?.tokenLimit ?? null,
-        callLimit: existing.requestedCallLimit ?? prevPol?.callLimit ?? null,
-        autoDisable: true,
-        note: `依据调额单 ${ticketNo} 调整：${existing.reason}`,
-        updatedAt: at,
-        updatedBy: identity.account,
-      })
-      const r = await subsystems.setDifyModelEnabled({
-        workspaceId: existing.workspaceId,
-        providerName: existing.providerName,
-        modelName: existing.modelName,
-        modelType: existing.modelType || 'text-generation',
-        enabled: true,
-      })
-      restored = r.ok
+      const op = existing.operationType || '配置额度'
+      if (op === '禁用模型' || op === '恢复启用') {
+        const enabled = op === '恢复启用'
+        const r = await subsystems.setDifyModelEnabled({
+          workspaceId: existing.workspaceId,
+          providerName: existing.providerName,
+          modelName: existing.modelName,
+          modelType: existing.modelType || 'text-generation',
+          enabled,
+        })
+        actionResult = r.ok ? (enabled ? 'enabled' : 'disabled') : `failed:${r.error}`
+      } else {
+        const prevPol = store.get(`model-quota:${existing.key}`)
+        const savedPol = store.put(`model-quota:${existing.key}`, {
+          kind: 'model-quota',
+          key: existing.key,
+          workspaceId: existing.workspaceId,
+          workspaceName: existing.workspaceName,
+          ownerAccount: prevPol?.ownerAccount || existing.applicant,
+          ownerName: prevPol?.ownerName || existing.applicantName,
+          org: prevPol?.org || existing.org,
+          providerName: existing.providerName,
+          modelName: existing.modelName,
+          modelType: existing.modelType || 'text-generation',
+          period: existing.period || prevPol?.period || 'monthly',
+          tokenLimit: existing.requestedTokenLimit ?? prevPol?.tokenLimit ?? null,
+          callLimit: existing.requestedCallLimit ?? prevPol?.callLimit ?? null,
+          autoDisable: existing.autoDisable !== false,
+          note: `依据工单 ${ticketNo}：${existing.reason}`,
+          updatedAt: at,
+          updatedBy: identity.account,
+        })
+        const inv = subsystems?.getDifyInventory?.() ?? {modelUsage: []}
+        const currentUsage = (inv.modelUsage ?? []).find(u => quotaKey(u.workspaceId, u.providerName, u.modelName) === existing.key)
+        if (currentUsage) {
+          const evaluated = evaluateRow(currentUsage, savedPol)
+          const targetEnabled = !(evaluated.exceeded && savedPol.autoDisable)
+          const r = await subsystems.setDifyModelEnabled({
+            workspaceId: existing.workspaceId,
+            providerName: existing.providerName,
+            modelName: existing.modelName,
+            modelType: existing.modelType || 'text-generation',
+            enabled: targetEnabled,
+          })
+          actionResult = r.ok ? (targetEnabled ? 'enabled' : 'auto_disabled') : `failed:${r.error}`
+        } else {
+          const r = await subsystems.setDifyModelEnabled({
+            workspaceId: existing.workspaceId,
+            providerName: existing.providerName,
+            modelName: existing.modelName,
+            modelType: existing.modelType || 'text-generation',
+            enabled: true,
+          })
+          actionResult = r.ok ? 'enabled' : `failed:${r.error}`
+        }
+      }
     }
 
     const updated = store.put(`model-quota-ticket:${ticketNo}`, {
@@ -464,9 +516,10 @@ export async function routeModelQuotas(services) {
       reviewedAt: at,
       reviewer: identity.account,
       reviewNote,
-      modelRestored: restored,
+      actionResult,
+      modelRestored: actionResult === 'enabled',
     })
-    return json(res, {ok: true, ticket: updated, modelRestored: restored})
+    return json(res, {ok: true, ticket: updated, actionResult, modelRestored: actionResult === 'enabled'})
   }
 
   check(false, 405, 'METHOD_NOT_ALLOWED')
