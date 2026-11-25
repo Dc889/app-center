@@ -7,6 +7,7 @@ export * from './server/mcp-monitor.mjs'
 export * from './server/mcp-registration.mjs'
 export * from './server/routeMcpBindingContext.mjs'
 export * from './server/routeMcpMonitor.mjs'
+export * from './server/routeMcpGovernance.mjs'
 export * from './server/submitMCP01.mjs'
 export * from './server/submitMCP02.mjs'
 export * from './server/submitMCP03.mjs'
@@ -15,6 +16,7 @@ export * from './server/workflows.mjs'
 import {mcpDispositionActions,mcpDispositionContext} from './server/mcp-disposition.mjs'
 import {routeMcpBindingContext} from './server/routeMcpBindingContext.mjs'
 import {routeMcpMonitor} from './server/routeMcpMonitor.mjs'
+import {routeMcpGovernance} from './server/routeMcpGovernance.mjs'
 import {mcpWorkflows} from './server/workflows.mjs'
 
 export const moduleServer=Object.freeze({
@@ -22,6 +24,7 @@ export const moduleServer=Object.freeze({
   routes:Object.freeze([
     Object.freeze({match:path=>path==='/api/mcp-binding-context',handle:routeMcpBindingContext}),
     Object.freeze({match:path=>path==='/api/mcp-monitor',handle:routeMcpMonitor}),
+    Object.freeze({match:path=>path==='/api/mcp-governance' || path.startsWith('/api/mcp-governance/') || path.startsWith('/api/mcp-proxy/'),handle:routeMcpGovernance}),
   ]),
   workflows:mcpWorkflows,
   executionContexts:Object.freeze({

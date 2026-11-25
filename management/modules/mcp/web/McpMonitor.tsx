@@ -3,7 +3,44 @@ import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis
 } from 'recharts'
-import { Network, Activity, CheckCircle, AlertTriangle, Search, RefreshCw, ArrowRight, ShieldAlert, Layers } from 'lucide-react'
+import { Network, Activity, CheckCircle, AlertTriangle, Search, RefreshCw, ArrowRight, ShieldAlert, Layers, Radio } from 'lucide-react'
+import type { View } from '../../../shared-ui/UiContextData'
+
+type McpGovItem = {
+  serverIdentifier: string
+  name: string
+  boundWorkspacesCount: number
+  totalWorkspacesCount: number
+  probeStatus: string
+  latencyMs: number | null
+  checkedAt: string | null
+  proxyCalls: number
+  proxyErrors: number
+  avgProxyLatencyMs: number | null
+  isolated: boolean
+}
+
+type McpGovTicket = {
+  ticketNo: string
+  operationType: string
+  targetWorkspaceName: string | null
+  targetMcpId: string | null
+  targetMcpName: string | null
+  reason: string
+  applicantName: string
+  status: string
+  createdAt: string
+  executionSummary: string | null
+  reviewNote: string | null
+}
+
+type McpGovSnapshot = {
+  capturedAt: string
+  syncedAt: string | null
+  uniqueMcps: McpGovItem[]
+  workspaces: { workspaceId: string; workspaceName: string; ownerName: string; boundCount: number }[]
+  tickets: McpGovTicket[]
+}
 
 type Metrics = {
   catalogCount: number | null
@@ -78,9 +115,11 @@ type McpMonitorModel = {
 
 export function McpMonitor({
   onWorkOrder,
+  onNavigate,
 }: {
   role: 'user' | 'ops' | 'admin'
   onWorkOrder?: (title: string) => void
+  onNavigate?: (view: View, ticketType?: string | null) => void
 }) {
   const [range, setRange] = useState<'1h' | '24h' | '7d'>('24h')
   const [activeTab, setActiveTab] = useState<'calls' | 'bindings' | 'alerts'>('calls')
@@ -91,6 +130,66 @@ export function McpMonitor({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<McpMonitorModel | null>(null)
+  const [gov, setGov] = useState<McpGovSnapshot | null>(null)
+  const [govRev, setGovRev] = useState(0)
+  const [govBusy, setGovBusy] = useState(false)
+  const [govNotice, setGovNotice] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/mcp-governance', { signal: controller.signal })
+      .then(async res => (res.ok ? res.json() : null))
+      .then((json: McpGovSnapshot | null) => {
+        if (!controller.signal.aborted && json) setGov(json)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [refresh, govRev])
+
+  const openMcp04Ticket = (prefill: Record<string, string>) => {
+    try {
+      sessionStorage.setItem('mcp04-prefill', JSON.stringify(prefill))
+    } catch {}
+    if (onNavigate) onNavigate('manual', 'MCP-04')
+    else if (onWorkOrder) onWorkOrder('MCP-04 批量分发与全员下架')
+  }
+
+  const runLiveProbe = async () => {
+    setGovBusy(true)
+    setGovNotice(null)
+    try {
+      const r = await fetch('/api/mcp-governance/probe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '存活探测失败')
+      setGovNotice({ tone: 'ok', text: `已完成 ${body.probed ?? 0} 个 MCP 服务的 JSON-RPC 存活探测：健康 ${body.healthy ?? 0} 个，异常/不可达 ${body.unhealthy ?? 0} 个` })
+      setGovRev(n => n + 1)
+    } catch (e: any) {
+      setGovNotice({ tone: 'err', text: e?.message || '存活探测失败' })
+    } finally {
+      setGovBusy(false)
+    }
+  }
+
+  const approveMcp04 = async (ticketNo: string, decision: 'approve' | 'reject') => {
+    setGovBusy(true)
+    setGovNotice(null)
+    try {
+      const r = await fetch('/api/mcp-governance/approve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ticketNo, decision }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '审批操作失败')
+      setGovNotice({ tone: 'ok', text: decision === 'approve' ? (body.executionSummary || `工单 ${ticketNo} 已审批执行`) : `工单 ${ticketNo} 已驳回` })
+      setGovRev(n => n + 1)
+      setRefresh(n => n + 1)
+    } catch (e: any) {
+      setGovNotice({ tone: 'err', text: e?.message || '审批操作失败' })
+    } finally {
+      setGovBusy(false)
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -322,6 +421,169 @@ export function McpMonitor({
           </div>
         </div>
       </div>
+
+      {/* MCP 存活探针、受控代理与批量分发管控 */}
+      <section className="monitor-section" data-testid="mcp-governance-panel" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Radio size={15} color="#2563eb" /> MCP 存活探针、代理调用与批量分发管控
+            </h4>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              受控代理网关 <code>/api/mcp-proxy/:token</code> 实时鉴权与指标采集，所有批量分发与全员隔离统一经 MCP-04 工单审批生效
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={govBusy}
+              onClick={runLiveProbe}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Radio size={14} /> {govBusy ? '探测中…' : '立即存活探测'}
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => openMcp04Ticket({ operationType: '新户默认绑定公开MCP' })}
+            >
+              新户默认绑定工单
+            </button>
+          </div>
+        </div>
+
+        {govNotice && (
+          <div
+            role="status"
+            style={{
+              padding: '8px 12px',
+              borderRadius: 6,
+              fontSize: 13,
+              background: govNotice.tone === 'ok' ? '#ecfdf3' : '#fef2f2',
+              color: govNotice.tone === 'ok' ? '#027a48' : '#b42318',
+              border: `1px solid ${govNotice.tone === 'ok' ? '#a6f4c5' : '#fecaca'}`,
+            }}
+          >
+            {govNotice.text}
+          </div>
+        )}
+
+        <div className="org-table-wrap">
+          <table className="org-table">
+            <thead>
+              <tr>
+                <th>MCP 服务名称</th>
+                <th>服务标识</th>
+                <th>租户覆盖</th>
+                <th>存活探针状态</th>
+                <th>探针延迟</th>
+                <th>代理调用 / 失败</th>
+                <th>管控工单</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gov && gov.uniqueMcps.length > 0 ? (
+                gov.uniqueMcps.map(m => {
+                  const tone = m.isolated || m.probeStatus === '异常' || m.probeStatus === '不可达' || m.probeStatus === '超时'
+                    ? 'tone-danger'
+                    : m.probeStatus === '健康'
+                    ? 'tone-success'
+                    : 'tone-pending'
+                  return (
+                    <tr key={m.serverIdentifier}>
+                      <td style={{ fontWeight: 500 }}>{m.name}</td>
+                      <td><code className="org-code">{m.serverIdentifier}</code></td>
+                      <td>{m.boundWorkspacesCount} / {m.totalWorkspacesCount}</td>
+                      <td><span className={`app-status-pill ${tone}`}>{m.probeStatus}</span></td>
+                      <td>{m.latencyMs !== null ? `${m.latencyMs} ms` : '—'}</td>
+                      <td>
+                        {m.proxyCalls} / <span style={{ color: m.proxyErrors > 0 ? '#b42318' : '#64748b' }}>{m.proxyErrors}</span>
+                        {m.avgProxyLatencyMs !== null ? ` · ${m.avgProxyLatencyMs}ms` : ''}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="row-action"
+                            onClick={() => openMcp04Ticket({ operationType: '公开MCP全员推送', targetMcpId: m.serverIdentifier })}
+                          >
+                            全员推送
+                          </button>
+                          <button
+                            type="button"
+                            className="row-action"
+                            style={{ color: '#b42318' }}
+                            onClick={() => openMcp04Ticket({ operationType: '高危MCP全员解绑下架', targetMcpId: m.serverIdentifier })}
+                          >
+                            全员解绑
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', color: '#9ca3af', padding: '20px 0' }}>
+                    当前 Dify 工作区暂未同步到 MCP 服务，可在 Dify 接入或点击上方按钮提交 MCP-04 管控工单
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {gov && gov.tickets.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>MCP-04 批量分发与隔离工单审批</div>
+            <div className="org-table-wrap">
+              <table className="org-table">
+                <thead>
+                  <tr>
+                    <th>工单号</th>
+                    <th>操作类型</th>
+                    <th>目标对象</th>
+                    <th>申请人</th>
+                    <th>申请原因</th>
+                    <th>状态</th>
+                    <th>审批与执行</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gov.tickets.slice(0, 8).map(t => {
+                    const tone = t.status === '已完成' ? 'tone-success' : t.status === '已驳回' ? 'tone-danger' : 'tone-pending'
+                    return (
+                      <tr key={t.ticketNo}>
+                        <td><code className="org-code">{t.ticketNo}</code></td>
+                        <td>{t.operationType}</td>
+                        <td>{t.targetWorkspaceName || t.targetMcpName || t.targetMcpId || '-'}</td>
+                        <td>{t.applicantName}</td>
+                        <td>{t.reason}</td>
+                        <td><span className={`app-status-pill ${tone}`}>{t.status}</span></td>
+                        <td>
+                          {t.status === '待审批' ? (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button type="button" className="row-action" disabled={govBusy} onClick={() => approveMcp04(t.ticketNo, 'approve')}>
+                                批准执行
+                              </button>
+                              <button type="button" className="row-action" style={{ color: '#b42318' }} disabled={govBusy} onClick={() => approveMcp04(t.ticketNo, 'reject')}>
+                                驳回
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 12, color: '#64748b' }}>{t.executionSummary || t.reviewNote || '-'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* 台账与明细区块 */}
       <section className="monitor-section" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>

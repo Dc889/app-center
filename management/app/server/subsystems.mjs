@@ -274,7 +274,7 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
       }
     })
 
-    // 3. Sync all Dify datasets (knowledge bases) & document counts across all tenants
+    // 3. Sync all Dify datasets (knowledge bases) with real usage, retrieval quality & content fingerprint
     const dsRes = await client.query(`
       SELECT
         d.id::text AS dataset_id,
@@ -285,13 +285,26 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
         d.permission,
         d.created_at,
         t.name AS workspace_name,
-        (SELECT count(*)::int FROM documents doc WHERE doc.dataset_id = d.id) AS doc_count
+        (SELECT count(*)::int FROM documents doc WHERE doc.dataset_id = d.id) AS doc_count,
+        (SELECT count(*)::int FROM documents doc WHERE doc.dataset_id = d.id AND doc.indexing_status = 'completed') AS completed_doc_count,
+        (SELECT MAX(doc.updated_at) FROM documents doc WHERE doc.dataset_id = d.id) AS last_doc_updated_at,
+        (SELECT COALESCE(string_agg(doc.id::text || ':' || COALESCE(doc.word_count::text,'0') || ':' || COALESCE(EXTRACT(EPOCH FROM doc.updated_at)::bigint::text,'0'), '|' ORDER BY doc.id), '') FROM documents doc WHERE doc.dataset_id = d.id) AS doc_sig,
+        (SELECT count(DISTINCT j.app_id)::int FROM app_dataset_joins j WHERE j.dataset_id = d.id) AS app_count,
+        (SELECT count(*)::int FROM dataset_queries q WHERE q.dataset_id = d.id) AS total_queries,
+        (SELECT count(*)::int FROM dataset_queries q WHERE q.dataset_id = d.id AND q.created_at >= CURRENT_TIMESTAMP - INTERVAL '30 days') AS queries_30d,
+        (SELECT count(*)::int FROM document_segments s WHERE s.dataset_id = d.id) AS segment_count,
+        (SELECT COALESCE(SUM(s.hit_count), 0)::int FROM document_segments s WHERE s.dataset_id = d.id) AS segment_hits,
+        (SELECT ROUND(AVG(r.score)::numeric, 3) FROM dataset_retriever_resources r WHERE r.dataset_id = d.id AND r.score IS NOT NULL) AS avg_score
       FROM datasets d
       LEFT JOIN tenants t ON t.id = d.tenant_id
       ORDER BY d.created_at DESC
     `)
     const datasets = dsRes.rows.map(r => {
       const owner = tenantOwnerMap.get(r.workspace_id)
+      const docCount = Number(r.doc_count || 0)
+      const completedDocCount = Number(r.completed_doc_count || 0)
+      const indexingHealthPct = docCount > 0 ? Math.round((completedDocCount / docCount) * 100) : 100
+      const contentFingerprint = createHash('sha256').update(String(r.doc_sig || '')).digest('hex').slice(0, 16)
       return {
         resourceId: r.dataset_id,
         name: r.name || r.dataset_id,
@@ -300,7 +313,17 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
         description: r.description || '',
         indexingTechnique: r.indexing_technique || '',
         permission: r.permission || 'only_me',
-        documentCount: Number(r.doc_count || 0),
+        documentCount: docCount,
+        completedDocCount,
+        indexingHealthPct,
+        segmentCount: Number(r.segment_count || 0),
+        appCount: Number(r.app_count || 0),
+        totalQueries: Number(r.total_queries || 0),
+        queryCount30d: Number(r.queries_30d || 0),
+        hitCount: Number(r.segment_hits || 0),
+        avgScore: r.avg_score !== null && r.avg_score !== undefined ? Number(r.avg_score) : null,
+        lastDocUpdatedAt: r.last_doc_updated_at ? new Date(r.last_doc_updated_at).toISOString() : null,
+        contentFingerprint,
         ownerAccount: owner?.account || `workspace:${String(r.workspace_id || '').slice(0, 8)}`,
         ownerName: owner?.name || r.workspace_name || 'Dify 工作区',
         org: owner?.org || '待归属',

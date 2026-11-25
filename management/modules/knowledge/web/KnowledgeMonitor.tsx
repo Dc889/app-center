@@ -53,6 +53,29 @@ function countText(value: number | null | undefined) {
   return value === null || value === undefined ? '未采集' : String(value)
 }
 
+type InsightItem = {
+  resourceId: string
+  name: string
+  workspaceName: string
+  ownerName: string
+  org: string
+  documentCount: number
+  indexingHealthPct: number
+  appCount: number
+  queryCount30d: number
+  totalQueries: number
+  hitCount: number
+  avgScore: number | null
+  kb03Grants: number
+  totalScore: number
+  tier: string
+  drifted: boolean
+}
+type InsightsModel = {
+  summary: { total: number; featured: number; active: number; zombie: number; drifted: number }
+  items: InsightItem[]
+}
+
 export function KnowledgeMonitor({
   role,
   onWorkOrder,
@@ -70,6 +93,34 @@ export function KnowledgeMonitor({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [data, setData] = useState<KnowledgeMonitorModel | null>(null)
+  const [insights, setInsights] = useState<InsightsModel | null>(null)
+  const [tierFilter, setTierFilter] = useState<'全部' | '标杆推荐' | '正常活跃' | '僵尸待治理' | '变更待复审'>('全部')
+  const [driftBusy, setDriftBusy] = useState(false)
+  const [driftMsg, setDriftMsg] = useState('')
+
+  useEffect(() => {
+    const c = new AbortController()
+    fetch('/api/knowledge-insights', { signal: c.signal })
+      .then(async r => (r.ok ? r.json() : null))
+      .then(res => { if (res && !c.signal.aborted) setInsights(res) })
+      .catch(() => {})
+    return () => c.abort()
+  }, [refresh, role])
+
+  const checkDrift = async () => {
+    setDriftBusy(true); setDriftMsg('')
+    try {
+      const r = await fetch('/api/knowledge-insights/check-drift', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '检测失败')
+      setDriftMsg(`已巡检 ${body.checked ?? 0} 个知识库：建立基线 ${body.baselined ?? 0} 个，检出后台私改 ${body.driftedCount ?? 0} 个，新生成告警 ${body.eventsCreated ?? 0} 条`)
+      setRefresh(n => n + 1)
+    } catch (e: any) {
+      setDriftMsg(e?.message || '检测失败')
+    } finally {
+      setDriftBusy(false)
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -238,6 +289,75 @@ export function KnowledgeMonitor({
           </table>
         </div>
       </section>
+
+      {insights && (
+        <section className="panel overview-block" data-testid="knowledge-insights-ranking" style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+            <div>
+              <h3 style={{ margin: 0 }}>优秀知识库综合排行与后台私改指纹检测</h3>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#667085' }}>
+                按复用热度 40% + 检索命中质量 35% + 维护健康度 25% 综合评分，自动识别标杆知识库、僵尸待治理库及 Dify 后台私改变更。
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="app-status-pill tone-success">标杆推荐 {insights.summary.featured}</span>
+              <span className="app-status-pill tone-muted">僵尸待治理 {insights.summary.zombie}</span>
+              <span className="app-status-pill tone-danger">私改待复审 {insights.summary.drifted}</span>
+              <button type="button" className="primary-button" disabled={driftBusy} onClick={checkDrift}>
+                {driftBusy ? '巡检指纹中…' : '巡检后台私改指纹'}
+              </button>
+            </div>
+          </div>
+
+          {driftMsg && <p role="status" style={{ fontSize: 13, color: '#027a48', fontWeight: 500, marginBottom: 10 }}>{driftMsg}</p>}
+
+          <div className="usable-switch" style={{ marginBottom: 12 }}>
+            {(['全部', '标杆推荐', '正常活跃', '僵尸待治理', '变更待复审'] as const).map(t => (
+              <button key={t} type="button" className={tierFilter === t ? 'active' : ''} onClick={() => setTierFilter(t)}>{t}</button>
+            ))}
+          </div>
+
+          <div className="org-table-wrap">
+            <table className="org-table">
+              <thead>
+                <tr>
+                  <th>排名</th>
+                  <th>知识库名称 / 负责人</th>
+                  <th>所属组织</th>
+                  <th>关联智能体</th>
+                  <th>30天检索</th>
+                  <th>命中 / 均分</th>
+                  <th>文档 / 健康率</th>
+                  <th>综合得分</th>
+                  <th>评选状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                {insights.items.filter(i => tierFilter === '全部' || i.tier === tierFilter).slice(0, 20).map((item, idx) => (
+                  <tr key={item.resourceId}>
+                    <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>#{idx + 1}</td>
+                    <td>
+                      <strong>{item.name}</strong>
+                      <div style={{ fontSize: 12, color: '#667085' }}>{item.ownerName} · {item.workspaceName}</div>
+                    </td>
+                    <td>{item.org}</td>
+                    <td style={{ fontWeight: 600 }}>{item.appCount}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{item.queryCount30d} / {item.totalQueries}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{item.hitCount} / {item.avgScore !== null ? item.avgScore.toFixed(2) : '-'}</td>
+                    <td>{item.documentCount} 篇 · {item.indexingHealthPct}%</td>
+                    <td style={{ fontWeight: 700, color: item.totalScore >= 55 ? '#027a48' : item.totalScore < 25 ? '#b42318' : '#175cd3' }}>{item.totalScore}</td>
+                    <td>
+                      <span className={`app-status-pill ${item.tier === '标杆推荐' ? 'tone-success' : item.tier === '变更待复审' ? 'tone-danger' : item.tier === '僵尸待治理' ? 'tone-pending' : 'tone-progress'}`}>
+                        {item.tier}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   )
 }
