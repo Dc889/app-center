@@ -16,6 +16,8 @@ export async function accountMonitorReport({
   headers,
   identity,
   applications = [],
+  subjects = [],
+  subsystemsList = [],
 }) {
   const admin = identity.roles.includes('admin')
   const ops = identity.roles.includes('operator')
@@ -46,7 +48,36 @@ export async function accountMonitorReport({
   }
 
   const allMappings = []
-  // 映射只来自账号工单，不预置演示账号。
+  // 1. 优先汇聚身份目录中的全量账号（含同步的 Dify 存量租户与待补全组织状态）
+  if (Array.isArray(subjects) && subjects.length > 0) {
+    directorySource = 'collected'
+    for (const p of subjects) {
+      if (!p?.account) continue
+      const orgDisplay = p.org || '待补全组织'
+      if (!admin && !ops && effectiveOrg && orgDisplay !== effectiveOrg) continue
+      if (filterOrg && orgDisplay !== filterOrg) continue
+      const consistency = p.needsOnboarding || !p.org
+        ? '待补全组织'
+        : p.difyAccountId
+          ? '一致'
+          : '缺 Dify'
+      allMappings.push({
+        account: p.account,
+        name: p.name || p.account,
+        email: p.email || '',
+        org: orgDisplay,
+        ragflowId: p.ragflowAccountId || '',
+        difyId: p.difyAccountId || '',
+        workspaceId: p.workspaceName || p.workspaceId || '',
+        consistency,
+        needsOnboarding: Boolean(p.needsOnboarding || !p.org),
+        checkedAt: p.syncedAt || p.onboardedAt || new Date(now).toISOString(),
+        ticketNo: p.authSource === 'dify' ? '存量纳管' : '平台内置',
+      })
+    }
+  }
+
+  // 2. 补充账号工单中的变更记录
   for (const app of applications) {
     if (['ACC-01', 'ACC-02'].includes(app.ticketType)) {
       if (!effectiveOrg || app.org === effectiveOrg) {
@@ -72,13 +103,15 @@ export async function accountMonitorReport({
   // 3. 统计五卡指标
   const totalCount = allMappings.length
   const consistentCount = allMappings.filter(m => m.consistency === '一致').length
+  const pendingOnboardingCount = allMappings.filter(m => m.consistency === '待补全组织').length
   const missingRagflowCount = allMappings.filter(m => m.consistency === '缺 RAGFlow').length
   const missingDifyCount = allMappings.filter(m => m.consistency === '缺 Dify').length
-  const conflictCount = allMappings.filter(m => ['账户名冲突', '角色不一致'].includes(m.consistency)).length
+  const conflictCount = allMappings.filter(m => ['账户名冲突', '角色不一致'].includes(m.consistency)).length + pendingOnboardingCount
 
   // 4. 差异分布
   const diffMap = new Map([
     ['三方一致', consistentCount],
+    ['待补全组织', pendingOnboardingCount],
     ['缺 Dify', missingDifyCount],
     ['缺 RAGFlow', missingRagflowCount],
     ['角色不一致', allMappings.filter(m => m.consistency === '角色不一致').length],
@@ -87,8 +120,24 @@ export async function accountMonitorReport({
   const diffDistribution = Array.from(diffMap.entries()).map(([name, value]) => ({ name, value }))
 
   const trendBuckets = []
-  const probes = []
-  const allSyncJobs = []
+  const probes = subsystemsList.map(sub => ({
+    name: sub.name,
+    type: sub.type,
+    endpoint: sub.apiBase,
+    status: sub.lastTest?.ok || sub.lastSync?.ok ? '正常' : sub.lastTest ? '异常' : '未测试',
+    latencyMs: sub.lastTest?.latencyMs ?? null,
+    checkedAt: sub.lastTest?.at || sub.lastSync?.at || sub.updatedAt || null,
+    message: sub.lastTest?.message || sub.lastSync?.message || '等待探测',
+  }))
+  const allSyncJobs = subsystemsList
+    .filter(sub => sub.lastSync)
+    .map(sub => ({
+      jobId: `sync-${sub.id}`,
+      source: sub.name,
+      status: sub.lastSync.ok ? '成功' : '失败',
+      summary: sub.lastSync.message,
+      finishedAt: sub.lastSync.at,
+    }))
 
   // 8. 映射过滤与分页
   const filteredMappings = allMappings.filter(m => {

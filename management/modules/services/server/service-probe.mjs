@@ -1,4 +1,6 @@
 import {spawn} from 'node:child_process'
+import {existsSync} from 'node:fs'
+import http from 'node:http'
 
 const ONE_SHOT = new Set(['init_permissions', 'certbot'])
 
@@ -160,7 +162,44 @@ function dockerText(args, timeoutMs, timeoutCode) {
   })
 }
 
-export function dockerPsText() {
+function dockerSocketRequest(method, path, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({socketPath: '/var/run/docker.sock', method, path, timeout: timeoutMs}, res => {
+      let body = ''
+      res.setEncoding('utf8')
+      res.on('data', chunk => { body += chunk })
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(body)
+        else reject(new Error(`DOCKER_SOCK_${res.statusCode || 500}: ${body.slice(0, 200)}`))
+      })
+    })
+    req.on('timeout', () => { req.destroy(new Error('DOCKER_TIMEOUT')) })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+async function dockerPsViaSocket() {
+  const raw = await dockerSocketRequest('GET', '/containers/json?all=true', 8000)
+  const list = JSON.parse(raw)
+  return list.map(c => {
+    const labels = Object.entries(c.Labels || {}).map(([k, v]) => `${k}=${v}`).join(',')
+    const names = Array.isArray(c.Names) && c.Names.length ? c.Names[0].replace(/^\//, '') : ''
+    return JSON.stringify({
+      ID: c.Id || '',
+      Names: names,
+      Image: c.Image || '',
+      State: c.State || '',
+      Status: c.Status || '',
+      Labels: labels,
+    })
+  }).join('\n')
+}
+
+export async function dockerPsText() {
+  if (existsSync('/var/run/docker.sock')) {
+    try { return await dockerPsViaSocket() } catch {}
+  }
   return dockerText(['ps', '-a', '--no-trunc', '--format', '{{json .}}'], 8000, 'DOCKER_TIMEOUT')
 }
 
@@ -188,11 +227,20 @@ export async function probeSubsystemServices({run, stats} = {}) {
   }
 }
 
-export function dockerRestart(containerId) {
+export async function dockerRestart(containerId) {
   if (!/^[a-f0-9]{12,64}$/.test(containerId)) {
     const error = new Error('容器标识不在本次巡检结果内')
     error.code = 'INVALID_CONTAINER'
-    return Promise.reject(error)
+    throw error
+  }
+  if (existsSync('/var/run/docker.sock')) {
+    try {
+      await dockerSocketRequest('POST', `/containers/${encodeURIComponent(containerId)}/restart?t=20`, 30000)
+      return {ok: true}
+    } catch (err) {
+      err.code = err.code || 'RESTART_FAILED'
+      throw err
+    }
   }
   return new Promise((resolve, reject) => {
     const child = spawn('docker', ['restart', '--time', '20', containerId], {windowsHide: true})
