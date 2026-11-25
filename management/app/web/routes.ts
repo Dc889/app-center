@@ -16,6 +16,7 @@ export const VIEW_PATHS: Record<View, string> = {
   skills: '/skills',
   security: '/security',
   accounts: '/accounts',
+  tenantModelMonitor: '/tenant-model-monitor',
   audit: '/audit',
   chat: '/chat',
   manual: '/manual',

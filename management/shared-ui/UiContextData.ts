@@ -17,6 +17,7 @@ import {ClipboardList} from 'lucide-react'
 import {ListChecks} from 'lucide-react'
 import {Search} from 'lucide-react'
 import {ServerCog} from 'lucide-react'
+import {Cpu} from 'lucide-react'
 
 export type Role = 'user' | 'ops' | 'admin'
 
@@ -24,7 +25,7 @@ export type View =
   | 'overview' | 'knowledge' | 'agents' | 'agentMonitor'
   | 'knowledgeWarehouse' | 'pluginWarehouse' | 'mcpWarehouse' | 'skillWarehouse'
   | 'plugins' | 'mcp' | 'skills' | 'serviceMonitor'
-  | 'security' | 'accounts' | 'audit'
+  | 'security' | 'accounts' | 'tenantModelMonitor' | 'audit'
   | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'types' | 'subsystems' | 'organizations' | 'keywordRules' | 'mcpTestSuites'
 
 export type Identity = {
@@ -77,6 +78,7 @@ export const monitorNav: NavItem[] = [
   { id: 'skills', label: 'Skill监控', icon: PackageCheck },
   { id: 'security', label: '安全事件', icon: ShieldAlert },
   { id: 'accounts', label: '账号与集成', icon: Users },
+  { id: 'tenantModelMonitor', label: '租户与模型', icon: Cpu },
   { id: 'audit', label: '审计追踪', icon: FileCheck2 },
 ]
 
@@ -107,6 +109,7 @@ export const pageMeta: Record<View, { title: string; eyebrow: string; desc: stri
   skills: { title: 'Skill监控', eyebrow: '下载明细', desc: '查看下载明细、下载趋势和下载人组织。这里没有运行告警，也不重复仓库里的下载排行。' },
   security: { title: '安全事件', eyebrow: '风险闭环', desc: '集中研判告警、跟踪处置证据和复核状态。' },
   accounts: { title: '账号与集成', eyebrow: '一致性治理', desc: '核对三方账号映射、接口健康和同步任务。' },
+  tenantModelMonitor: { title: '租户与模型监控', eyebrow: '资产与配额', desc: '按账号全景统计应用、知识库、插件、MCP 资产规模与模型 Token 消耗，支持按工作区 × 模型配置额度并超限自动禁用。' },
   audit: { title: '审计追踪', eyebrow: '全程留痕', desc: '检索工单、执行、目录、下载和访问审计记录。' },
   chat: { title: '对话申请', eyebrow: '智能填单', desc: '描述你想完成的事情，我会匹配工单类型并协助填写。' },
   manual: { title: '手工申请', eyebrow: '工单目录', desc: '按业务对象选择工单类型，逐项填写并检查。' },

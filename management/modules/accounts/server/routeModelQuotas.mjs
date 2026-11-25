@@ -98,6 +98,108 @@ export function buildModelQuotaReport({inventory, directory, now = Date.now()}) 
   const rank = {'已超限待禁用': 0, '已超限熔断': 1, '预警(≥80%)': 2, '正常': 3, '已手动禁用': 4, '未设限': 5}
   items.sort((a, b) => (rank[a.quotaStatus] - rank[b.quotaStatus]) || (b.usedTokens - a.usedTokens))
 
+  // Aggregate per-account (tenant) full asset + model usage overview
+  const norm = v => String(v ?? '').trim().toLowerCase()
+  const tenantRows = new Map()
+  const ensureTenant = (account, seed = {}) => {
+    const key = norm(account) || norm(seed.workspaceId)
+    if (!key) return null
+    if (!tenantRows.has(key)) {
+      tenantRows.set(key, {
+        account: account || seed.workspaceId?.slice(0, 8) || 'unknown',
+        name: seed.name || account || '未命名',
+        email: seed.email || '',
+        org: seed.org || '待归属',
+        active: seed.active !== false,
+        workspaceId: seed.workspaceId || '',
+        workspaceName: seed.workspaceName || '',
+        appsCount: 0,
+        datasetsCount: 0,
+        pluginsCount: 0,
+        mcpCount: 0,
+        apiKeysCount: 0,
+        monthlyTokens: 0,
+        totalTokens: 0,
+        monthlyCalls: 0,
+        totalCalls: 0,
+        modelsCount: 0,
+        exceededModels: 0,
+        warningModels: 0,
+        disabledModels: 0,
+      })
+    }
+    return tenantRows.get(key)
+  }
+
+  const byWorkspace = new Map()
+  for (const p of directory.subjects()) {
+    const row = ensureTenant(p.account, {
+      name: p.name,
+      email: p.email,
+      org: p.org,
+      active: p.active,
+      workspaceId: p.difyWorkspaceId || '',
+      workspaceName: p.difyWorkspaceName || '',
+    })
+    if (row && p.difyWorkspaceId) byWorkspace.set(p.difyWorkspaceId, row)
+  }
+
+  const resolveRow = (item) => {
+    if (item.workspaceId && byWorkspace.has(item.workspaceId)) return byWorkspace.get(item.workspaceId)
+    if (item.ownerAccount && tenantRows.has(norm(item.ownerAccount))) return tenantRows.get(norm(item.ownerAccount))
+    const row = ensureTenant(item.ownerAccount || `ws:${String(item.workspaceId || '').slice(0, 8)}`, {
+      name: item.ownerName || item.workspaceName,
+      org: item.org,
+      workspaceId: item.workspaceId,
+      workspaceName: item.workspaceName,
+    })
+    if (row && item.workspaceId) byWorkspace.set(item.workspaceId, row)
+    return row
+  }
+
+  for (const a of inventory?.apps ?? []) {
+    const row = resolveRow(a)
+    if (row) {
+      row.appsCount += 1
+      if (!row.workspaceId && a.workspaceId) row.workspaceId = a.workspaceId
+      if (!row.workspaceName && a.workspaceName) row.workspaceName = a.workspaceName
+    }
+  }
+  for (const d of inventory?.datasets ?? []) {
+    const row = resolveRow(d)
+    if (row) row.datasetsCount += 1
+  }
+  for (const p of inventory?.plugins ?? []) {
+    const row = resolveRow(p)
+    if (row) row.pluginsCount += 1
+  }
+  for (const m of inventory?.mcpProviders ?? []) {
+    const row = resolveRow(m)
+    if (row) row.mcpCount += 1
+  }
+  for (const k of inventory?.apiKeys ?? []) {
+    const row = resolveRow(k)
+    if (row) row.apiKeysCount += 1
+  }
+  for (const m of items) {
+    const row = resolveRow(m)
+    if (!row) continue
+    row.modelsCount += 1
+    row.monthlyTokens += m.monthlyTokens
+    row.totalTokens += m.totalTokens
+    row.monthlyCalls += m.monthlyCalls
+    row.totalCalls += m.totalCalls
+    if (m.exceeded) row.exceededModels += 1
+    if (m.warning) row.warningModels += 1
+    if (!m.enabled) row.disabledModels += 1
+    if (!row.workspaceId && m.workspaceId) row.workspaceId = m.workspaceId
+    if (!row.workspaceName && m.workspaceName) row.workspaceName = m.workspaceName
+  }
+
+  const tenants = [...tenantRows.values()].sort(
+    (a, b) => (b.monthlyTokens - a.monthlyTokens) || (b.appsCount - a.appsCount) || a.account.localeCompare(b.account),
+  )
+
   return {
     capturedAt: new Date(now).toISOString(),
     syncedAt: inventory?.syncedAt || null,
@@ -108,7 +210,13 @@ export function buildModelQuotaReport({inventory, directory, now = Date.now()}) 
       warning: items.filter(i => i.warning).length,
       disabled: items.filter(i => !i.enabled).length,
       pendingTickets: tickets.filter(t => t.status === '待审批').length,
+      totalTenants: tenants.length,
+      totalMonthlyTokens: items.reduce((s, i) => s + i.monthlyTokens, 0),
+      totalMonthlyCalls: items.reduce((s, i) => s + i.monthlyCalls, 0),
+      totalApps: (inventory?.apps ?? []).length,
+      totalDatasets: (inventory?.datasets ?? []).length,
     },
+    tenants,
     items,
     tickets,
   }
