@@ -87,7 +87,7 @@ export function ProfilePage({
   onNavigate,
 }: {
   role: 'user' | 'ops' | 'admin'
-  onNavigate?: (view: View) => void
+  onNavigate?: (view: View, ticketType?: string | null) => void
 }) {
   const [data, setData] = useState<ProfileModel | null>(null)
   const [loading, setLoading] = useState(true)
@@ -485,8 +485,26 @@ export function ProfilePage({
               <dt style={{color: '#64748b'}}>平台主体 ID</dt>
               <dd style={{margin: 0, fontFamily: 'monospace', fontSize: 12, color: '#64748b'}}>{profile.subjectId}</dd>
             </dl>
-            <div style={{marginTop: 14, padding: '10px 12px', borderRadius: 8, background: '#f8fafc', fontSize: 12, color: '#64748b', lineHeight: 1.5}}>
-              如需调整所属组织机构、角色权限或办理跨部门调岗交接，请联系系统管理员发起 <code style={{color: '#334155'}}>ACC-01</code> / <code style={{color: '#334155'}}>ACC-03</code> 变更。
+            <div style={{marginTop: 16, paddingTop: 14, borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: 8}}>
+              <div style={{fontSize: 12, color: '#64748b'}}>自助变更申请（跳转工单系统填写，管理员审批生效）：</div>
+              <div style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  style={{fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 5}}
+                  onClick={() => onNavigate?.('manual', 'ACC-04')}
+                >
+                  申请变更组织 / 角色 <ArrowRight size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  style={{fontSize: 12, padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: 5}}
+                  onClick={() => onNavigate?.('manual', 'ACC-03')}
+                >
+                  发起资源交接申请 <ArrowRight size={13} />
+                </button>
+              </div>
             </div>
           </section>
 

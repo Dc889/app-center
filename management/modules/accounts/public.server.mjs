@@ -17,9 +17,9 @@ export const moduleServer=Object.freeze({
   id:'accounts',
   routes:Object.freeze([
     Object.freeze({match:path=>path==='/api/account-monitor',handle:routeAccountMonitor}),
-    Object.freeze({match:path=>path==='/api/resource-handover',handle:routeResourceHandover}),
+    Object.freeze({match:path=>path==='/api/resource-handover' || path==='/api/resource-handover/approve',handle:routeResourceHandover}),
     Object.freeze({match:path=>path==='/api/expirations' || path==='/api/expirations/renew' || path==='/api/expirations/revoke',handle:routeExpirations}),
     Object.freeze({match:path=>path==='/api/model-quotas' || path.startsWith('/api/model-quotas/'),handle:routeModelQuotas}),
-    Object.freeze({match:path=>path==='/api/profile/me',handle:routeProfile}),
+    Object.freeze({match:path=>path==='/api/profile/me' || path==='/api/org-role-requests' || path==='/api/org-role-requests/approve',handle:routeProfile}),
   ]),
 })

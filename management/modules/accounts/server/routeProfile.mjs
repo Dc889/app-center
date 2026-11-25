@@ -1,4 +1,4 @@
-import {body, check, json} from '../../../../runtime/http.mjs'
+import {body, check, id, json} from '../../../../runtime/http.mjs'
 import {buildModelQuotaReport} from './routeModelQuotas.mjs'
 
 const DAY_MS = 86_400_000
@@ -15,13 +15,102 @@ function parseMs(val) {
 }
 
 export async function routeProfile(services) {
-  const {applications, directory, identity, options, path, req, res, subsystems, tickets} = services
+  const {applications, directory, hasRole, identity, options, path, req, res, subsystems, tickets} = services
   check(identity?.active, 403, 'ACCESS_DENIED')
 
+  const isStaff = hasRole(identity, 'admin') || hasRole(identity, 'operator')
   const now = (options.now ?? Date.now)()
   const store = directory.store
   const profile = directory.get(identity.subjectId) ?? directory.byAccount(identity.account)
   check(profile, 404, 'PROFILE_NOT_FOUND')
+
+  // ACC-04: Self-service org/role change requests
+  if (path === '/api/org-role-requests' && req.method === 'GET') {
+    const orgs = Array.isArray(directory.catalog?.orgs) ? directory.catalog.orgs : []
+    const items = store.all()
+      .filter(r => r && r.kind === 'org-role-request')
+      .filter(r => isStaff || r.account === identity.account)
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    return json(res, {
+      currentProfile: {account: profile.account, name: profile.name, org: profile.org || '未归属', roles: profile.roles ?? ['user']},
+      orgs,
+      items,
+    })
+  }
+
+  if (path === '/api/org-role-requests' && req.method === 'POST') {
+    check(!req.headers.origin || new URL(req.headers.origin).host === req.headers.host, 403, 'ACCESS_DENIED')
+    const input = await body(req)
+    const requestType = String(input?.requestType ?? '组织变更').trim()
+    const targetOrg = String(input?.targetOrg ?? '').trim()
+    const targetRole = String(input?.targetRole ?? '').trim()
+    const reason = String(input?.reason ?? '').trim()
+    check(['组织变更', '角色变更'].includes(requestType), 400, 'INVALID_REQUEST_TYPE')
+    if (requestType === '组织变更') {
+      const orgs = Array.isArray(directory.catalog?.orgs) ? directory.catalog.orgs : []
+      check(targetOrg && (!orgs.length || orgs.includes(targetOrg)), 400, 'INVALID_TARGET_ORG', '请选择有效的目标组织机构')
+    } else {
+      check(['user', 'operator', 'admin'].includes(targetRole), 400, 'INVALID_TARGET_ROLE', '请选择有效的目标角色')
+    }
+    check(reason.length >= 2 && reason.length <= 1000, 400, 'INVALID_REASON', '请填写变更申请原因')
+
+    const at = new Date(now).toISOString()
+    const ticketNo = `ACC-04-${id().slice(0, 8)}`
+    const record = store.put(`org-role:${ticketNo}`, {
+      kind: 'org-role-request',
+      ticketNo,
+      subjectId: profile.subjectId,
+      account: profile.account,
+      name: profile.name,
+      currentOrg: profile.org || '未归属',
+      currentRoles: profile.roles ?? ['user'],
+      requestType,
+      targetOrg: requestType === '组织变更' ? targetOrg : null,
+      targetRole: requestType === '角色变更' ? targetRole : null,
+      reason,
+      status: '待审批',
+      createdAt: at,
+      reviewedAt: null,
+      reviewer: null,
+      reviewNote: null,
+    })
+    return json(res, {ok: true, record}, 201)
+  }
+
+  if (path === '/api/org-role-requests/approve' && req.method === 'POST') {
+    check(hasRole(identity, 'admin'), 403, 'ACCESS_DENIED', '仅系统管理员可审批组织与角色变更单')
+    check(!req.headers.origin || new URL(req.headers.origin).host === req.headers.host, 403, 'ACCESS_DENIED')
+    const input = await body(req)
+    const ticketNo = String(input?.ticketNo ?? '').trim()
+    const decision = input?.decision === 'reject' ? 'reject' : 'approve'
+    const reviewNote = String(input?.reviewNote ?? (decision === 'approve' ? '同意变更并生效' : '驳回变更申请')).trim()
+
+    const existing = store.get(`org-role:${ticketNo}`)
+    check(existing && existing.status === '待审批', 404, 'TICKET_NOT_PENDING', '该申请单不存在或已办理')
+    const at = new Date(now).toISOString()
+
+    if (decision === 'approve') {
+      const targetPerson = directory.get(existing.subjectId) ?? directory.byAccount(existing.account)
+      check(targetPerson, 404, 'PERSON_NOT_FOUND')
+      const nextPerson = {...targetPerson, revision: (targetPerson.revision ?? 1) + 1, updatedAt: at}
+      if (existing.requestType === '组织变更' && existing.targetOrg) {
+        nextPerson.org = existing.targetOrg
+        nextPerson.businessLine = existing.targetOrg
+      } else if (existing.requestType === '角色变更' && existing.targetRole) {
+        nextPerson.roles = [...new Set([existing.targetRole, ...(targetPerson.roles ?? [])])]
+      }
+      store.put(`person:${targetPerson.subjectId}`, nextPerson)
+    }
+
+    const updated = store.put(`org-role:${ticketNo}`, {
+      ...existing,
+      status: decision === 'approve' ? '已批准' : '已驳回',
+      reviewedAt: at,
+      reviewer: identity.account,
+      reviewNote,
+    })
+    return json(res, {ok: true, record: updated})
+  }
 
   if (req.method === 'GET' && path === '/api/profile/me') {
     const inv = subsystems?.getDifyInventory?.() ?? {syncedAt: null, apps: [], datasets: [], mcpProviders: [], plugins: [], apiKeys: [], modelUsage: []}

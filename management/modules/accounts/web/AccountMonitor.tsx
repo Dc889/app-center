@@ -114,6 +114,54 @@ export function AccountMonitor({
   const [handoverBusy, setHandoverBusy] = useState(false)
   const [handoverMsg, setHandoverMsg] = useState('')
   const [handoverErr, setHandoverErr] = useState('')
+  const [orgRoleRequests, setOrgRoleRequests] = useState<{ticketNo: string; account: string; name: string; currentOrg: string; requestType: string; targetOrg: string | null; targetRole: string | null; reason: string; status: string; createdAt: string; reviewNote: string | null}[]>([])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/org-role-requests', { signal: controller.signal })
+      .then(async r => (r.ok ? r.json() : null))
+      .then(res => { if (res && !controller.signal.aborted) setOrgRoleRequests(res.items ?? []) })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [refresh])
+
+  const reviewHandover = async (ticketNo: string, decision: 'approve' | 'reject') => {
+    setHandoverBusy(true); setHandoverErr(''); setHandoverMsg('')
+    try {
+      const r = await fetch('/api/resource-handover/approve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ticketNo, decision }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '审批失败')
+      setHandoverMsg(decision === 'approve' ? `交接单 ${ticketNo} 已批准并执行完成` : `交接单 ${ticketNo} 已驳回`)
+      setRefresh(n => n + 1)
+    } catch (err: any) {
+      setHandoverErr(err?.message || '审批失败')
+    } finally {
+      setHandoverBusy(false)
+    }
+  }
+
+  const reviewOrgRole = async (ticketNo: string, decision: 'approve' | 'reject') => {
+    setHandoverBusy(true); setHandoverErr(''); setHandoverMsg('')
+    try {
+      const r = await fetch('/api/org-role-requests/approve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ticketNo, decision }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '审批失败')
+      setHandoverMsg(decision === 'approve' ? `组织/角色变更单 ${ticketNo} 已批准并生效` : `组织/角色变更单 ${ticketNo} 已驳回`)
+      setRefresh(n => n + 1)
+    } catch (err: any) {
+      setHandoverErr(err?.message || '审批失败')
+    } finally {
+      setHandoverBusy(false)
+    }
+  }
 
   const [expReport, setExpReport] = useState<ExpirationReport | null>(null)
   const [expStatusFilter, setExpStatusFilter] = useState('')
@@ -941,7 +989,7 @@ export function AccountMonitor({
                     <th>移交台账与 Dify 资产</th>
                     <th>停用原账号</th>
                     <th>交接原因</th>
-                    <th>操作人 / 时间</th>
+                    <th>状态 / 审批</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -955,7 +1003,16 @@ export function AccountMonitor({
                       </td>
                       <td>{h.sourceDeactivated ? '已停用' : '保留启用'}</td>
                       <td>{h.reason}</td>
-                      <td style={{ fontSize: 11, color: '#64748b' }}>{h.operatorName} · {new Date(h.createdAt).toLocaleString('zh-CN', { hour12: false })}</td>
+                      <td>
+                        {h.status === '待审批' ? (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#15803d' }} disabled={handoverBusy} onClick={() => reviewHandover(h.ticketNo, 'approve')}>批准执行</button>
+                            <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#dc2626' }} disabled={handoverBusy} onClick={() => reviewHandover(h.ticketNo, 'reject')}>驳回</button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#64748b' }}>{h.status} · {h.operatorName}</span>
+                        )}
+                      </td>
                     </tr>
                   )) : (
                     <tr><td colSpan={7} style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af' }}>暂无离职/调岗资源交接记录</td></tr>
@@ -963,6 +1020,41 @@ export function AccountMonitor({
                 </tbody>
               </table>
             </div>
+
+            {orgRoleRequests.length > 0 && (
+              <div style={{ marginTop: 18 }}>
+                <h4 style={{ margin: '0 0 10px', fontSize: 14 }}>ACC-04 员工组织与角色变更申请（{orgRoleRequests.length}）</h4>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>单号</th><th>申请人</th><th>当前组织</th><th>申请类型</th><th>目标组织 / 角色</th><th>原因</th><th>状态 / 操作</th></tr>
+                    </thead>
+                    <tbody>
+                      {orgRoleRequests.map(req => (
+                        <tr key={req.ticketNo}>
+                          <td style={{ fontFamily: 'monospace' }}>{req.ticketNo}</td>
+                          <td>{req.name} ({req.account})</td>
+                          <td>{req.currentOrg}</td>
+                          <td>{req.requestType}</td>
+                          <td style={{ fontWeight: 600 }}>{req.targetOrg || req.targetRole}</td>
+                          <td>{req.reason}</td>
+                          <td>
+                            {req.status === '待审批' ? (
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#15803d' }} disabled={handoverBusy} onClick={() => reviewOrgRole(req.ticketNo, 'approve')}>批准生效</button>
+                                <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#dc2626' }} disabled={handoverBusy} onClick={() => reviewOrgRole(req.ticketNo, 'reject')}>驳回</button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 12, color: '#64748b' }}>{req.status}{req.reviewNote ? ` · ${req.reviewNote}` : ''}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

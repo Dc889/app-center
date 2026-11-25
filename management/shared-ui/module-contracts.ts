@@ -5,7 +5,7 @@ export type ResourceStampMeta = {name:string;level:string;line:string}
 
 export type ModuleViewProps = {
   role: Role
-  onNavigate: (view: View) => void
+  onNavigate: (view: View, ticketType?: string | null) => void
   onWorkOrder: (title: string) => void
 }
 
