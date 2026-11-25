@@ -103,6 +103,94 @@ async function probePluginDaemonProcesses() {
   }
 }
 
+const MEM_ALERT_MB = Number(process.env.PLUGIN_MEM_ALERT_MB || 500)
+const CPU_ALERT_PCT = Number(process.env.PLUGIN_CPU_ALERT_PCT || 80)
+const LEAK_DELTA_MB = Number(process.env.PLUGIN_LEAK_DELTA_MB || 100)
+
+// In-memory sliding window per pluginId to detect memory leaks & OOM/crash PID restarts
+const processHistory = new Map()
+
+function recordProcessSample(proc, now) {
+  const key = proc.pluginId.toLowerCase()
+  let entry = processHistory.get(key)
+  if (!entry) {
+    entry = {lastPid: proc.pid, restartCount: 0, samples: []}
+    processHistory.set(key, entry)
+  }
+  if (entry.lastPid && proc.pid && entry.lastPid !== proc.pid) {
+    entry.restartCount += 1
+    entry.lastPid = proc.pid
+  }
+  const prev = entry.samples.at(-1)
+  if (!prev || now - prev.at >= 30_000) {
+    entry.samples.push({at: now, pid: proc.pid, memoryMb: proc.memoryMb, cpuPercent: proc.cpuPercent})
+    if (entry.samples.length > 10) entry.samples.shift()
+  }
+  const first = entry.samples[0]
+  const memoryDeltaMb = first ? Math.round((proc.memoryMb - first.memoryMb) * 10) / 10 : 0
+  let isMonotonicLeak = false
+  if (entry.samples.length >= 5 && memoryDeltaMb >= LEAK_DELTA_MB) {
+    isMonotonicLeak = true
+    for (let i = 1; i < entry.samples.length; i++) {
+      if (entry.samples[i].memoryMb < entry.samples[i - 1].memoryMb) {
+        isMonotonicLeak = false
+        break
+      }
+    }
+  }
+  const alerts = []
+  if (proc.memoryMb >= MEM_ALERT_MB) alerts.push({ruleCode: 'PLUGIN_MEMORY_HIGH', severity: '严重', label: '内存超限', detail: `插件 ${proc.pluginId}（PID ${proc.pid}）当前内存占用 ${proc.memoryMb} MB，已超过告警阈值 ${MEM_ALERT_MB} MB。`})
+  if (isMonotonicLeak) alerts.push({ruleCode: 'PLUGIN_MEMORY_LEAK', severity: '严重', label: '疑似内存泄漏', detail: `插件 ${proc.pluginId}（PID ${proc.pid}）连续 ${entry.samples.length} 次采样内存持续上涨 +${memoryDeltaMb} MB（当前 ${proc.memoryMb} MB），疑似发生内存泄漏或即将 OOM。`})
+  if (proc.cpuPercent >= CPU_ALERT_PCT) alerts.push({ruleCode: 'PLUGIN_CPU_HIGH', severity: '一般', label: 'CPU偏高', detail: `插件 ${proc.pluginId}（PID ${proc.pid}）当前 CPU 占用 ${proc.cpuPercent}%，超过阈值 ${CPU_ALERT_PCT}%。`})
+  if (entry.restartCount >= 2) alerts.push({ruleCode: 'PLUGIN_OOM_RESTART', severity: '严重', label: '频繁异常重启', detail: `插件 ${proc.pluginId} 已检测到 ${entry.restartCount} 次进程 PID 变动（当前 PID ${proc.pid}），疑似因内存溢出或崩溃反复重启。`})
+
+  return {
+    restartCount: entry.restartCount,
+    memoryDeltaMb,
+    alerts,
+    healthStatus: alerts.length > 0 ? alerts[0].label : '运行中',
+  }
+}
+
+export async function monitorPluginProcesses({events, types, now = Date.now()} = {}) {
+  const procInfo = await probePluginDaemonProcesses()
+  if (!procInfo.available) return {checked: 0, alertsCreated: 0}
+  const at = new Date(now).toISOString()
+  let alertsCreated = 0
+  for (const proc of procInfo.processes) {
+    const analysis = recordProcessSample(proc, now)
+    if (!events || !types || !analysis.alerts.length) continue
+    for (const al of analysis.alerts) {
+      const resourceId = `plugin-proc:${proc.pluginId}`
+      const alreadyOpen = events.all().some(e => e.ruleCode === al.ruleCode && e.resourceId === resourceId && e.status !== '已关闭')
+      if (alreadyOpen) continue
+      const ticketNo = `EVT-01-PLG-${id().slice(0, 8)}`
+      events.put(ticketNo, {
+        ticketNo,
+        account: 'system-plugin-guard',
+        resourceId,
+        resourceName: `${proc.pluginId} (v${proc.version})`,
+        originDraft: null,
+        facts: al.detail,
+        objectType: '插件',
+        creationMode: '自动巡检',
+        alertId: 'AL-' + id(),
+        ruleCode: al.ruleCode,
+        originalSeverity: al.severity,
+        firstOccurredAt: at,
+        lastOccurredAt: at,
+        evidence: {facts: al.detail},
+        status: '未研判',
+        version: types.activeVersion('EVT-01'),
+        revision: 1,
+        history: [{at, actor: 'system-plugin-guard', action: `插件进程自动告警（${al.label}）`, fromStatus: null, toStatus: '未研判', note: al.detail}],
+      })
+      alertsCreated += 1
+    }
+  }
+  return {checked: procInfo.processes.length, alertsCreated}
+}
+
 function getPluginDaemonEndpoint(subsystems) {
   const dify = subsystems?.defaultDify?.()
   const base = String(dify?.pluginDaemonBase || process.env.DIFY_PLUGIN_DAEMON_BASE || 'http://docker-plugin_daemon-1:5002').replace(/\/+$/, '')
@@ -169,10 +257,11 @@ export async function routePluginGovernance(services) {
       }
     }
 
-    // Aggregate unique plugins across all tenants + match live process metrics
+    // Aggregate unique plugins across all tenants + match live process metrics & leak/restart analysis
     const procByPluginId = new Map()
     for (const pr of procInfo.processes) {
-      procByPluginId.set(pr.pluginId.toLowerCase(), pr)
+      const analysis = recordProcessSample(pr, now)
+      procByPluginId.set(pr.pluginId.toLowerCase(), {...pr, ...analysis})
     }
 
     const pluginCatalog = new Map()
@@ -193,7 +282,9 @@ export async function routePluginGovernance(services) {
           runningPid: proc?.pid ?? null,
           cpuPercent: proc?.cpuPercent ?? null,
           memoryMb: proc?.memoryMb ?? null,
-          processStatus: proc ? proc.status : '按需休眠',
+          memoryDeltaMb: proc?.memoryDeltaMb ?? 0,
+          restartCount: proc?.restartCount ?? 0,
+          processStatus: proc ? proc.healthStatus : '按需休眠',
         })
       }
       if (inst.workspaceId) pluginCatalog.get(pid).installedWorkspaces.add(inst.workspaceId)
@@ -204,6 +295,7 @@ export async function routePluginGovernance(services) {
     // Include running processes even if not in DB snapshot yet
     for (const pr of procInfo.processes) {
       if (!pluginCatalog.has(pr.pluginId)) {
+        const enriched = procByPluginId.get(pr.pluginId.toLowerCase())
         pluginCatalog.set(pr.pluginId, {
           pluginId: pr.pluginId,
           pluginUniqueIdentifier: pr.uniqueIdentifier,
@@ -213,7 +305,9 @@ export async function routePluginGovernance(services) {
           runningPid: pr.pid,
           cpuPercent: pr.cpuPercent,
           memoryMb: pr.memoryMb,
-          processStatus: pr.status,
+          memoryDeltaMb: enriched?.memoryDeltaMb ?? 0,
+          restartCount: enriched?.restartCount ?? 0,
+          processStatus: enriched?.healthStatus ?? pr.status,
         })
       }
     }
@@ -229,6 +323,8 @@ export async function routePluginGovernance(services) {
       runningPid: p.runningPid,
       cpuPercent: p.cpuPercent,
       memoryMb: p.memoryMb,
+      memoryDeltaMb: p.memoryDeltaMb,
+      restartCount: p.restartCount,
       processStatus: p.processStatus,
     })).sort((a, b) => (Number(b.memoryMb ?? -1) - Number(a.memoryMb ?? -1)) || (b.installedWorkspacesCount - a.installedWorkspacesCount))
 
