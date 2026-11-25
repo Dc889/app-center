@@ -981,7 +981,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
       for (const rec of enabled) {
         try {
-          const syncResult = await syncDifyOwners(rec, directory, inventoryStore)
+          const syncResult = await syncDifySubsystem(rec, directory, inventoryStore)
           store.put(rec.id, {...rec, lastSync: syncResult})
         } catch {}
       }
