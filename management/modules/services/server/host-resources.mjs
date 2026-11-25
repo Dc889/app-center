@@ -1,5 +1,7 @@
 import {cpus, freemem, hostname, platform, totalmem} from 'node:os'
 import {spawn} from 'node:child_process'
+import {existsSync} from 'node:fs'
+import http from 'node:http'
 
 export function cpuPercent(before, after) {
   if (!Array.isArray(before) || !Array.isArray(after) || !after.length) return null
@@ -31,19 +33,23 @@ function asBytes(value) {
 
 export function summarizeDisks(disks) {
   let total = 0
-  let free = 0
+  let usedTotal = 0
   let count = 0
   for (const disk of disks ?? []) {
     const size = asBytes(disk.size ?? disk.Size)
+    if (size === null || size <= 0) continue
+    const explicitUsed = asBytes(disk.used ?? disk.Used)
     const freeBytes = asBytes(disk.free ?? disk.FreeSpace ?? disk.avail)
-    if (size === null || freeBytes === null || size <= 0) continue
+    let used = null
+    if (explicitUsed !== null) used = Math.min(explicitUsed, size)
+    else if (freeBytes !== null) used = Math.max(0, size - Math.min(freeBytes, size))
+    if (used === null) continue
     total += size
-    free += Math.min(freeBytes, size)
+    usedTotal += used
     count += 1
   }
   if (!count || total <= 0) return null
-  const used = Math.max(0, total - free)
-  return {usedBytes: used, totalBytes: total, percent: Math.round(used / total * 1000) / 10, volumes: count}
+  return {usedBytes: usedTotal, totalBytes: total, percent: Math.round(usedTotal / total * 1000) / 10, volumes: count}
 }
 
 export function parseDiskText(text) {
@@ -53,13 +59,57 @@ export function parseDiskText(text) {
     const parsed = JSON.parse(trimmed)
     return (Array.isArray(parsed) ? parsed : [parsed]).map(row => ({size: row.Size ?? row.size, free: row.FreeSpace ?? row.free}))
   }
-  return trimmed.split(/\r?\n/).slice(1).map(line => {
+  const seenDevices = new Set()
+  const blockDisks = []
+  let rootOverlay = null
+  for (const line of trimmed.split(/\r?\n/).slice(1)) {
     const cells = line.trim().split(/\s+/)
-    if (cells.length < 4) return null
+    if (cells.length < 5) continue
+    const device = cells[0]
     const target = cells.at(-1) ?? ''
-    if (/^(tmpfs|devtmpfs|overlay|shm)$/.test(cells[0]) || target.startsWith('/dev') || target.startsWith('/sys') || target.startsWith('/proc')) return null
-    return {size: Number(cells[1]) * 1024, free: Number(cells[3]) * 1024}
-  }).filter(Boolean)
+    if (target.startsWith('/dev') || target.startsWith('/sys') || target.startsWith('/proc') || target.startsWith('/run')) continue
+    if (/^(tmpfs|devtmpfs|shm|efivarfs|proc|sysfs|cgroup|cgroup2|squashfs)$/.test(device)) continue
+    const size = Number(cells[1]) * 1024
+    const used = Number(cells[2]) * 1024
+    const free = Number(cells[3]) * 1024
+    if (!Number.isFinite(size) || size <= 0) continue
+    if (device === 'overlay') {
+      if (target === '/' && !rootOverlay) rootOverlay = {size, used, free}
+      continue
+    }
+    if (seenDevices.has(device)) continue
+    seenDevices.add(device)
+    blockDisks.push({size, used, free})
+  }
+  // Inside a container, `/` is an overlay mount backed by the host's root/docker disk.
+  // Include it only if its capacity differs from all already-counted block devices (avoiding single-disk double-count).
+  if (rootOverlay && !blockDisks.some(d => d.size === rootOverlay.size)) {
+    blockDisks.push(rootOverlay)
+  }
+  return blockDisks
+}
+
+function readDockerHostName(socketPath = process.env.DOCKER_SOCKET || '/var/run/docker.sock', timeoutMs = 2000) {
+  if (platform() === 'win32' || !existsSync(socketPath)) return Promise.resolve(null)
+  return new Promise(resolve => {
+    const req = http.request({socketPath, path: '/info', method: 'GET'}, res => {
+      let body = ''
+      res.setEncoding('utf8')
+      res.on('data', chunk => { body += chunk })
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(body)
+          const name = typeof parsed?.Name === 'string' && parsed.Name.trim() ? parsed.Name.trim() : null
+          resolve(name)
+        } catch {
+          resolve(null)
+        }
+      })
+    })
+    req.setTimeout(timeoutMs, () => { req.destroy(); resolve(null) })
+    req.on('error', () => resolve(null))
+    req.end()
+  })
 }
 
 function runCommand(command, args, timeoutMs) {
@@ -104,9 +154,10 @@ export async function probeHostResources({sampleMs = 200, diskText} = {}) {
     storage = null
   }
   const collected = cpu !== null || memory !== null || storage !== null
+  const hostName = (await readDockerHostName()) || hostname()
   return {
     availability: collected ? 'collected' : 'not_collected',
-    hostname: hostname(),
+    hostname: hostName,
     cpuPercent: cpu,
     memory,
     storage,
