@@ -172,7 +172,13 @@ export function ManualApplication({ role, ticketType, onSelectTicketType }: { ro
     (category === '全部' || item[2] === category) &&
     (`${item[0]}${item[1]}${item[4]}`.toLowerCase().includes(query.toLowerCase()))
   )
-  const categories = ['全部', '知识库', '智能体', '插件', 'MCP', 'Skill', '凭证', '工具', '告警', ...(role === 'admin' ? ['账号'] : [])]
+  const preferredOrder = ['知识库', '智能体', '插件', 'MCP', 'Skill', '凭证', '工具', '告警', '账号', '配置']
+  const presentCategories = new Set(availableTypes.map((item) => item[2]))
+  const categories = [
+    '全部',
+    ...preferredOrder.filter((c) => presentCategories.has(c)),
+    ...[...presentCategories].filter((c) => !preferredOrder.includes(c)),
+  ]
   return (
     <>
       <PageHeader view="manual" />
