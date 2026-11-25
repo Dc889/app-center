@@ -37,7 +37,7 @@ export function AccountApplication({type}:{type:'ACC-01'|'ACC-02'}) {
     finally{setBusy(false)}
   }
   const permissions=['开通','角色变更'].includes(operation),organization=['开通','组织变更'].includes(operation)
-  return <fieldset disabled={busy || draft.controller.busy} className="form-section"><legend>{type==='ACC-01'?'账号开通与权限变更':'跨平台账户名变更'}</legend>
+  return <fieldset disabled={busy || draft.controller.busy} className="form-section"><legend>{type==='ACC-01'?'账号开通与变更':'账号更名申请'}</legend>
     <label>目标人员<select aria-label="目标人员" value={subjectId} onChange={e=>select(e.target.value)}><option value="">请选择人员</option>{people.map(p=><option key={p.subjectId} value={p.subjectId}>{p.name} · {p.account} · {p.active?'已开通':'未开通'}</option>)}</select></label>
     {person && <p>稳定人员ID · {person.subjectId} · 当前账户名 {person.account}</p>}
     {type==='ACC-02'?<label>新账户名<input value={newAccount} onChange={e=>setNewAccount(e.target.value)}/></label>:<>
