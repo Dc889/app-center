@@ -3,8 +3,11 @@ import {body, check, id, json} from '../../../../runtime/http.mjs'
 
 async function probeMcpUrl(rawUrl, timeoutMs = 4000) {
   const url = String(rawUrl ?? '').trim()
-  if (!url || !/^https?:\/\//i.test(url)) {
+  if (!url) {
     return {status: '未配置地址', latencyMs: null, checkedAt: new Date().toISOString()}
+  }
+  if (!/^https?:\/\//i.test(url)) {
+    return {status: '密文待登记', latencyMs: null, checkedAt: new Date().toISOString()}
   }
   const started = Date.now()
   try {
@@ -101,6 +104,18 @@ export async function routeMcpGovernance(services) {
       }
     }
 
+    // Collect plaintext internal URLs from MCP-01 / catalog records (Dify stores server_url encrypted)
+    const catalogUrlByKey = new Map()
+    for (const row of store.all()) {
+      if (!row || typeof row !== 'object') continue
+      const u = String(row.endpoint || row.serverUrl || row.url || row.mcpUrl || '').trim()
+      if (!/^https?:\/\//i.test(u)) continue
+      for (const k of [row.serverIdentifier, row.mcpId, row.id, row.name, row.mcpName]) {
+        const key = String(k ?? '').trim()
+        if (key) catalogUrlByKey.set(key, u)
+      }
+    }
+
     const mcpMap = new Map()
     for (const m of inv.mcpProviders ?? []) {
       const sid = String(m.serverIdentifier || m.name || m.providerId || '').trim()
@@ -110,10 +125,13 @@ export async function routeMcpGovernance(services) {
         const probe = store.get(`mcp-probe:${sid}`)
         const pStat = store.get(`mcp-proxy-stat:${sid}`)
         const isolated = Boolean(store.get(`mcp-isolated:${sid}`)?.isolated)
+        const resolvedUrl = (/^https?:\/\//i.test(String(m.serverUrl || '')))
+          ? String(m.serverUrl)
+          : (catalogUrlByKey.get(sid) || catalogUrlByKey.get(m.name || '') || m.serverUrl || '')
         mcpMap.set(sid, {
           serverIdentifier: sid,
           name: m.name || sid,
-          rawUrl: m.serverUrl || '',
+          rawUrl: resolvedUrl,
           boundWorkspaces: new Set(),
           probeStatus: probe?.status || '待探测',
           latencyMs: probe?.latencyMs ?? null,
