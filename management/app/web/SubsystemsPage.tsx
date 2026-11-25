@@ -18,6 +18,9 @@ type SyncResult = {
   totalOwners: number
   created: number
   updated: number
+  appsCount?: number
+  datasetsCount?: number
+  mcpCount?: number
   message: string
 }
 
@@ -258,13 +261,13 @@ export function SubsystemsPage() {
     setSyncingId(item.id)
     setNotice('')
     try {
-      const res = await fetch(`/api/subsystems/${encodeURIComponent(item.id)}/sync-accounts`, {method: 'POST'})
+      const res = await fetch(`/api/subsystems/${encodeURIComponent(item.id)}/sync`, {method: 'POST'})
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw Error(data.error?.message ?? '同步账号失败')
-      setNotice(`${item.name} · ${data.sync?.message ?? '账号更新完成'}`)
+      if (!res.ok) throw Error(data.error?.message ?? '同步子系统数据失败')
+      setNotice(`${item.name} · ${data.sync?.message ?? '全量数据同步完成'}`)
       setReloadTick(t => t + 1)
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : '同步账号失败')
+      setNotice(err instanceof Error ? err.message : '同步子系统数据失败')
     } finally {
       setSyncingId(null)
     }
@@ -453,12 +456,16 @@ export function SubsystemsPage() {
                   </div>
                   {item.type === 'dify' && (
                     <div>
-                      <dt>账号同步</dt>
+                      <dt>数据同步</dt>
                       <dd>
                         {item.lastSync ? (
                           <span className={`sub-health ${item.lastSync.ok ? 'ok' : 'bad'}`}>
                             {item.lastSync.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
-                            <span>{item.lastSync.ok ? `已同步 ${item.lastSync.totalOwners} 个租户` : '同步失败'}</span>
+                            <span>
+                              {item.lastSync.ok
+                                ? `${item.lastSync.totalOwners} 租户 · ${item.lastSync.appsCount ?? 0} 应用 · ${item.lastSync.datasetsCount ?? 0} 知识库`
+                                : '同步失败'}
+                            </span>
                           </span>
                         ) : (
                           <span className="org-muted-text">尚未同步</span>
@@ -476,7 +483,7 @@ export function SubsystemsPage() {
                   {item.type === 'dify' && (
                     <button type="button" className="app-icon-btn" disabled={syncingId === item.id} data-testid={`sync-accounts-${item.id}`} onClick={() => void syncExisting(item)}>
                       <Users size={13} />
-                      <span>{syncingId === item.id ? '同步中' : '更新账号'}</span>
+                      <span>{syncingId === item.id ? '同步中' : '同步全量数据'}</span>
                     </button>
                   )}
                   <button type="button" className="app-icon-btn" onClick={() => startEdit(item)}>
@@ -632,7 +639,7 @@ export function SubsystemsPage() {
                     </div>
                     <div style={{marginTop: 6, paddingTop: 10, borderTop: '1px solid var(--border-subtle, #e2e8f0)'}}>
                       <div style={{fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 8}}>
-                        Dify 数据库只读连接（必填，保存后自动同步租户账号）
+                        Dify 数据库只读连接（必填，保存后自动同步租户、应用、知识库与 MCP）
                       </div>
                       <div className="sub-form-2col">
                         <label className="org-field">

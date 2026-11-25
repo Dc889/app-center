@@ -7,6 +7,8 @@ export async function agentMonitorReport({
   headers,
   identity,
   applications = [],
+  difyInventory = null,
+  directory = null,
 }) {
   const admin = identity.roles.includes('admin')
   const ops = identity.roles.includes('operator')
@@ -66,6 +68,37 @@ export async function agentMonitorReport({
     }
   }
 
+  // Prefer full multi-tenant Dify apps synced from subsystem read-only DB (rich human-readable owner/org)
+  if (difyInventory && Array.isArray(difyInventory.apps) && difyInventory.apps.length > 0) {
+    difyCatalogSource = 'collected'
+    const invById = new Map()
+    for (const invApp of difyInventory.apps) {
+      if (!invApp?.resourceId) continue
+      const dirProfile = directory?.byAccount?.(invApp.ownerAccount) || (invApp.ownerEmail ? directory?.byLogin?.(invApp.ownerEmail) : null)
+      invById.set(invApp.resourceId, {
+        resourceId: invApp.resourceId,
+        name: invApp.name,
+        workspaceId: invApp.workspaceId,
+        ownerAccount: dirProfile?.account || invApp.ownerAccount,
+        ownerName: dirProfile?.name || invApp.ownerName,
+        org: dirProfile?.org || invApp.org || '待归属',
+        data: {
+          mode: invApp.mode || 'chat',
+          description: invApp.description || '',
+          ownerAccount: dirProfile?.account || invApp.ownerAccount,
+          ownerName: dirProfile?.name || invApp.ownerName,
+          org: dirProfile?.org || invApp.org || '待归属',
+        },
+      })
+    }
+    const merged = Array.from(invById.values())
+    for (const capApp of difyApps) {
+      if (capApp?.resourceId && !invById.has(capApp.resourceId)) merged.push(capApp)
+    }
+    difyApps.length = 0
+    difyApps.push(...merged)
+  }
+
   // 2. 按开发账户/工作区聚合真实 Dify 应用树
   const groupMap = new Map()
   for (const app of difyApps) {
@@ -79,7 +112,7 @@ export async function agentMonitorReport({
     const ownerOrg = (typeof app.org === 'string' && app.org.trim())
       || (typeof app.data?.org === 'string' && app.data.org.trim())
       || identity.org
-    if (!admin && ownerOrg !== identity.org) continue
+    if (!admin && !ops && ownerOrg !== identity.org) continue
     if (filterOrg && ownerOrg !== filterOrg) continue
     if (!groupMap.has(ownerAccount)) {
       groupMap.set(ownerAccount, {

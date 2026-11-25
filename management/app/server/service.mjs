@@ -277,7 +277,7 @@ export function managementApi(options) {
     if(identity?.restricted && path.startsWith('/api/') && !['/api/demo-session','/api/auth/session','/api/auth/login','/api/auth/logout','/api/audit','/api/account-applications','/api/account-applications/transition'].includes(path)) {
       check(req.method==='GET' && ['/api/applications','/api/tickets','/api/events'].includes(path),403,'ACCOUNT_CHANGE_PENDING')
     }
-    if(await dispatchModuleRoute(path,{accountChanges,applications,cap,demoAccounts,directory,drafts,events,hasRole,identity,options,ownerHeaders,path,req,res,tickets,types}))return
+    if(await dispatchModuleRoute(path,{accountChanges,applications,cap,demoAccounts,directory,drafts,events,hasRole,identity,options,ownerHeaders,path,req,res,subsystems,tickets,types}))return
     if(path==='/internal/v1/plugin-alerts') {
       check(req.method==='POST' && req.headers.authorization==='Bearer '+options.token,403,'ACCESS_DENIED')
       return json(res,await applications.ingestPluginAlert(await body(req)),201)

@@ -173,10 +173,10 @@ async function probeSubsystem(spec) {
   }
 }
 
-async function syncDifyOwnerAccounts(record, directory) {
+async function syncDifySubsystem(record, directory, inventoryStore) {
   const nowIso = new Date().toISOString()
   if (!directory) {
-    return {at: nowIso, ok: false, totalOwners: 0, created: 0, updated: 0, message: '身份目录未就绪'}
+    return {at: nowIso, ok: false, totalOwners: 0, created: 0, updated: 0, appsCount: 0, datasetsCount: 0, mcpCount: 0, message: '身份目录未就绪'}
   }
   const host = String(record.dbHost ?? '').trim()
   const port = Number(record.dbPort || 5432)
@@ -184,7 +184,7 @@ async function syncDifyOwnerAccounts(record, directory) {
   const user = String(record.dbUser ?? '').trim()
   const password = decryptSecret(record.secrets?.dbPassword)
   if (!host || !database || !user || !password) {
-    return {at: nowIso, ok: false, totalOwners: 0, created: 0, updated: 0, message: '缺少 Dify 只读数据库连接信息'}
+    return {at: nowIso, ok: false, totalOwners: 0, created: 0, updated: 0, appsCount: 0, datasetsCount: 0, mcpCount: 0, message: '缺少 Dify 只读数据库连接信息'}
   }
   const client = new pg.Client({
     host,
@@ -193,11 +193,12 @@ async function syncDifyOwnerAccounts(record, directory) {
     user,
     password,
     connectionTimeoutMillis: 8000,
-    statement_timeout: 10000,
+    statement_timeout: 15000,
   })
   try {
     await client.connect()
-    const sql = `
+    // 1. Sync tenant owner accounts
+    const ownersRes = await client.query(`
       SELECT DISTINCT ON (a.id)
         a.id::text AS dify_account_id,
         a.email,
@@ -210,11 +211,11 @@ async function syncDifyOwnerAccounts(record, directory) {
       JOIN tenant_account_joins taj ON taj.account_id = a.id AND taj.role = 'owner'
       JOIN tenants t ON t.id = taj.tenant_id
       ORDER BY a.id, taj.current DESC, taj.created_at ASC
-    `
-    const result = await client.query(sql)
+    `)
     let created = 0
     let updated = 0
-    for (const row of result.rows) {
+    const tenantOwnerMap = new Map()
+    for (const row of ownersRes.rows) {
       if (!row.email || !row.dify_account_id) continue
       const res = directory.upsertDifyOwner({
         difyAccountId: row.dify_account_id,
@@ -227,7 +228,133 @@ async function syncDifyOwnerAccounts(record, directory) {
       })
       if (res.action === 'created') created++
       else updated++
+      if (row.workspace_id && res.profile) {
+        tenantOwnerMap.set(row.workspace_id, {
+          account: res.profile.account,
+          email: res.profile.email,
+          name: res.profile.name,
+          org: res.profile.org || '待归属',
+          workspaceName: row.workspace_name || '',
+        })
+      }
     }
+
+    // 2. Sync all Dify apps across all tenants
+    const appsRes = await client.query(`
+      SELECT
+        ap.id::text AS app_id,
+        ap.tenant_id::text AS workspace_id,
+        ap.name,
+        ap.mode,
+        ap.description,
+        ap.status,
+        ap.created_at,
+        ap.updated_at,
+        t.name AS workspace_name
+      FROM apps ap
+      LEFT JOIN tenants t ON t.id = ap.tenant_id
+      ORDER BY ap.created_at DESC
+    `)
+    const apps = appsRes.rows.map(r => {
+      const owner = tenantOwnerMap.get(r.workspace_id)
+      return {
+        resourceId: r.app_id,
+        name: r.name || r.app_id,
+        workspaceId: r.workspace_id || '',
+        workspaceName: r.workspace_name || owner?.workspaceName || '',
+        mode: r.mode || 'chat',
+        description: r.description || '',
+        status: r.status || 'normal',
+        ownerAccount: owner?.account || `workspace:${String(r.workspace_id || '').slice(0, 8)}`,
+        ownerEmail: owner?.email || '',
+        ownerName: owner?.name || r.workspace_name || 'Dify 工作区',
+        org: owner?.org || '待归属',
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+        updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : null,
+      }
+    })
+
+    // 3. Sync all Dify datasets (knowledge bases) & document counts across all tenants
+    const dsRes = await client.query(`
+      SELECT
+        d.id::text AS dataset_id,
+        d.tenant_id::text AS workspace_id,
+        d.name,
+        d.description,
+        d.indexing_technique,
+        d.permission,
+        d.created_at,
+        t.name AS workspace_name,
+        (SELECT count(*)::int FROM documents doc WHERE doc.dataset_id = d.id) AS doc_count
+      FROM datasets d
+      LEFT JOIN tenants t ON t.id = d.tenant_id
+      ORDER BY d.created_at DESC
+    `)
+    const datasets = dsRes.rows.map(r => {
+      const owner = tenantOwnerMap.get(r.workspace_id)
+      return {
+        resourceId: r.dataset_id,
+        name: r.name || r.dataset_id,
+        workspaceId: r.workspace_id || '',
+        workspaceName: r.workspace_name || owner?.workspaceName || '',
+        description: r.description || '',
+        indexingTechnique: r.indexing_technique || '',
+        permission: r.permission || 'only_me',
+        documentCount: Number(r.doc_count || 0),
+        ownerAccount: owner?.account || `workspace:${String(r.workspace_id || '').slice(0, 8)}`,
+        ownerName: owner?.name || r.workspace_name || 'Dify 工作区',
+        org: owner?.org || '待归属',
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+      }
+    })
+
+    // 4. Sync all Dify MCP providers across all tenants
+    let mcpProviders = []
+    try {
+      const mcpRes = await client.query(`
+        SELECT
+          m.id::text AS provider_id,
+          m.tenant_id::text AS workspace_id,
+          m.name,
+          m.server_identifier,
+          m.server_url,
+          m.authed,
+          m.created_at,
+          t.name AS workspace_name
+        FROM tool_mcp_providers m
+        LEFT JOIN tenants t ON t.id = m.tenant_id
+        ORDER BY m.created_at DESC
+      `)
+      mcpProviders = mcpRes.rows.map(r => {
+        const owner = tenantOwnerMap.get(r.workspace_id)
+        return {
+          providerId: r.provider_id,
+          workspaceId: r.workspace_id || '',
+          workspaceName: r.workspace_name || owner?.workspaceName || '',
+          name: r.name || r.server_identifier || r.provider_id,
+          serverIdentifier: r.server_identifier || '',
+          serverUrl: r.server_url || '',
+          authed: Boolean(r.authed),
+          ownerAccount: owner?.account || `workspace:${String(r.workspace_id || '').slice(0, 8)}`,
+          ownerName: owner?.name || r.workspace_name || 'Dify 工作区',
+          org: owner?.org || '待归属',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+        }
+      })
+    } catch {
+      mcpProviders = []
+    }
+
+    if (inventoryStore) {
+      inventoryStore.put(`dify:${record.id}`, {
+        subsystemId: record.id,
+        syncedAt: nowIso,
+        apps,
+        datasets,
+        mcpProviders,
+      })
+    }
+
     const totalOwners = created + updated
     return {
       at: nowIso,
@@ -235,7 +362,10 @@ async function syncDifyOwnerAccounts(record, directory) {
       totalOwners,
       created,
       updated,
-      message: `同步成功，共同步 ${totalOwners} 个租户账号（新增 ${created} 个，更新 ${updated} 个）`,
+      appsCount: apps.length,
+      datasetsCount: datasets.length,
+      mcpCount: mcpProviders.length,
+      message: `同步成功：租户 ${totalOwners} 个、应用 ${apps.length} 个、知识库 ${datasets.length} 个、MCP ${mcpProviders.length} 个`,
     }
   } catch (err) {
     return {
@@ -244,6 +374,9 @@ async function syncDifyOwnerAccounts(record, directory) {
       totalOwners: 0,
       created: 0,
       updated: 0,
+      appsCount: 0,
+      datasetsCount: 0,
+      mcpCount: 0,
       message: `同步失败：${err instanceof Error ? err.message : '无法连接 Dify 数据库'}`,
     }
   } finally {
@@ -253,6 +386,7 @@ async function syncDifyOwnerAccounts(record, directory) {
 
 export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
   const store = ledger(dir, 'managed-subsystems', actorSnapshot)
+  const inventoryStore = ledger(dir, 'subsystem-inventory', actorSnapshot)
 
   function bootstrapFromEnv() {
     if (store.all().length > 0) {
@@ -417,31 +551,31 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       applyDefaultToEnv(saved)
       let syncResult = null
       if (saved.type === 'dify' && directory) {
-        syncResult = await syncDifyOwnerAccounts(saved, directory)
+        syncResult = await syncDifySubsystem(saved, directory, inventoryStore)
         saved = store.put(saved.id, {
           ...saved,
           lastSync: syncResult,
           updatedAt: syncResult.at,
-          history: [...(saved.history ?? []), {at: syncResult.at, actor, action: `自动同步 Dify 租户账号：${syncResult.message}`}],
+          history: [...(saved.history ?? []), {at: syncResult.at, actor, action: `自动同步 Dify 子系统全量数据：${syncResult.message}`}],
         })
       }
       return json(res, {...toPublicView(saved), syncResult}, 201)
     }
 
-    const itemMatch = /^\/api\/subsystems\/([a-zA-Z0-9_-]+)(?:\/(test|default|sync-accounts))?$/.exec(path)
+    const itemMatch = /^\/api\/subsystems\/([a-zA-Z0-9_-]+)(?:\/(test|default|sync|sync-accounts))?$/.exec(path)
     check(itemMatch, 404, 'NOT_FOUND')
     const [, targetId, action] = itemMatch
     const existing = store.get(targetId)
     check(existing, 404, 'NOT_FOUND', '子系统实例不存在')
 
-    if (action === 'sync-accounts' && req.method === 'POST') {
-      check(existing.type === 'dify', 400, 'UNSUPPORTED_SYNC', '仅 Dify 子系统支持自动同步租户账号')
-      const sync = await syncDifyOwnerAccounts(existing, directory)
+    if ((action === 'sync' || action === 'sync-accounts') && req.method === 'POST') {
+      check(existing.type === 'dify', 400, 'UNSUPPORTED_SYNC', '仅 Dify 子系统支持全量数据同步')
+      const sync = await syncDifySubsystem(existing, directory, inventoryStore)
       const updated = store.put(existing.id, {
         ...existing,
         lastSync: sync,
         updatedAt: sync.at,
-        history: [...(existing.history ?? []), {at: sync.at, actor, action: `手动更新 Dify 租户账号：${sync.message}`}],
+        history: [...(existing.history ?? []), {at: sync.at, actor, action: `手动同步 Dify 子系统全量数据：${sync.message}`}],
       })
       return json(res, {sync, item: toPublicView(updated)})
     }
@@ -527,12 +661,12 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       applyDefaultToEnv(updated)
       let syncResult = null
       if (updated.type === 'dify' && directory) {
-        syncResult = await syncDifyOwnerAccounts(updated, directory)
+        syncResult = await syncDifySubsystem(updated, directory, inventoryStore)
         updated = store.put(updated.id, {
           ...updated,
           lastSync: syncResult,
           updatedAt: syncResult.at,
-          history: [...(updated.history ?? []), {at: syncResult.at, actor, action: `保存后自动同步 Dify 租户账号：${syncResult.message}`}],
+          history: [...(updated.history ?? []), {at: syncResult.at, actor, action: `保存后自动同步 Dify 子系统全量数据：${syncResult.message}`}],
         })
       }
       return json(res, {...toPublicView(updated), syncResult})
@@ -568,6 +702,24 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       const all = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled)
       return all.find(r => r.isDefault) ?? all[0] ?? null
     },
-    close: store.close,
+    getDifyInventory: () => {
+      const activeIds = new Set(store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled).map(r => `dify:${r.id}`))
+      const apps = []
+      const datasets = []
+      const mcpProviders = []
+      let syncedAt = null
+      for (const snap of inventoryStore.all()) {
+        if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
+        if (snap.syncedAt && (!syncedAt || snap.syncedAt > syncedAt)) syncedAt = snap.syncedAt
+        if (Array.isArray(snap.apps)) apps.push(...snap.apps)
+        if (Array.isArray(snap.datasets)) datasets.push(...snap.datasets)
+        if (Array.isArray(snap.mcpProviders)) mcpProviders.push(...snap.mcpProviders)
+      }
+      return {syncedAt, apps, datasets, mcpProviders}
+    },
+    close: () => {
+      store.close()
+      inventoryStore.close()
+    },
   }
 }
