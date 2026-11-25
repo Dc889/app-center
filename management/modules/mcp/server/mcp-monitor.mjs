@@ -16,6 +16,8 @@ export async function mcpMonitorReport({
   headers,
   identity,
   applications = [],
+  difyInventory = null,
+  directory = null,
 }) {
   const admin = identity.roles.includes('admin')
   const ops = identity.roles.includes('operator')
@@ -81,6 +83,36 @@ export async function mcpMonitorReport({
         boundAt: time,
       })
     }
+  }
+
+  // Merge full multi-tenant Dify MCP providers synced from subsystem read-only DB
+  if (difyInventory && Array.isArray(difyInventory.mcpProviders) && difyInventory.mcpProviders.length > 0) {
+    const existingKeys = new Set(allBindings.map(b => `${b.workspaceId}:${b.mcpName}`))
+    const distinctNames = new Set()
+    for (const m of difyInventory.mcpProviders) {
+      distinctNames.add(m.serverIdentifier || m.name)
+      const key = `${m.workspaceId}:${m.name}`
+      if (existingKeys.has(key)) continue
+      existingKeys.add(key)
+      const dirProfile = directory?.byAccount?.(m.ownerAccount)
+      const item = {
+        bindingId: m.providerId || `mcp-${String(m.workspaceId).slice(0, 6)}`,
+        mcpName: m.name || m.serverIdentifier || '未命名 MCP',
+        workspaceId: m.workspaceName || m.workspaceId || '',
+        targetApp: '',
+        account: dirProfile?.name ? `${dirProfile.name} (${dirProfile.account})` : (m.ownerName || m.ownerAccount || ''),
+        org: dirProfile?.org || m.org || '待归属',
+        status: '已绑定',
+        ticketNo: '存量纳管',
+        boundAt: m.createdAt || difyInventory.syncedAt || new Date(now).toISOString(),
+      }
+      if (!q || [item.mcpName, item.workspaceId, item.account, item.org, item.bindingId].some(s => String(s).toLowerCase().includes(q))) {
+        allBindings.push(item)
+      }
+    }
+    catalogSource = 'collected'
+    if (catalogCount === null || catalogCount === 0) catalogCount = distinctNames.size
+    if (activeCount === null || activeCount === 0) activeCount = distinctNames.size
   }
 
   // 4. 构建告警与处置记录 (alerts)

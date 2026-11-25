@@ -16,6 +16,8 @@ export async function knowledgeMonitorReport({
   headers,
   identity,
   applications = [],
+  difyInventory = null,
+  directory = null,
 }) {
   const admin = identity.roles.includes('admin')
   const ops = identity.roles.includes('operator')
@@ -79,6 +81,28 @@ export async function knowledgeMonitorReport({
       }
     } catch {
       // Fall through to legacy catalog endpoint
+    }
+
+    // Merge full multi-tenant Dify datasets synced from subsystem read-only DB
+    if (difyInventory && Array.isArray(difyInventory.datasets) && difyInventory.datasets.length > 0) {
+      const seenDs = new Set(liveDatasets.map(d => d.resourceId))
+      for (const ds of difyInventory.datasets) {
+        if (!ds?.resourceId || seenDs.has(ds.resourceId)) continue
+        seenDs.add(ds.resourceId)
+        const dirProfile = directory?.byAccount?.(ds.ownerAccount)
+        liveDatasets.push({
+          resourceId: ds.resourceId,
+          name: ds.name || ds.resourceId,
+          source: 'Dify',
+          status: ds.permission === 'all_team_members' ? 'shared' : 'private',
+          documentCount: ds.documentCount ?? 0,
+          ownerAccount: dirProfile?.account || ds.ownerAccount || '',
+          ownerName: dirProfile?.name || ds.ownerName || '',
+          org: dirProfile?.org || ds.org || '待归属',
+          updatedAt: ds.createdAt || difyInventory.syncedAt || new Date(now).toISOString(),
+        })
+      }
+      catalogSource = 'collected'
     }
 
     if (liveDatasets.length > 0) {

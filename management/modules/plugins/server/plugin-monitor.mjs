@@ -16,6 +16,8 @@ export async function pluginMonitorReport({
   headers,
   identity,
   applications = [],
+  difyInventory = null,
+  directory = null,
 }) {
   const admin = identity.roles.includes('admin')
   const ops = identity.roles.includes('operator')
@@ -140,6 +142,35 @@ export async function pluginMonitorReport({
         allInstances.push(instItem)
       }
     }
+  }
+
+  // Merge full multi-tenant Dify installed plugins synced from dify_plugin DB
+  if (difyInventory && Array.isArray(difyInventory.plugins) && difyInventory.plugins.length > 0) {
+    const seenInst = new Set(allInstances.map(i => i.installationId))
+    const distinctPlugins = new Set()
+    for (const plg of difyInventory.plugins) {
+      distinctPlugins.add(plg.pluginId || plg.pluginName)
+      if (!plg?.installationId || seenInst.has(plg.installationId)) continue
+      seenInst.add(plg.installationId)
+      const dirProfile = directory?.byAccount?.(plg.ownerAccount)
+      const instItem = {
+        installationId: plg.installationId,
+        pluginName: plg.pluginName || plg.pluginId,
+        version: plg.version || '1.0.0',
+        workspaceId: plg.workspaceName || plg.workspaceId || '',
+        account: dirProfile?.name ? `${dirProfile.name} (${dirProfile.account})` : (plg.ownerName || plg.ownerAccount || ''),
+        org: dirProfile?.org || plg.org || '待归属',
+        status: '运行中',
+        ticketNo: '存量纳管',
+        installedAt: plg.installedAt || difyInventory.syncedAt || new Date(now).toISOString(),
+      }
+      if (!q || [instItem.pluginName, instItem.workspaceId, instItem.account, instItem.org].some(s => String(s).toLowerCase().includes(q))) {
+        allInstances.push(instItem)
+      }
+    }
+    catalogSource = 'collected'
+    if (publishedCount === null || publishedCount === 0) publishedCount = distinctPlugins.size
+    runningCount = Math.max(runningCount ?? 0, allInstances.filter(i => i.status === '运行中').length)
   }
 
   const installedCount = allInstances.length

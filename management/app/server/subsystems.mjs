@@ -345,6 +345,56 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
       mcpProviders = []
     }
 
+    // 5. Sync installed plugins across all tenants from dify_plugin DB (best-effort)
+    let plugins = []
+    const pluginDbName = String(record.pluginDbName ?? 'dify_plugin').trim() || 'dify_plugin'
+    const pluginClient = new pg.Client({
+      host,
+      port: Number.isFinite(port) && port > 0 ? port : 5432,
+      database: pluginDbName,
+      user,
+      password,
+      connectionTimeoutMillis: 5000,
+      statement_timeout: 10000,
+    })
+    try {
+      await pluginClient.connect()
+      const plgRes = await pluginClient.query(`
+        SELECT
+          id::text AS installation_id,
+          tenant_id::text AS workspace_id,
+          plugin_id,
+          plugin_unique_identifier,
+          source,
+          created_at,
+          updated_at
+        FROM plugin_installations
+        ORDER BY created_at DESC
+      `)
+      plugins = plgRes.rows.map(r => {
+        const owner = tenantOwnerMap.get(r.workspace_id)
+        const uid = String(r.plugin_unique_identifier || r.plugin_id || '')
+        const verMatch = /:([0-9]+\.[0-9]+\.[0-9]+[^@]*)/.exec(uid)
+        return {
+          installationId: r.installation_id,
+          workspaceId: r.workspace_id || '',
+          workspaceName: owner?.workspaceName || '',
+          pluginId: r.plugin_id || uid,
+          pluginName: r.plugin_id || uid,
+          version: verMatch ? verMatch[1] : '1.0.0',
+          source: r.source || 'package',
+          ownerAccount: owner?.account || `workspace:${String(r.workspace_id || '').slice(0, 8)}`,
+          ownerName: owner?.name || owner?.workspaceName || 'Dify 工作区',
+          org: owner?.org || '待归属',
+          installedAt: r.created_at ? new Date(r.created_at).toISOString() : nowIso,
+        }
+      })
+    } catch {
+      plugins = []
+    } finally {
+      await pluginClient.end().catch(() => {})
+    }
+
     if (inventoryStore) {
       inventoryStore.put(`dify:${record.id}`, {
         subsystemId: record.id,
@@ -352,6 +402,7 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
         apps,
         datasets,
         mcpProviders,
+        plugins,
       })
     }
 
@@ -365,7 +416,8 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
       appsCount: apps.length,
       datasetsCount: datasets.length,
       mcpCount: mcpProviders.length,
-      message: `同步成功：租户 ${totalOwners} 个、应用 ${apps.length} 个、知识库 ${datasets.length} 个、MCP ${mcpProviders.length} 个`,
+      pluginsCount: plugins.length,
+      message: `同步成功：租户 ${totalOwners} 个、应用 ${apps.length} 个、知识库 ${datasets.length} 个、插件 ${plugins.length} 个、MCP ${mcpProviders.length} 个`,
     }
   } catch (err) {
     return {
@@ -707,6 +759,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       const apps = []
       const datasets = []
       const mcpProviders = []
+      const plugins = []
       let syncedAt = null
       for (const snap of inventoryStore.all()) {
         if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
@@ -714,8 +767,9 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
         if (Array.isArray(snap.apps)) apps.push(...snap.apps)
         if (Array.isArray(snap.datasets)) datasets.push(...snap.datasets)
         if (Array.isArray(snap.mcpProviders)) mcpProviders.push(...snap.mcpProviders)
+        if (Array.isArray(snap.plugins)) plugins.push(...snap.plugins)
       }
-      return {syncedAt, apps, datasets, mcpProviders}
+      return {syncedAt, apps, datasets, mcpProviders, plugins}
     },
     close: () => {
       store.close()
