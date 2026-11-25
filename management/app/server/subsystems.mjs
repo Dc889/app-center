@@ -910,10 +910,10 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
   }
 
   async function setDifyModelEnabled({workspaceId, providerName, modelName, modelType = 'text-generation', enabled}) {
-    const all = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.dbPassword)
+    const all = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
     const rec = all.find(r => r.isDefault) ?? all[0] ?? null
     if (!rec) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
-    const password = decryptSecret(rec.dbPassword)
+    const password = decryptSecret(rec.secrets?.dbPassword)
     const client = new pg.Client({
       host: String(rec.dbHost).trim(),
       port: Number(rec.dbPort) || 5432,
@@ -978,7 +978,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
     getDifyInventory: collectDifyInventory,
     setDifyModelEnabled,
     refreshDifyInventory: async () => {
-      const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.dbPassword)
+      const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
       for (const rec of enabled) {
         try {
           const syncResult = await syncDifyOwners(rec, directory, inventoryStore)
