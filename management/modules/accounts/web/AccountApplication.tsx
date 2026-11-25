@@ -5,9 +5,9 @@ import {useEffect,useState} from 'react'
 type Person={subjectId:string;account:string;name:string;roles:string[];org:string;businessLine:string;ragflowPermission:string;difyRole:string;workspaceId:string|null;active:boolean}
 export function AccountApplication({type}:{type:'ACC-01'|'ACC-02'}) {
   const [people,setPeople]=useState<Person[]>([]),[catalog,setCatalog]=useState({orgs:[] as string[],businessLines:[] as string[]})
-  const [subjectId,setSubjectId]=useState(''),[operation,setOperation]=useState('角色变更')
+  const [subjectId,setSubjectId]=useState(''),[operation,setOperation]=useState('开通')
   const [roles,setRoles]=useState(['user']),[org,setOrg]=useState(''),[businessLine,setBusinessLine]=useState('')
-  const [ragflowPermission,setRagflowPermission]=useState('个人'),[difyRole,setDifyRole]=useState('成员'),[workspaceId,setWorkspaceId]=useState('')
+  const [ragflowPermission,setRagflowPermission]=useState('个人'),[difyRole,setDifyRole]=useState('管理员'),[workspaceId,setWorkspaceId]=useState('')
   const [newAccount,setNewAccount]=useState(''),[effectiveAt,setEffectiveAt]=useState(''),[expiresAt,setExpiresAt]=useState(''),[reason,setReason]=useState('')
   const [message,setMessage]=useState(''),[busy,setBusy]=useState(false)
   const [directoryReload,setDirectoryReload]=useState(0)
@@ -18,7 +18,7 @@ export function AccountApplication({type}:{type:'ACC-01'|'ACC-02'}) {
   const person=people.find(p=>p.subjectId===subjectId)
   function select(value:string) {
     setSubjectId(value);const p=people.find(row=>row.subjectId===value)
-    if(p){setRoles(p.roles);setOrg(p.org);setBusinessLine(p.businessLine);setRagflowPermission(p.ragflowPermission);setDifyRole(p.difyRole);setWorkspaceId(p.workspaceId ?? '')}
+    if(p){setRoles(p.roles);setOrg(p.org || catalog.orgs[0] || '');setBusinessLine(p.businessLine || catalog.businessLines[0] || '');setRagflowPermission(p.ragflowPermission);setDifyRole(operation==='开通' ? '管理员' : (p.difyRole || '管理员'));setWorkspaceId(p.workspaceId ?? '')}
   }
   const draft=useApplicationDraft(type,{subjectId,operation,roles,org,businessLine,ragflowPermission,difyRole,workspaceId,newAccount,effectiveAt,expiresAt,reason},value=>{setSubjectId(value.subjectId);setOperation(value.operation);setRoles(value.roles);setOrg(value.org);setBusinessLine(value.businessLine);setRagflowPermission(value.ragflowPermission);setDifyRole(value.difyRole);setWorkspaceId(value.workspaceId);setNewAccount(value.newAccount);setEffectiveAt(value.effectiveAt);setExpiresAt(value.expiresAt);setReason(value.reason);setPeople([]);setDirectoryReload(v=>v+1);setMessage('')})
   const {ticketNo}=draft
