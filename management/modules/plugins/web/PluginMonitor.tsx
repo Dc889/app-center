@@ -80,6 +80,8 @@ type GovPluginItem = {
   runningPid: number | null
   cpuPercent: number | null
   memoryMb: number | null
+  memoryDeltaMb: number
+  restartCount: number
   processStatus: string
 }
 type GovTicketItem = {
@@ -595,8 +597,9 @@ export function PluginMonitor({
                   <th>租户覆盖</th>
                   <th>运行 PID</th>
                   <th>CPU 占用</th>
-                  <th>内存占用</th>
-                  <th>进程状态</th>
+                  <th>内存 / 趋势</th>
+                  <th>异常重启</th>
+                  <th>健康状态</th>
                   <th>工单操作</th>
                 </tr>
               </thead>
@@ -608,25 +611,32 @@ export function PluginMonitor({
                     <td>{p.installedWorkspacesCount} / {p.totalWorkspacesCount} 租户</td>
                     <td style={{ fontFamily: 'monospace' }}>{p.runningPid ?? '-'}</td>
                     <td style={{ fontFamily: 'monospace' }}>{p.cpuPercent !== null ? `${p.cpuPercent}%` : '-'}</td>
-                    <td style={{ fontFamily: 'monospace', fontWeight: p.memoryMb ? 600 : 400 }}>{p.memoryMb !== null ? `${p.memoryMb} MB` : '休眠'}</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: p.memoryMb ? 600 : 400 }}>
+                      {p.memoryMb !== null ? `${p.memoryMb} MB` : '休眠'}
+                      {p.memoryDeltaMb ? <span style={{ marginLeft: 6, fontSize: 11, color: p.memoryDeltaMb > 0 ? '#b54708' : '#027a48' }}>{p.memoryDeltaMb > 0 ? `+${p.memoryDeltaMb}` : p.memoryDeltaMb} MB</span> : null}
+                    </td>
+                    <td style={{ fontFamily: 'monospace', color: p.restartCount > 0 ? '#b42318' : '#667085' }}>{p.restartCount} 次</td>
                     <td>
-                      <span className={`app-status-pill ${p.processStatus === '运行中' ? 'tone-success' : p.processStatus === '内存偏高' ? 'tone-danger' : 'tone-muted'}`}>
+                      <span className={`app-status-pill ${p.processStatus === '运行中' ? 'tone-success' : p.processStatus === '按需休眠' ? 'tone-muted' : 'tone-danger'}`}>
                         {p.processStatus}
                       </span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button type="button" className="secondary-button compact" onClick={() => openPlg05('新插件全员推送', p.pluginId)}>
-                          全员推送工单
+                          全员推送
+                        </button>
+                        <button type="button" className="secondary-button compact" onClick={() => openPlg05('新版本全员批量升级', p.pluginId)}>
+                          批量升级
                         </button>
                         <button type="button" className="secondary-button compact" style={{ color: '#b42318' }} onClick={() => openPlg05('高危插件全员卸载', p.pluginId)}>
-                          全员卸载工单
+                          全员卸载
                         </button>
                       </div>
                     </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '24px 0', color: '#667085' }}>暂无纳管插件记录</td></tr>
+                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px 0', color: '#667085' }}>暂无纳管插件记录</td></tr>
                 )}
               </tbody>
             </table>

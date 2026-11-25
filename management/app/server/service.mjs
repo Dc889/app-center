@@ -14,6 +14,7 @@ import {policyDecision} from '../../platform/access/public.server.mjs'
 import {applicationApi} from './application-workflows.mjs'
 import {subsystemRegistry} from './subsystems.mjs'
 import {enforceModelQuotas} from '../../modules/accounts/server/routeModelQuotas.mjs'
+import {monitorPluginProcesses} from '../../modules/plugins/server/routePluginGovernance.mjs'
 import {platformConfigs} from './platform-configs.mjs'
 import {draftApi,typeRegistry} from '../../platform/workflow/public.server.mjs'
 import {body,check,client,digest,id,json,ledger,listen} from '../../../runtime/http.mjs'
@@ -182,12 +183,13 @@ export function managementApi(options) {
   let quotaSweepRunning = false
   const quotaGuard = setInterval(() => {
     if (stopped || quotaSweepRunning) return
-    const hasPolicies = directory.store.all().some(r => r?.kind === 'model-quota' && r.autoDisable !== false && (r.tokenLimit > 0 || r.callLimit > 0))
-    if (!hasPolicies) return
     quotaSweepRunning = true
-    void enforceModelQuotas({subsystems, directory, events, types, refresh: true})
-      .catch(() => {})
-      .finally(() => { quotaSweepRunning = false })
+    const hasPolicies = directory.store.all().some(r => r?.kind === 'model-quota' && r.autoDisable !== false && (r.tokenLimit > 0 || r.callLimit > 0))
+    const tasks = [
+      monitorPluginProcesses({events, types}).catch(() => {}),
+      ...(hasPolicies ? [enforceModelQuotas({subsystems, directory, events, types, refresh: true}).catch(() => {})] : []),
+    ]
+    void Promise.all(tasks).finally(() => { quotaSweepRunning = false })
   }, 60_000)
   quotaGuard.unref()
   function close() { stopped=true;clearInterval(retry);clearInterval(quotaGuard); tickets.close(); identities.close(); types.close(); subsystems.close(); configs.close(); events.close(); drafts.close();applications.close();intake.close();evidence.close();accountChanges.close();directory.close() }

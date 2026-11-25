@@ -262,16 +262,20 @@ export async function routePluginGovernance(services) {
   if (path === '/api/plugin-governance/request') {
     check(isStaff, 403, 'ACCESS_DENIED', '仅运维人员或系统管理员可发起插件批量分发与进程管控工单')
     const operationType = String(input?.operationType ?? '').trim()
-    const validOps = ['新户全量安装', '新插件全员推送', '高危插件全员卸载', '重启插件服务进程']
+    const validOps = ['新户全量安装', '新插件全员推送', '新版本全员批量升级', '高危插件全员卸载', '重启插件服务进程']
     check(validOps.includes(operationType), 400, 'INVALID_OPERATION_TYPE')
     const targetWorkspaceId = String(input?.targetWorkspaceId ?? '').trim()
     const targetWorkspaceName = String(input?.targetWorkspaceName ?? '').trim()
     const targetPluginId = String(input?.targetPluginId ?? '').trim()
     const targetPluginUid = String(input?.targetPluginUid ?? '').trim()
+    const newPluginUid = String(input?.newPluginUid ?? '').trim()
+    const canaryWorkspaceId = String(input?.canaryWorkspaceId ?? '').trim()
+    const canaryWorkspaceName = String(input?.canaryWorkspaceName ?? '').trim()
     const reason = String(input?.reason ?? '').trim()
 
     if (operationType === '新户全量安装') check(targetWorkspaceId, 400, 'WORKSPACE_REQUIRED', '请选择目标新租户工作区')
-    if (operationType === '新插件全员推送' || operationType === '高危插件全员卸载') check(targetPluginId, 400, 'PLUGIN_REQUIRED', '请选择目标插件')
+    if (['新插件全员推送', '新版本全员批量升级', '高危插件全员卸载'].includes(operationType)) check(targetPluginId, 400, 'PLUGIN_REQUIRED', '请选择目标插件')
+    if (operationType === '新版本全员批量升级') check(newPluginUid.includes(':') && newPluginUid.includes('@'), 400, 'NEW_PLUGIN_UID_REQUIRED', '请填写新版本插件完整标识（如 author/name:1.1.0@sha256）')
     check(reason.length >= 2 && reason.length <= 1000, 400, 'INVALID_REASON', '请输入工单申请原因')
 
     const ticketNo = `PLG-05-${id().slice(0, 8)}`
@@ -283,6 +287,9 @@ export async function routePluginGovernance(services) {
       targetWorkspaceName: targetWorkspaceName || null,
       targetPluginId: targetPluginId || null,
       targetPluginUid: targetPluginUid || null,
+      newPluginUid: newPluginUid || null,
+      canaryWorkspaceId: canaryWorkspaceId || null,
+      canaryWorkspaceName: canaryWorkspaceName || null,
       reason,
       applicant: identity.account,
       applicantName: identity.name || identity.account,
@@ -373,6 +380,27 @@ export async function routePluginGovernance(services) {
         } catch { failCount++ }
       }
       executionSummary = `向全平台 ${allWs.size} 个工作区推送 ${existing.targetPluginId}：成功 ${okCount}、已装跳过 ${skipCount}、失败 ${failCount}`
+    } else if (existing.operationType === '新版本全员批量升级') {
+      const targets = (inv.plugins ?? []).filter(p =>
+        p.pluginId === existing.targetPluginId
+        && p.workspaceId
+        && (!existing.canaryWorkspaceId || p.workspaceId === existing.canaryWorkspaceId),
+      )
+      let okCount = 0; let skipCount = 0; let failCount = 0
+      for (const t of targets) {
+        if (t.pluginUniqueIdentifier === existing.newPluginUid) { skipCount++; continue }
+        try {
+          const r = await callPluginDaemon(base, key, `/plugin/${encodeURIComponent(t.workspaceId)}/management/install/upgrade`, {
+            original_plugin_unique_identifier: t.pluginUniqueIdentifier,
+            new_plugin_unique_identifier: existing.newPluginUid,
+            source: 'package',
+            meta: {},
+          })
+          if (r.ok) okCount++; else failCount++
+        } catch { failCount++ }
+      }
+      const scopeLabel = existing.canaryWorkspaceId ? `灰度工作区 ${existing.canaryWorkspaceName || existing.canaryWorkspaceId}` : `全平台 ${targets.length} 个已装工作区`
+      executionSummary = `向${scopeLabel}批量升级 ${existing.targetPluginId} 至新版本：成功 ${okCount}、已最新跳过 ${skipCount}、失败 ${failCount}`
     } else if (existing.operationType === '高危插件全员卸载') {
       const targets = (inv.plugins ?? []).filter(p => p.pluginId === existing.targetPluginId && p.workspaceId && p.installationId)
       let okCount = 0; let failCount = 0

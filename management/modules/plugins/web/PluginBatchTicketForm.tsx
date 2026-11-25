@@ -49,9 +49,11 @@ function pillTone(status: string) {
 
 export function PluginBatchTicketForm() {
   const [data, setData] = useState<GovData | null>(null)
-  const [operationType, setOperationType] = useState<'新户全量安装' | '新插件全员推送' | '高危插件全员卸载' | '重启插件服务进程'>('新户全量安装')
+  const [operationType, setOperationType] = useState<'新户全量安装' | '新插件全员推送' | '新版本全员批量升级' | '高危插件全员卸载' | '重启插件服务进程'>('新户全量安装')
   const [targetWorkspaceId, setTargetWorkspaceId] = useState('')
   const [targetPluginId, setTargetPluginId] = useState('')
+  const [newPluginUid, setNewPluginUid] = useState('')
+  const [canaryWorkspaceId, setCanaryWorkspaceId] = useState('')
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -84,13 +86,15 @@ export function PluginBatchTicketForm() {
   }, [rev])
 
   const selectedWs = data?.workspaces.find(w => w.workspaceId === targetWorkspaceId) ?? null
+  const selectedCanaryWs = data?.workspaces.find(w => w.workspaceId === canaryWorkspaceId) ?? null
   const selectedPlugin = data?.uniquePlugins.find(p => p.pluginId === targetPluginId) ?? null
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr(''); setMsg('')
     if (operationType === '新户全量安装' && !targetWorkspaceId) { setErr('请选择目标租户工作区'); return }
-    if ((operationType === '新插件全员推送' || operationType === '高危插件全员卸载') && !targetPluginId) { setErr('请选择目标插件'); return }
+    if (['新插件全员推送', '新版本全员批量升级', '高危插件全员卸载'].includes(operationType) && !targetPluginId) { setErr('请选择目标插件'); return }
+    if (operationType === '新版本全员批量升级' && !newPluginUid.trim()) { setErr('请输入新版本插件完整标识'); return }
     if (!reason.trim()) { setErr('请输入申请原因'); return }
     setBusy(true)
     try {
@@ -101,8 +105,11 @@ export function PluginBatchTicketForm() {
           operationType,
           targetWorkspaceId: operationType === '新户全量安装' ? targetWorkspaceId : undefined,
           targetWorkspaceName: operationType === '新户全量安装' ? selectedWs?.workspaceName : undefined,
-          targetPluginId: (operationType === '新插件全员推送' || operationType === '高危插件全员卸载') ? targetPluginId : undefined,
-          targetPluginUid: (operationType === '新插件全员推送' || operationType === '高危插件全员卸载') ? selectedPlugin?.pluginUniqueIdentifier : undefined,
+          targetPluginId: ['新插件全员推送', '新版本全员批量升级', '高危插件全员卸载'].includes(operationType) ? targetPluginId : undefined,
+          targetPluginUid: ['新插件全员推送', '新版本全员批量升级', '高危插件全员卸载'].includes(operationType) ? selectedPlugin?.pluginUniqueIdentifier : undefined,
+          newPluginUid: operationType === '新版本全员批量升级' ? newPluginUid.trim() : undefined,
+          canaryWorkspaceId: operationType === '新版本全员批量升级' && canaryWorkspaceId ? canaryWorkspaceId : undefined,
+          canaryWorkspaceName: operationType === '新版本全员批量升级' && selectedCanaryWs ? selectedCanaryWs.workspaceName : undefined,
           reason: reason.trim(),
         }),
       })
@@ -131,6 +138,7 @@ export function PluginBatchTicketForm() {
             <select value={operationType} onChange={e => setOperationType(e.target.value as any)}>
               <option value="新户全量安装">新户全量安装内网插件</option>
               <option value="新插件全员推送">新插件全员批量推送</option>
+              <option value="新版本全员批量升级">新版本全员批量升级替换</option>
               <option value="高危插件全员卸载">高危插件全员批量卸载</option>
               <option value="重启插件服务进程">重启插件守护进程</option>
             </select>
@@ -147,7 +155,7 @@ export function PluginBatchTicketForm() {
             </FormField>
           )}
 
-          {(operationType === '新插件全员推送' || operationType === '高危插件全员卸载') && (
+          {['新插件全员推送', '新版本全员批量升级', '高危插件全员卸载'].includes(operationType) && (
             <FormField label="目标插件" source="用户" required>
               <select value={targetPluginId} onChange={e => setTargetPluginId(e.target.value)} required>
                 <option value="">请选择目标插件</option>
@@ -158,6 +166,27 @@ export function PluginBatchTicketForm() {
             </FormField>
           )}
         </div>
+
+        {operationType === '新版本全员批量升级' && (
+          <div className="form-row">
+            <FormField label="新版本插件标识" source="用户" required>
+              <input
+                value={newPluginUid}
+                onChange={e => setNewPluginUid(e.target.value)}
+                placeholder={selectedPlugin ? `如 ${selectedPlugin.pluginId}:1.1.0@sha256` : '如 author/name:1.1.0@sha256'}
+                required
+              />
+            </FormField>
+            <FormField label="灰度验证工作区" source="用户">
+              <select value={canaryWorkspaceId} onChange={e => setCanaryWorkspaceId(e.target.value)}>
+                <option value="">全员所有已装租户批量替换</option>
+                {(data?.workspaces ?? []).map(w => (
+                  <option key={w.workspaceId} value={w.workspaceId}>仅灰度升级：{w.workspaceName} · {w.ownerName}</option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+        )}
 
         {data && (
           <div className="app-audit-card" style={{marginTop: 4}}>
