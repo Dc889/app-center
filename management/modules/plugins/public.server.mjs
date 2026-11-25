@@ -5,12 +5,14 @@ export * from './server/plugin-operation.mjs'
 export * from './server/plugin-safety.mjs'
 export * from './server/routePluginMonitor.mjs'
 export * from './server/routePluginOperationContext.mjs'
+export * from './server/routePluginGovernance.mjs'
 export * from './server/submitPLG01.mjs'
 export * from './server/submitPLG03.mjs'
 export * from './server/workflows.mjs'
 
 import {routePluginMonitor} from './server/routePluginMonitor.mjs'
 import {routePluginOperationContext} from './server/routePluginOperationContext.mjs'
+import {routePluginGovernance} from './server/routePluginGovernance.mjs'
 import {pluginsWorkflows} from './server/workflows.mjs'
 
 export const moduleServer=Object.freeze({
@@ -18,6 +20,7 @@ export const moduleServer=Object.freeze({
   routes:Object.freeze([
     Object.freeze({match:path=>path==='/api/plugin-operation-context',handle:routePluginOperationContext}),
     Object.freeze({match:path=>path==='/api/plugin-monitor',handle:routePluginMonitor}),
+    Object.freeze({match:path=>path==='/api/plugin-governance' || path==='/api/plugin-governance/request' || path==='/api/plugin-governance/approve',handle:routePluginGovernance}),
   ]),
   workflows:pluginsWorkflows,
 })

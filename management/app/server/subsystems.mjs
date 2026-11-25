@@ -497,6 +497,7 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
           workspaceId: r.workspace_id || '',
           workspaceName: owner?.workspaceName || '',
           pluginId: r.plugin_id || uid,
+          pluginUniqueIdentifier: uid,
           pluginName: r.plugin_id || uid,
           version: verMatch ? verMatch[1] : '1.0.0',
           source: r.source || 'package',

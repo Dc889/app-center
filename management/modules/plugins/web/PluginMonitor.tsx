@@ -4,6 +4,7 @@ import {
   Tooltip, XAxis, YAxis
 } from 'recharts'
 import { PlugZap, ShieldAlert, Cpu, ArrowUpCircle, CheckCircle, RefreshCw, Search, ArrowRight, Server } from 'lucide-react'
+import type { View } from '../../../shared-ui/UiContextData'
 
 type Metrics = {
   publishedCount: number | null
@@ -70,14 +71,91 @@ type PluginMonitorModel = {
   }
 }
 
+type GovPluginItem = {
+  pluginId: string
+  pluginUniqueIdentifier: string
+  version: string
+  installedWorkspacesCount: number
+  totalWorkspacesCount: number
+  runningPid: number | null
+  cpuPercent: number | null
+  memoryMb: number | null
+  processStatus: string
+}
+type GovTicketItem = {
+  ticketNo: string
+  operationType: string
+  targetWorkspaceName: string | null
+  targetPluginId: string | null
+  reason: string
+  applicantName: string
+  status: string
+  createdAt: string
+  executionSummary: string | null
+  reviewNote: string | null
+}
+type PluginGovModel = {
+  daemon: {
+    available: boolean
+    containerName: string | null
+    daemonProcess: { pid: number; cpuPercent: number; memoryMb: number; status: string } | null
+    processes: { pluginId: string; version: string; pid: number; cpuPercent: number; memoryMb: number; status: string }[]
+    totalMemoryMb: number
+  }
+  uniquePlugins: GovPluginItem[]
+  tickets: GovTicketItem[]
+}
+
 export function PluginMonitor({
   role,
+  onNavigate,
   onWorkOrder,
 }: {
   role: 'user' | 'ops' | 'admin'
+  onNavigate?: (view: View, ticketType?: string | null) => void
   onWorkOrder?: (title: string) => void
 }) {
   const [range, setRange] = useState<'1h' | '24h' | '7d'>('24h')
+  const [gov, setGov] = useState<PluginGovModel | null>(null)
+  const [govBusy, setGovBusy] = useState('')
+  const [govMsg, setGovMsg] = useState('')
+  const [govErr, setGovErr] = useState('')
+  const [govRev, setGovRev] = useState(0)
+
+  useEffect(() => {
+    const c = new AbortController()
+    fetch('/api/plugin-governance', { signal: c.signal })
+      .then(async r => (r.ok ? r.json() : null))
+      .then(res => { if (res && !c.signal.aborted) setGov(res) })
+      .catch(() => {})
+    return () => c.abort()
+  }, [govRev, role])
+
+  const openPlg05 = (operationType: string, targetPluginId?: string) => {
+    try {
+      sessionStorage.setItem('plg05-prefill', JSON.stringify({ operationType, targetPluginId }))
+    } catch {}
+    onNavigate?.('manual', 'PLG-05')
+  }
+
+  const reviewBatchTicket = async (ticketNo: string, decision: 'approve' | 'reject') => {
+    setGovBusy(ticketNo); setGovErr(''); setGovMsg('')
+    try {
+      const r = await fetch('/api/plugin-governance/approve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ticketNo, decision }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '审批执行失败')
+      setGovMsg(decision === 'approve' ? `工单 ${ticketNo} 已执行：${body.executionSummary || '完成'}` : `工单 ${ticketNo} 已驳回`)
+      setGovRev(n => n + 1)
+    } catch (e: any) {
+      setGovErr(e?.message || '审批执行失败')
+    } finally {
+      setGovBusy('')
+    }
+  }
   const [activeTab, setActiveTab] = useState<'disables' | 'instances'>('disables')
   const [keyword, setKeyword] = useState('')
   const [queryInput, setQueryInput] = useState('')
@@ -478,6 +556,120 @@ export function PluginMonitor({
           </div>
         )}
       </section>
+
+      {/* 插件运行进程、真实内存占用与批量分发管控 (PLG-05) */}
+      {gov && (
+        <section className="panel overview-block" data-testid="plugin-process-governance" style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+            <div>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Cpu size={16} />
+                插件运行进程、内存占用与批量分发管控
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#667085' }}>
+                守护容器：{gov.daemon.containerName || '未检测到'} · 主进程内存 {gov.daemon.daemonProcess?.memoryMb ?? 0} MB · 活跃插件进程 {gov.daemon.processes.length} 个 · 插件总内存 {gov.daemon.totalMemoryMb} MB
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="secondary-button compact" onClick={() => setGovRev(n => n + 1)}>
+                刷新进程监控
+              </button>
+              <button type="button" className="primary-button" onClick={() => openPlg05('新户全量安装')}>
+                新户全量安装工单
+              </button>
+              <button type="button" className="secondary-button compact" style={{ color: '#b42318' }} onClick={() => openPlg05('重启插件服务进程')}>
+                重启守护进程工单
+              </button>
+            </div>
+          </div>
+
+          {govErr && <p role="alert" style={{ color: '#b42318', fontSize: 13 }}>{govErr}</p>}
+          {govMsg && <p role="status" style={{ color: '#027a48', fontSize: 13, fontWeight: 500 }}>{govMsg}</p>}
+
+          <div className="org-table-wrap" style={{ marginBottom: gov.tickets.length ? 16 : 0 }}>
+            <table className="org-table">
+              <thead>
+                <tr>
+                  <th>插件名称</th>
+                  <th>版本</th>
+                  <th>租户覆盖</th>
+                  <th>运行 PID</th>
+                  <th>CPU 占用</th>
+                  <th>内存占用</th>
+                  <th>进程状态</th>
+                  <th>工单操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gov.uniquePlugins.length > 0 ? gov.uniquePlugins.map(p => (
+                  <tr key={p.pluginId}>
+                    <td style={{ fontWeight: 600 }}>{p.pluginId}</td>
+                    <td><code className="org-code">v{p.version}</code></td>
+                    <td>{p.installedWorkspacesCount} / {p.totalWorkspacesCount} 租户</td>
+                    <td style={{ fontFamily: 'monospace' }}>{p.runningPid ?? '-'}</td>
+                    <td style={{ fontFamily: 'monospace' }}>{p.cpuPercent !== null ? `${p.cpuPercent}%` : '-'}</td>
+                    <td style={{ fontFamily: 'monospace', fontWeight: p.memoryMb ? 600 : 400 }}>{p.memoryMb !== null ? `${p.memoryMb} MB` : '休眠'}</td>
+                    <td>
+                      <span className={`app-status-pill ${p.processStatus === '运行中' ? 'tone-success' : p.processStatus === '内存偏高' ? 'tone-danger' : 'tone-muted'}`}>
+                        {p.processStatus}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" className="secondary-button compact" onClick={() => openPlg05('新插件全员推送', p.pluginId)}>
+                          全员推送工单
+                        </button>
+                        <button type="button" className="secondary-button compact" style={{ color: '#b42318' }} onClick={() => openPlg05('高危插件全员卸载', p.pluginId)}>
+                          全员卸载工单
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: '24px 0', color: '#667085' }}>暂无纳管插件记录</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {gov.tickets.length > 0 && (
+            <>
+              <h4 style={{ margin: '0 0 10px', fontSize: 14 }}>PLG-05 插件批量分发与进程管控审批单</h4>
+              <div className="org-table-wrap">
+                <table className="org-table">
+                  <thead>
+                    <tr><th>工单号</th><th>操作类型</th><th>目标对象</th><th>申请人</th><th>申请原因</th><th>状态</th><th>审批 / 结果</th></tr>
+                  </thead>
+                  <tbody>
+                    {gov.tickets.map(t => (
+                      <tr key={t.ticketNo}>
+                        <td><code className="org-code">{t.ticketNo}</code></td>
+                        <td>{t.operationType}</td>
+                        <td>{t.targetWorkspaceName || t.targetPluginId || 'plugin_daemon'}</td>
+                        <td>{t.applicantName}</td>
+                        <td>{t.reason}</td>
+                        <td>
+                          <span className={`app-status-pill ${t.status === '已完成' ? 'tone-success' : t.status === '已驳回' ? 'tone-danger' : 'tone-pending'}`}>
+                            {t.status}
+                          </span>
+                        </td>
+                        <td>
+                          {t.status === '待审批' ? (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button type="button" className="secondary-button compact" style={{ color: '#027a48' }} disabled={govBusy === t.ticketNo} onClick={() => reviewBatchTicket(t.ticketNo, 'approve')}>批准执行</button>
+                              <button type="button" className="secondary-button compact" style={{ color: '#b42318' }} disabled={govBusy === t.ticketNo} onClick={() => reviewBatchTicket(t.ticketNo, 'reject')}>驳回</button>
+                            </div>
+                          ) : (t.executionSummary || t.reviewNote || '-')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </div>
   )
 }
