@@ -1,8 +1,38 @@
 import {useEffect, useState} from 'react'
+import {FormField} from '../../../shared-ui/UiPrimitives'
 
 type AccountOption = {account: string; name: string; org: string; active: boolean}
-type HandoverPreview = {account: string; name: string; org: string; applicationsCount: number; ticketsCount: number; openEventsCount: number; difyApps: number; difyDatasets: number; difyPlugins: number; difyMcp: number; difyKeys: number}
-type HandoverRow = {ticketNo: string; handoverType: string; fromName: string; fromAccount: string; toName: string; toAccount: string; reason: string; status: string; createdAt: string; reviewNote?: string}
+type HandoverPreview = {
+  account: string
+  name: string
+  org: string
+  applicationsCount: number
+  ticketsCount: number
+  openEventsCount: number
+  difyApps: number
+  difyDatasets: number
+  difyPlugins: number
+  difyMcp: number
+  difyKeys: number
+}
+type HandoverRow = {
+  ticketNo: string
+  handoverType: string
+  fromName: string
+  fromAccount: string
+  toName: string
+  toAccount: string
+  reason: string
+  status: string
+  createdAt: string
+  reviewNote?: string
+}
+
+function pillTone(status: string) {
+  if (status === '已完成' || status === '已批准') return 'tone-success'
+  if (status === '已驳回') return 'tone-danger'
+  return 'tone-pending'
+}
 
 export function HandoverTicketForm() {
   const [accounts, setAccounts] = useState<AccountOption[]>([])
@@ -40,8 +70,8 @@ export function HandoverTicketForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr(''); setMsg('')
-    if (!toAccount) { setErr('请选择接任人账号'); return }
-    if (!reason.trim()) { setErr('请填写交接原因说明'); return }
+    if (!toAccount) { setErr('请选择接任人'); return }
+    if (!reason.trim()) { setErr('请输入交接原因'); return }
     setBusy(true)
     try {
       const r = await fetch('/api/resource-handover', {
@@ -58,8 +88,8 @@ export function HandoverTicketForm() {
       const body = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(body?.message || '提交交接申请失败')
       setMsg(body.record?.status === '待审批'
-        ? `交接工单 ${body.record.ticketNo} 已提交，待系统管理员复核批准后生效。`
-        : `交接工单 ${body.record?.ticketNo} 已完成执行。`)
+        ? `交接工单 ${body.record.ticketNo} 已提交，待系统管理员审批后生效`
+        : `交接工单 ${body.record?.ticketNo} 已执行完成`)
       setReason('')
       setRev(n => n + 1)
     } catch (e: any) {
@@ -70,81 +100,89 @@ export function HandoverTicketForm() {
   }
 
   return (
-    <div data-testid="acc-03-form" style={{display: 'flex', flexDirection: 'column', gap: 16}}>
-      <form onSubmit={submit} style={{background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18}}>
-        <h3 style={{margin: '0 0 6px', fontSize: 15}}>ACC-03 离职 / 调岗资源交接申请</h3>
-        <p style={{margin: '0 0 14px', fontSize: 12, color: '#64748b'}}>
-          将本人名下的应用、知识库、台账工单与未关闭事件移交至接任同事；提交后由系统管理员审批执行。
-        </p>
+    <div data-testid="acc-03-form" className="org-page-stack">
+      <form onSubmit={submit} className="form-section">
+        <div className="section-heading">
+          <span>02</span>
+          <div><h4>交接信息</h4></div>
+        </div>
 
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12}}>
-          <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12}}>
-            移交人账号
+        <div className="form-row">
+          <FormField label="移交人" source={isStaff ? '用户' : '系统'} required>
             {isStaff ? (
-              <select value={fromAccount} onChange={e => setFromAccount(e.target.value)} style={{padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1'}}>
-                {accounts.map(a => <option key={a.account} value={a.account}>{a.name} ({a.account} · {a.org})</option>)}
+              <select value={fromAccount} onChange={e => setFromAccount(e.target.value)}>
+                {accounts.map(a => (
+                  <option key={a.account} value={a.account}>{a.name} · {a.account} · {a.org}</option>
+                ))}
               </select>
             ) : (
-              <input value={currentAccount} readOnly style={{padding: '7px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#475569'}} />
+              <input value={currentAccount} readOnly />
             )}
-          </label>
-          <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12}}>
-            接任人账号（必选）
-            <select value={toAccount} onChange={e => setToAccount(e.target.value)} required style={{padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1'}}>
-              <option value="">请选择接任同事…</option>
+          </FormField>
+
+          <FormField label="接任人" source="用户" required>
+            <select value={toAccount} onChange={e => setToAccount(e.target.value)} required>
+              <option value="">请选择接任同事</option>
               {accounts.filter(a => a.active && a.account !== (fromAccount || currentAccount)).map(a => (
-                <option key={a.account} value={a.account}>{a.name} ({a.account} · {a.org})</option>
+                <option key={a.account} value={a.account}>{a.name} · {a.account} · {a.org}</option>
               ))}
             </select>
-          </label>
-          <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12}}>
-            交接类型
-            <select value={handoverType} onChange={e => setHandoverType(e.target.value as any)} style={{padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1'}}>
+          </FormField>
+
+          <FormField label="交接类型" source="用户" required>
+            <select value={handoverType} onChange={e => setHandoverType(e.target.value as any)}>
               <option value="调岗交接">调岗交接</option>
               <option value="临时托管">临时托管</option>
               <option value="离职交接">离职交接</option>
             </select>
-          </label>
+          </FormField>
         </div>
 
         {preview && (
-          <div style={{background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: 12, color: '#1e3a8a'}}>
-            <strong>待交接资产盘点（{preview.name} · {preview.org}）：</strong>
-            Dify 应用 <b>{preview.difyApps}</b> 个、知识库 <b>{preview.difyDatasets}</b> 个、插件 <b>{preview.difyPlugins}</b> 个、MCP <b>{preview.difyMcp}</b> 个；
-            应用中心申请单 <b>{preview.applicationsCount}</b> 条、工单 <b>{preview.ticketsCount}</b> 条、未关闭事件 <b>{preview.openEventsCount}</b> 条。
+          <div className="app-audit-card" style={{marginTop: 4}}>
+            <div className="app-audit-metrics">
+              <div><span>Dify 应用</span><strong>{preview.difyApps}</strong></div>
+              <div><span>知识库</span><strong>{preview.difyDatasets}</strong></div>
+              <div><span>插件 / MCP</span><strong>{preview.difyPlugins} / {preview.difyMcp}</strong></div>
+              <div><span>台账工单</span><strong>{preview.applicationsCount + preview.ticketsCount}</strong></div>
+            </div>
           </div>
         )}
 
-        <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, marginBottom: 14}}>
-          交接原因与说明（必填）
-          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} required placeholder="请说明调岗/托管原因及交接注意事项…" style={{padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontFamily: 'inherit'}} />
-        </label>
+        <FormField label="交接原因" source="用户" required>
+          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} required placeholder="请输入交接背景与注意事项" />
+        </FormField>
 
-        {err && <p role="alert" style={{color: '#dc2626', fontSize: 12, margin: '0 0 10px'}}>{err}</p>}
-        {msg && <p role="status" style={{color: '#15803d', fontSize: 12, fontWeight: 500, margin: '0 0 10px'}}>{msg}</p>}
+        {err && <p role="alert" style={{color: '#b42318', fontSize: 13, margin: 0}}>{err}</p>}
+        {msg && <p role="status" style={{color: '#027a48', fontSize: 13, fontWeight: 500, margin: 0}}>{msg}</p>}
 
-        <button type="submit" className="primary-button" disabled={busy}>
-          {busy ? '正在提交…' : '提交资源交接工单'}
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="primary-button" disabled={busy}>
+            {busy ? '正在提交…' : '提交交接申请'}
+          </button>
+        </div>
       </form>
 
       {history.length > 0 && (
-        <section className="panel" style={{padding: 16}}>
-          <h4 style={{margin: '0 0 10px', fontSize: 14}}>相关交接申请记录</h4>
-          <div className="table-scroll">
-            <table>
+        <section className="form-section">
+          <div className="section-heading">
+            <span>03</span>
+            <div><h4>相关交接记录</h4></div>
+          </div>
+          <div className="org-table-wrap">
+            <table className="org-table">
               <thead>
                 <tr><th>工单号</th><th>类型</th><th>移交人 → 接任人</th><th>说明</th><th>状态</th><th>提交时间</th></tr>
               </thead>
               <tbody>
                 {history.slice(0, 10).map(h => (
                   <tr key={h.ticketNo}>
-                    <td style={{fontFamily: 'monospace'}}>{h.ticketNo}</td>
+                    <td><code className="org-code">{h.ticketNo}</code></td>
                     <td>{h.handoverType}</td>
                     <td>{h.fromName} → {h.toName}</td>
                     <td>{h.reason}</td>
-                    <td><span className={`status ${h.status === '已完成' ? 'success' : h.status === '已驳回' ? 'danger' : 'warning'}`}>{h.status}</span></td>
-                    <td style={{fontSize: 12, color: '#64748b'}}>{new Date(h.createdAt).toLocaleString('zh-CN', {hour12: false})}</td>
+                    <td><span className={`app-status-pill ${pillTone(h.status)}`}>{h.status}</span></td>
+                    <td>{new Date(h.createdAt).toLocaleString('zh-CN', {hour12: false})}</td>
                   </tr>
                 ))}
               </tbody>
@@ -156,11 +194,28 @@ export function HandoverTicketForm() {
   )
 }
 
-type OrgRoleRow = {ticketNo: string; account: string; name: string; currentOrg: string; requestType: string; targetOrg: string | null; targetRole: string | null; reason: string; status: string; createdAt: string; reviewNote: string | null}
+type OrgRoleRow = {
+  ticketNo: string
+  account: string
+  name: string
+  currentOrg: string
+  requestType: string
+  targetOrg: string | null
+  targetRole: string | null
+  reason: string
+  status: string
+  createdAt: string
+  reviewNote: string | null
+}
+
+const ROLE_NAME: Record<string, string> = {
+  operator: '运营审核人员',
+  admin: '系统管理员',
+  user: '普通用户',
+}
 
 export function OrgRoleTicketForm() {
   const [currentOrg, setCurrentOrg] = useState('')
-  const [currentName, setCurrentName] = useState('')
   const [orgs, setOrgs] = useState<string[]>([])
   const [requestType, setRequestType] = useState<'组织变更' | '角色变更'>('组织变更')
   const [targetOrg, setTargetOrg] = useState('')
@@ -179,7 +234,6 @@ export function OrgRoleTicketForm() {
       .then(res => {
         if (!res || c.signal.aborted) return
         setCurrentOrg(res.currentProfile?.org || '未归属')
-        setCurrentName(res.currentProfile?.name || '')
         setOrgs(res.orgs ?? [])
         setItems(res.items ?? [])
       })
@@ -190,18 +244,23 @@ export function OrgRoleTicketForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr(''); setMsg('')
-    if (requestType === '组织变更' && !targetOrg) { setErr('请选择目标组织机构'); return }
-    if (!reason.trim()) { setErr('请填写变更理由'); return }
+    if (requestType === '组织变更' && !targetOrg) { setErr('请选择目标组织'); return }
+    if (!reason.trim()) { setErr('请输入变更原因'); return }
     setBusy(true)
     try {
       const r = await fetch('/api/org-role-requests', {
         method: 'POST',
         headers: {'content-type': 'application/json'},
-        body: JSON.stringify({requestType, targetOrg: requestType === '组织变更' ? targetOrg : undefined, targetRole: requestType === '角色变更' ? targetRole : undefined, reason: reason.trim()}),
+        body: JSON.stringify({
+          requestType,
+          targetOrg: requestType === '组织变更' ? targetOrg : undefined,
+          targetRole: requestType === '角色变更' ? targetRole : undefined,
+          reason: reason.trim(),
+        }),
       })
       const body = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(body?.message || '提交失败')
-      setMsg(`工单 ${body.record?.ticketNo} 已提交，待系统管理员审批通过后自动生效。`)
+      setMsg(`变更工单 ${body.record?.ticketNo} 已提交，待系统管理员审批后生效`)
       setReason('')
       setRev(n => n + 1)
     } catch (e: any) {
@@ -212,70 +271,76 @@ export function OrgRoleTicketForm() {
   }
 
   return (
-    <div data-testid="acc-04-form" style={{display: 'flex', flexDirection: 'column', gap: 16}}>
-      <form onSubmit={submit} style={{background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18}}>
-        <h3 style={{margin: '0 0 6px', fontSize: 15}}>ACC-04 个人组织机构与角色权限变更申请</h3>
-        <p style={{margin: '0 0 14px', fontSize: 12, color: '#64748b'}}>
-          当前身份：<strong>{currentName}</strong> · 当前所属组织：<strong>{currentOrg}</strong>。提交后由系统管理员审批，批准后立即生效并全程审计留痕。
-        </p>
+    <div data-testid="acc-04-form" className="org-page-stack">
+      <form onSubmit={submit} className="form-section">
+        <div className="section-heading">
+          <span>02</span>
+          <div><h4>变更内容</h4></div>
+        </div>
 
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12}}>
-          <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12}}>
-            申请类型
-            <select value={requestType} onChange={e => setRequestType(e.target.value as any)} style={{padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1'}}>
-              <option value="组织变更">变更所属组织机构</option>
-              <option value="角色变更">申请平台角色权限</option>
+        <div className="form-row">
+          <FormField label="当前组织" source="系统">
+            <input value={currentOrg || '未归属'} readOnly />
+          </FormField>
+
+          <FormField label="申请类型" source="用户" required>
+            <select value={requestType} onChange={e => setRequestType(e.target.value as any)}>
+              <option value="组织变更">变更所属组织</option>
+              <option value="角色变更">申请平台角色</option>
             </select>
-          </label>
+          </FormField>
+
           {requestType === '组织变更' ? (
-            <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12}}>
-              目标组织机构（必选）
-              <select value={targetOrg} onChange={e => setTargetOrg(e.target.value)} required style={{padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1'}}>
-                <option value="">请选择新组织机构…</option>
+            <FormField label="目标组织" source="用户" required>
+              <select value={targetOrg} onChange={e => setTargetOrg(e.target.value)} required>
+                <option value="">请选择目标组织</option>
                 {orgs.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
-            </label>
+            </FormField>
           ) : (
-            <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12}}>
-              申请目标角色
-              <select value={targetRole} onChange={e => setTargetRole(e.target.value)} style={{padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1'}}>
-                <option value="operator">运营审核人员（operator）</option>
-                <option value="admin">系统管理员（admin）</option>
+            <FormField label="目标角色" source="用户" required>
+              <select value={targetRole} onChange={e => setTargetRole(e.target.value)}>
+                <option value="operator">运营审核人员</option>
+                <option value="admin">系统管理员</option>
               </select>
-            </label>
+            </FormField>
           )}
         </div>
 
-        <label style={{display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, marginBottom: 14}}>
-          变更原因说明（必填）
-          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} required placeholder="请说明部门调动情况或角色授权必要性…" style={{padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontFamily: 'inherit'}} />
-        </label>
+        <FormField label="变更原因" source="用户" required>
+          <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} required placeholder="请输入部门调动情况或权限申请依据" />
+        </FormField>
 
-        {err && <p role="alert" style={{color: '#dc2626', fontSize: 12, margin: '0 0 10px'}}>{err}</p>}
-        {msg && <p role="status" style={{color: '#15803d', fontSize: 12, fontWeight: 500, margin: '0 0 10px'}}>{msg}</p>}
+        {err && <p role="alert" style={{color: '#b42318', fontSize: 13, margin: 0}}>{err}</p>}
+        {msg && <p role="status" style={{color: '#027a48', fontSize: 13, fontWeight: 500, margin: 0}}>{msg}</p>}
 
-        <button type="submit" className="primary-button" disabled={busy}>
-          {busy ? '正在提交…' : '提交变更申请工单'}
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="primary-button" disabled={busy}>
+            {busy ? '正在提交…' : '提交变更申请'}
+          </button>
+        </div>
       </form>
 
       {items.length > 0 && (
-        <section className="panel" style={{padding: 16}}>
-          <h4 style={{margin: '0 0 10px', fontSize: 14}}>我的组织/角色变更申请记录</h4>
-          <div className="table-scroll">
-            <table>
+        <section className="form-section">
+          <div className="section-heading">
+            <span>03</span>
+            <div><h4>历史变更记录</h4></div>
+          </div>
+          <div className="org-table-wrap">
+            <table className="org-table">
               <thead>
-                <tr><th>工单号</th><th>类型</th><th>变更目标</th><th>原因</th><th>状态</th><th>审批意见</th></tr>
+                <tr><th>工单号</th><th>类型</th><th>目标值</th><th>变更原因</th><th>状态</th><th>审批意见</th></tr>
               </thead>
               <tbody>
                 {items.slice(0, 10).map(item => (
                   <tr key={item.ticketNo}>
-                    <td style={{fontFamily: 'monospace'}}>{item.ticketNo}</td>
+                    <td><code className="org-code">{item.ticketNo}</code></td>
                     <td>{item.requestType}</td>
-                    <td>{item.targetOrg || item.targetRole}</td>
+                    <td>{item.targetOrg || ROLE_NAME[item.targetRole || ''] || item.targetRole}</td>
                     <td>{item.reason}</td>
-                    <td><span className={`status ${item.status === '已批准' ? 'success' : item.status === '已驳回' ? 'danger' : 'warning'}`}>{item.status}</span></td>
-                    <td style={{fontSize: 12, color: '#64748b'}}>{item.reviewNote || '-'}</td>
+                    <td><span className={`app-status-pill ${pillTone(item.status)}`}>{item.status}</span></td>
+                    <td>{item.reviewNote || '-'}</td>
                   </tr>
                 ))}
               </tbody>
