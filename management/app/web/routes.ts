@@ -23,6 +23,7 @@ export const VIEW_PATHS: Record<View, string> = {
   mine: '/mine',
   todo: '/todo',
   query: '/query',
+  profile: '/profile',
   types: '/types',
   subsystems: '/subsystems',
   organizations: '/organizations',
@@ -43,6 +44,7 @@ const USER_ALLOWED_VIEWS: View[] = [
   'chat',
   'manual',
   'mine',
+  'profile',
 ]
 
 export type ParsedRoute = {

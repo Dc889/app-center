@@ -112,6 +112,9 @@ export function Sidebar({
   const settingsNav: NavItem[] = [
     { id: settingsDefaultView, label: '系统设置', icon: Settings },
   ]
+  const personalNav: NavItem[] = [
+    { id: 'profile', label: '个人中心', icon: User },
+  ]
   const activeSettingsView: View = isSettingsView(view) ? settingsDefaultView : view
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -131,6 +134,7 @@ export function Sidebar({
         {identity.role !== 'user' && (
           <NavGroup title="系统" items={settingsNav} view={activeSettingsView} onNavigate={onNavigate} collapsed={collapsed} />
         )}
+        <NavGroup title="个人" items={personalNav} view={view} onNavigate={onNavigate} collapsed={collapsed} />
       </nav>
     </aside>
   )
@@ -203,6 +207,7 @@ export function Topbar({
           <div className="user-menu">
             <div><span className={`avatar avatar-${identity.role}`}>{identity.initials}</span><p><strong>{identity.name}</strong><small>{identity.email ?? `${identity.account}@kpw.com`}</small></p></div>
             <div className="menu-role">{identity.roleName} · {identity.org}</div>
+            <button onClick={() => { setOpen(false); onNavigate('profile') }}><User size={16} /> 个人中心与设置</button>
             <button onClick={onLogout}><LogOut size={16} /> 退出登录</button>
           </div>
         )}

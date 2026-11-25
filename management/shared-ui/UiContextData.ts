@@ -26,7 +26,7 @@ export type View =
   | 'knowledgeWarehouse' | 'pluginWarehouse' | 'mcpWarehouse' | 'skillWarehouse'
   | 'plugins' | 'mcp' | 'skills' | 'serviceMonitor'
   | 'security' | 'accounts' | 'tenantModelMonitor' | 'audit'
-  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'types' | 'subsystems' | 'organizations' | 'keywordRules' | 'mcpTestSuites'
+  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'profile' | 'types' | 'subsystems' | 'organizations' | 'keywordRules' | 'mcpTestSuites'
 
 export type Identity = {
   role: Role
@@ -116,6 +116,7 @@ export const pageMeta: Record<View, { title: string; eyebrow: string; desc: stri
   mine: { title: '我的申请', eyebrow: '申请跟踪', desc: '查看本人提交的草稿、办理进度与执行结果。' },
   todo: { title: '我的待办', eyebrow: '待处理事项', desc: '办理分派给你的工单与系统事件。' },
   query: { title: '工单查询', eyebrow: '全量检索', desc: '按条件检索当前可见范围内的工单。' },
+  profile: { title: '个人中心', eyebrow: '我的账户与配额', desc: '查看个人组织归属、子系统工作区映射、名下资产统计、模型 Token 配额与密钥授权有效期。' },
   types: { title: '工单类型', eyebrow: '流程定义', desc: '定义字段和流程，测试通过后发布新版本。' },
   subsystems: { title: '纳管子系统', eyebrow: '平台集成配置', desc: '仅系统管理员可见。统一管理 Dify、RAGFlow 等多实例接入配置，支持连通性测试与保存后热生效。' },
   organizations: { title: '组织机构配置', eyebrow: '1～6 级组织体系', desc: '仅系统管理员可见。管理 1～6 级组织机构占位序号（1.1~1.N）、真实名称与外部映射，变更走 CFG-01 工单留痕。' },
