@@ -51,7 +51,13 @@ export function classifyContainer(raw) {
 }
 
 function productOf(item, difyProject, ragflowProject) {
-  const blob = `${item.image} ${item.containerName} ${item.project || ''} ${item.service}`.toLowerCase()
+  const nameLower = String(item.containerName || '').toLowerCase()
+  const projectLower = String(item.project || '').toLowerCase()
+  const imageLower = String(item.image || '').toLowerCase()
+  // Never misclassify App Center's own containers or unrelated mock containers as Dify/RAGFlow
+  if (projectLower === 'app-center' || nameLower.startsWith('app-center-')) return null
+  if (nameLower.includes('mock') || imageLower.includes('mock')) return null
+  const blob = `${imageLower} ${nameLower} ${projectLower} ${String(item.service || '').toLowerCase()}`
   if (difyProject && item.project === difyProject) return 'Dify'
   if (ragflowProject && item.project === ragflowProject) return 'RAGFlow'
   if (/ragflow|infiniflow/.test(blob)) return 'RAGFlow'
