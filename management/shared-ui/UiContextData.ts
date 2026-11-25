@@ -123,7 +123,21 @@ export const pageMeta: Record<View, { title: string; eyebrow: string; desc: stri
 
 
 export function personOf(role: Role) {
-  try {const p=JSON.parse(sessionStorage.getItem('session-person') ?? 'null');if(p?.role===role)return {name:p.name as string,account:p.account as string,org:p.org as string,line:p.businessLine as string,level:''}} catch {}
+  try {
+    const p = JSON.parse(sessionStorage.getItem('session-person') ?? 'null')
+    if (p?.role === role) {
+      const displayName = String(p.name || p.account || '')
+      return {
+        name: displayName,
+        account: p.account as string,
+        email: (p.email || `${p.account}@kpw.com`) as string,
+        org: (p.org || '') as string,
+        line: (p.businessLine || '') as string,
+        level: '',
+        initials: displayName.slice(0, 1) || '用',
+      }
+    }
+  } catch {}
   if (role === 'ops') return { name: sessionStorage.getItem('operator')==='wang.ning'?'王宁':'周敏', account: sessionStorage.getItem('operator')==='wang.ning'?'wang.ning':'zhou.min', org: '平台运营组', line: '', level: '' }
   if (role === 'admin') return { name: '李强', account: 'li.qiang', org: '系统管理组', line: '', level: '' }
   return { name: '陈宇', account: 'chen.yu', org: '业务一部', line: '刑侦', level: '内部' }

@@ -26,7 +26,7 @@ export function DatasetPublicationContext() {
   const [submitted,setSubmitted]=useState(false)
   const [resourceId,setResourceId]=useState('')
   const [workspaceId,setWorkspaceId]=useState('')
-  const [sourceSystem,setSourceSystem]=useState('RAGFlow')
+  const [sourceSystem,setSourceSystem]=useState('Dify')
   const [pickerKey,setPickerKey]=useState(0)
   const resource=useResourceSnapshot()
   const controller=useRef<AbortController|null>(null)
