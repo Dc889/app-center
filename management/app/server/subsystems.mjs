@@ -783,6 +783,48 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
     check(false, 405, 'METHOD_NOT_ALLOWED')
   }
 
+  function collectDifyInventory() {
+    const activeIds = new Set(store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled).map(r => `dify:${r.id}`))
+    const appsMap = new Map()
+    const datasetsMap = new Map()
+    const mcpMap = new Map()
+    const pluginsMap = new Map()
+    const keysMap = new Map()
+    let syncedAt = null
+    for (const snap of inventoryStore.all()) {
+      if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
+      if (snap.syncedAt && (!syncedAt || snap.syncedAt > syncedAt)) syncedAt = snap.syncedAt
+      for (const item of snap.apps ?? []) {
+        const k = item?.resourceId || `${item?.workspaceId}:${item?.name}`
+        if (k && !appsMap.has(k)) appsMap.set(k, item)
+      }
+      for (const item of snap.datasets ?? []) {
+        const k = item?.resourceId || `${item?.workspaceId}:${item?.name}`
+        if (k && !datasetsMap.has(k)) datasetsMap.set(k, item)
+      }
+      for (const item of snap.mcpProviders ?? []) {
+        const k = item?.providerId || `${item?.workspaceId}:${item?.serverIdentifier || item?.name}`
+        if (k && !mcpMap.has(k)) mcpMap.set(k, item)
+      }
+      for (const item of snap.plugins ?? []) {
+        const k = item?.installationId || `${item?.workspaceId}:${item?.pluginId}`
+        if (k && !pluginsMap.has(k)) pluginsMap.set(k, item)
+      }
+      for (const item of snap.apiKeys ?? []) {
+        const k = item?.keyId || `${item?.workspaceId}:${item?.appId}:${item?.tokenPreview}`
+        if (k && !keysMap.has(k)) keysMap.set(k, item)
+      }
+    }
+    return {
+      syncedAt,
+      apps: [...appsMap.values()],
+      datasets: [...datasetsMap.values()],
+      mcpProviders: [...mcpMap.values()],
+      plugins: [...pluginsMap.values()],
+      apiKeys: [...keysMap.values()],
+    }
+  }
+
   return {
     handle: async (req, res, path, actor) => {
       if (path === '/api/subsystems' && req.method === 'GET') {
@@ -796,25 +838,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       const all = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled)
       return all.find(r => r.isDefault) ?? all[0] ?? null
     },
-    getDifyInventory: () => {
-      const activeIds = new Set(store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled).map(r => `dify:${r.id}`))
-      const apps = []
-      const datasets = []
-      const mcpProviders = []
-      const plugins = []
-      const apiKeys = []
-      let syncedAt = null
-      for (const snap of inventoryStore.all()) {
-        if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
-        if (snap.syncedAt && (!syncedAt || snap.syncedAt > syncedAt)) syncedAt = snap.syncedAt
-        if (Array.isArray(snap.apps)) apps.push(...snap.apps)
-        if (Array.isArray(snap.datasets)) datasets.push(...snap.datasets)
-        if (Array.isArray(snap.mcpProviders)) mcpProviders.push(...snap.mcpProviders)
-        if (Array.isArray(snap.plugins)) plugins.push(...snap.plugins)
-        if (Array.isArray(snap.apiKeys)) apiKeys.push(...snap.apiKeys)
-      }
-      return {syncedAt, apps, datasets, mcpProviders, plugins, apiKeys}
-    },
+    getDifyInventory: collectDifyInventory,
     refreshDifyInventory: async () => {
       const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.dbPassword)
       for (const rec of enabled) {
@@ -823,23 +847,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
           store.put(rec.id, {...rec, lastSync: syncResult})
         } catch {}
       }
-      const activeIds = new Set(store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled).map(r => `dify:${r.id}`))
-      const apps = []
-      const datasets = []
-      const mcpProviders = []
-      const plugins = []
-      const apiKeys = []
-      let syncedAt = null
-      for (const snap of inventoryStore.all()) {
-        if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
-        if (snap.syncedAt && (!syncedAt || snap.syncedAt > syncedAt)) syncedAt = snap.syncedAt
-        if (Array.isArray(snap.apps)) apps.push(...snap.apps)
-        if (Array.isArray(snap.datasets)) datasets.push(...snap.datasets)
-        if (Array.isArray(snap.mcpProviders)) mcpProviders.push(...snap.mcpProviders)
-        if (Array.isArray(snap.plugins)) plugins.push(...snap.plugins)
-        if (Array.isArray(snap.apiKeys)) apiKeys.push(...snap.apiKeys)
-      }
-      return {syncedAt, apps, datasets, mcpProviders, plugins, apiKeys}
+      return collectDifyInventory()
     },
     close: () => {
       store.close()
