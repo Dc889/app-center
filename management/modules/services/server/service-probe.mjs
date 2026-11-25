@@ -209,6 +209,92 @@ export async function dockerPsText() {
   return dockerText(['ps', '-a', '--no-trunc', '--format', '{{json .}}'], 8000, 'DOCKER_TIMEOUT')
 }
 
+function formatStatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B'
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
+  let value = bytes
+  let idx = 0
+  while (value >= 1024 && idx < units.length - 1) {
+    value /= 1024
+    idx += 1
+  }
+  return `${value >= 100 || idx === 0 ? value.toFixed(idx === 0 ? 0 : 1) : value.toFixed(2)} ${units[idx]}`
+}
+
+export function parseContainerStatsPayload(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  // CPU % (same formula as Docker CLI)
+  let cpuPercent = null
+  const cpuTotal = raw.cpu_stats?.cpu_usage?.total_usage
+  const preCpuTotal = raw.precpu_stats?.cpu_usage?.total_usage
+  const sysTotal = raw.cpu_stats?.system_cpu_usage
+  const preSysTotal = raw.precpu_stats?.system_cpu_usage
+  const onlineCpus = raw.cpu_stats?.online_cpus || raw.cpu_stats?.cpu_usage?.percpu_usage?.length || 1
+  if (Number.isFinite(cpuTotal) && Number.isFinite(preCpuTotal) && Number.isFinite(sysTotal) && Number.isFinite(preSysTotal)) {
+    const cpuDelta = cpuTotal - preCpuTotal
+    const sysDelta = sysTotal - preSysTotal
+    if (sysDelta > 0 && cpuDelta >= 0) {
+      cpuPercent = Math.round((cpuDelta / sysDelta) * onlineCpus * 10000) / 100
+    } else {
+      cpuPercent = 0
+    }
+  }
+  // Memory usage (cgroup v2 uses inactive_file, v1 uses cache)
+  let memory = null
+  let memoryPercent = null
+  const memUsage = raw.memory_stats?.usage
+  const memLimit = raw.memory_stats?.limit
+  if (Number.isFinite(memUsage) && Number.isFinite(memLimit) && memLimit > 0) {
+    const cache = raw.memory_stats?.stats?.inactive_file ?? raw.memory_stats?.stats?.cache ?? 0
+    const used = Math.max(0, memUsage - (Number.isFinite(cache) ? cache : 0))
+    memory = `${formatStatBytes(used)} / ${formatStatBytes(memLimit)}`
+    memoryPercent = Math.round((used / memLimit) * 10000) / 100
+  }
+  // Network I/O
+  let netIo = null
+  if (raw.networks && typeof raw.networks === 'object') {
+    let rx = 0
+    let tx = 0
+    for (const iface of Object.values(raw.networks)) {
+      rx += Number(iface?.rx_bytes || 0)
+      tx += Number(iface?.tx_bytes || 0)
+    }
+    netIo = `${formatStatBytes(rx)} / ${formatStatBytes(tx)}`
+  }
+  // Block I/O
+  let blockIo = null
+  const blkEntries = raw.blkio_stats?.io_service_bytes_recursive
+  if (Array.isArray(blkEntries)) {
+    let readBytes = 0
+    let writeBytes = 0
+    for (const item of blkEntries) {
+      const op = String(item?.op || '').toLowerCase()
+      if (op === 'read') readBytes += Number(item?.value || 0)
+      else if (op === 'write') writeBytes += Number(item?.value || 0)
+    }
+    blockIo = `${formatStatBytes(readBytes)} / ${formatStatBytes(writeBytes)}`
+  }
+  // PIDs
+  const pids = Number.isFinite(raw.pids_stats?.current) ? Number(raw.pids_stats.current) : null
+  return {cpuPercent, memory, memoryPercent, netIo, blockIo, pids}
+}
+
+async function dockerStatsViaSocket(services) {
+  const byId = new Map()
+  const byName = new Map()
+  const running = (services ?? []).filter(s => s.status === '运行中' || s.status === '启动中' || s.status === '不可用')
+  await Promise.allSettled(running.map(async svc => {
+    try {
+      const rawText = await dockerSocketRequest('GET', `/containers/${encodeURIComponent(svc.containerId)}/stats?stream=false`, 10000)
+      const stat = parseContainerStatsPayload(JSON.parse(rawText))
+      if (!stat) return
+      byId.set(svc.containerId.slice(0, 12), stat)
+      if (svc.containerName) byName.set(svc.containerName, stat)
+    } catch {}
+  }))
+  return {byId, byName}
+}
+
 export function dockerStatsText() {
   return dockerText(['stats', '--no-stream', '--format', '{{json .}}'], 20000, 'DOCKER_STATS_TIMEOUT')
 }
@@ -217,10 +303,21 @@ export async function probeSubsystemServices({run, stats} = {}) {
   try {
     const text = await (run ?? dockerPsText)()
     let services = parseDockerPs(text)
-    const statsRunner = stats ?? (run ? null : dockerStatsText)
-    if (statsRunner) {
+    if (stats) {
       try {
-        services = attachDockerStats(services, parseDockerStats(await statsRunner()))
+        services = attachDockerStats(services, parseDockerStats(await stats()))
+      } catch {
+        services = attachDockerStats(services, {byId: new Map(), byName: new Map()})
+      }
+    } else if (!run && existsSync('/var/run/docker.sock')) {
+      try {
+        services = attachDockerStats(services, await dockerStatsViaSocket(services))
+      } catch {
+        services = attachDockerStats(services, {byId: new Map(), byName: new Map()})
+      }
+    } else if (!run) {
+      try {
+        services = attachDockerStats(services, parseDockerStats(await dockerStatsText()))
       } catch {
         services = attachDockerStats(services, {byId: new Map(), byName: new Map()})
       }
