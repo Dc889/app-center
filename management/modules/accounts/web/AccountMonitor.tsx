@@ -3,7 +3,7 @@ import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis
 } from 'recharts'
-import { Users, CheckCircle, AlertTriangle, RefreshCw, Search, ArrowRight, ShieldCheck, Server, Activity, ArrowLeftRight, Clock } from 'lucide-react'
+import { Users, CheckCircle, AlertTriangle, RefreshCw, Search, ArrowRight, ShieldCheck, Server, Activity, ArrowLeftRight, Clock, Cpu } from 'lucide-react'
 
 type Metrics = {
   totalCount: number | null
@@ -82,6 +82,10 @@ type HandoverRecord = { ticketNo: string; handoverType: string; fromAccount: str
 type ExpirationItem = { itemId: string; grantType: string; grantLabel: string; ticketNo: string | null; resourceId: string; resourceName: string; ownerAccount: string; ownerName: string; org: string; issuedAt: string; expiresAt: string; daysRemaining: number; status: string; revokedAt: string | null; revokedBy: string | null; revokeReason: string | null; renewedCount: number }
 type ExpirationReport = { capturedAt: string; summary: { total: number; expired: number; expiringSoon: number; active: number; revoked: number }; items: ExpirationItem[] }
 
+type ModelQuotaItem = { key: string; workspaceId: string; workspaceName: string; ownerAccount: string; ownerName: string; org: string; providerName: string; modelName: string; modelType: string; enabled: boolean; period: 'monthly' | 'total'; usedTokens: number; usedCalls: number; tokenLimit: number | null; callLimit: number | null; tokenPercent: number | null; callPercent: number | null; autoDisable: boolean; exceeded: boolean; warning: boolean; quotaStatus: string; note: string }
+type ModelQuotaTicket = { ticketNo: string; workspaceName: string; modelName: string; requestedTokenLimit: number | null; requestedCallLimit: number | null; reason: string; applicantName: string; org: string; status: string; createdAt: string; reviewNote: string | null }
+type ModelQuotaReport = { capturedAt: string; syncedAt: string | null; summary: { total: number; configured: number; exceeded: number; warning: number; disabled: number; pendingTickets: number }; items: ModelQuotaItem[]; tickets: ModelQuotaTicket[] }
+
 export function AccountMonitor({
   onWorkOrder,
 }: {
@@ -89,7 +93,7 @@ export function AccountMonitor({
   onWorkOrder?: (title: string) => void
 }) {
   const [range, setRange] = useState<'1h' | '24h' | '7d'>('24h')
-  const [activeTab, setActiveTab] = useState<'mappings' | 'syncJobs' | 'probes' | 'handovers' | 'expirations'>('mappings')
+  const [activeTab, setActiveTab] = useState<'mappings' | 'syncJobs' | 'probes' | 'handovers' | 'expirations' | 'modelQuotas'>('mappings')
   const [consistencyFilter, setConsistencyFilter] = useState('全部')
   const [keyword, setKeyword] = useState('')
   const [queryInput, setQueryInput] = useState('')
@@ -116,6 +120,127 @@ export function AccountMonitor({
   const [expBusyId, setExpBusyId] = useState('')
   const [expMsg, setExpMsg] = useState('')
   const [expErr, setExpErr] = useState('')
+
+  // P2: Model quota & auto-disable state
+  const [mqReport, setMqReport] = useState<ModelQuotaReport | null>(null)
+  const [mqBusy, setMqBusy] = useState('')
+  const [mqMsg, setMqMsg] = useState('')
+  const [mqErr, setMqErr] = useState('')
+  const [editingQuota, setEditingQuota] = useState<ModelQuotaItem | null>(null)
+  const [editTokenLimit, setEditTokenLimit] = useState('')
+  const [editCallLimit, setEditCallLimit] = useState('')
+  const [editPeriod, setEditPeriod] = useState<'monthly' | 'total'>('monthly')
+  const [editAutoDisable, setEditAutoDisable] = useState(true)
+  const [editNote, setEditNote] = useState('')
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/model-quotas', { signal: controller.signal })
+      .then(async r => (r.ok ? r.json() : null))
+      .then(res => {
+        if (!res || controller.signal.aborted) return
+        setMqReport(res)
+      })
+      .catch(() => {})
+    return () => controller.abort()
+  }, [refresh])
+
+  const openQuotaEditor = (item: ModelQuotaItem) => {
+    setEditingQuota(item)
+    setEditTokenLimit(item.tokenLimit ? String(item.tokenLimit) : '')
+    setEditCallLimit(item.callLimit ? String(item.callLimit) : '')
+    setEditPeriod(item.period)
+    setEditAutoDisable(item.autoDisable)
+    setEditNote(item.note || '')
+    setMqErr(''); setMqMsg('')
+  }
+
+  const saveQuotaPolicy = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingQuota) return
+    setMqBusy('save'); setMqErr(''); setMqMsg('')
+    try {
+      const r = await fetch('/api/model-quotas/policy', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: editingQuota.workspaceId,
+          workspaceName: editingQuota.workspaceName,
+          providerName: editingQuota.providerName,
+          modelName: editingQuota.modelName,
+          modelType: editingQuota.modelType,
+          period: editPeriod,
+          tokenLimit: editTokenLimit.trim() ? Number(editTokenLimit) : null,
+          callLimit: editCallLimit.trim() ? Number(editCallLimit) : null,
+          autoDisable: editAutoDisable,
+          note: editNote.trim(),
+        }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '保存配额策略失败')
+      const extra = body.actionTaken === 'auto_disabled' ? '（当前已超限，系统已在 Dify 自动禁用该模型）' : body.actionTaken === 'auto_enabled' ? '（额度充足，已自动恢复 Dify 模型启用）' : ''
+      setMqMsg(`已保存「${editingQuota.workspaceName} / ${editingQuota.modelName}」的配额策略${extra}`)
+      setEditingQuota(null)
+      setRefresh(n => n + 1)
+    } catch (err: any) {
+      setMqErr(err?.message || '保存配额策略失败')
+    } finally {
+      setMqBusy('')
+    }
+  }
+
+  const toggleModelEnabled = async (item: ModelQuotaItem, action: 'disable' | 'enable') => {
+    setMqBusy(item.key); setMqErr(''); setMqMsg('')
+    try {
+      const r = await fetch('/api/model-quotas/enforce', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ workspaceId: item.workspaceId, providerName: item.providerName, modelName: item.modelName, modelType: item.modelType, action }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '操作失败')
+      setMqMsg(action === 'disable' ? `已在 Dify 禁用「${item.workspaceName}」的模型 ${item.modelName}` : `已在 Dify 恢复启用「${item.workspaceName}」的模型 ${item.modelName}`)
+      setRefresh(n => n + 1)
+    } catch (err: any) {
+      setMqErr(err?.message || '操作失败')
+    } finally {
+      setMqBusy('')
+    }
+  }
+
+  const runQuotaSweep = async () => {
+    setMqBusy('sweep'); setMqErr(''); setMqMsg('')
+    try {
+      const r = await fetch('/api/model-quotas/enforce', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '巡检失败')
+      setMqMsg(`已完成全量用量同步与超限巡检（核查 ${body.checked ?? 0} 个模型实例，新触发熔断禁用 ${body.disabled?.length ?? 0} 个）。`)
+      setRefresh(n => n + 1)
+    } catch (err: any) {
+      setMqErr(err?.message || '巡检失败')
+    } finally {
+      setMqBusy('')
+    }
+  }
+
+  const handleQuotaTicket = async (ticketNo: string, decision: 'approve' | 'reject') => {
+    setMqBusy(ticketNo); setMqErr(''); setMqMsg('')
+    try {
+      const r = await fetch('/api/model-quotas/approve', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ticketNo, decision }),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || '审批失败')
+      setMqMsg(decision === 'approve' ? `调额单 ${ticketNo} 已批准${body.modelRestored ? '，并已在 Dify 恢复启用该模型' : ''}` : `调额单 ${ticketNo} 已驳回`)
+      setRefresh(n => n + 1)
+    } catch (err: any) {
+      setMqErr(err?.message || '审批失败')
+    } finally {
+      setMqBusy('')
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -543,6 +668,27 @@ export function AccountMonitor({
               <Clock size={14} />
               密钥与授权有效期回收 ({(expReport?.summary.expired ?? 0) + (expReport?.summary.expiringSoon ?? 0)} 待关注)
             </button>
+            <button
+              type="button"
+              className={`tab-item ${activeTab === 'modelQuotas' ? 'active' : ''}`}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 6,
+                border: 'none',
+                background: activeTab === 'modelQuotas' ? '#eff6ff' : 'transparent',
+                color: activeTab === 'modelQuotas' ? '#2563eb' : '#4b5563',
+                fontWeight: activeTab === 'modelQuotas' ? 600 : 400,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 13,
+              }}
+              onClick={() => { setActiveTab('modelQuotas'); setPage(1) }}
+            >
+              <Cpu size={14} />
+              模型额度与熔断管控 ({mqReport?.summary.total ?? 0})
+            </button>
           </div>
 
           {/* 筛选与搜索 */}
@@ -901,6 +1047,164 @@ export function AccountMonitor({
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* Tab 6: 模型额度与熔断管控 (P2 方案 A) */}
+        {activeTab === 'modelQuotas' && (
+          <div style={{ padding: 16 }} data-testid="model-quotas-panel">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#f1f5f9', color: '#334155' }}>模型实例：{mqReport?.summary.total ?? 0}</span>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#eff6ff', color: '#1d4ed8' }}>已设限：{mqReport?.summary.configured ?? 0}</span>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#fef2f2', color: '#b91c1c' }}>已超限：{mqReport?.summary.exceeded ?? 0}</span>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#fffbeb', color: '#b45309' }}>预警(≥80%)：{mqReport?.summary.warning ?? 0}</span>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#fee2e2', color: '#991b1b' }}>Dify 已禁用：{mqReport?.summary.disabled ?? 0}</span>
+              </div>
+              <button
+                type="button"
+                disabled={!!mqBusy}
+                onClick={runQuotaSweep}
+                style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, cursor: 'pointer' }}
+              >
+                {mqBusy === 'sweep' ? '正在同步与巡检…' : '刷新用量并执行超限巡检'}
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 0, marginBottom: 12 }}>
+              按「Dify 工作区 × 模型」设置 Token 额度与调用次数上限。系统每 60 秒自动巡检 Dify 实际消耗，达到 100% 自动将对应工作区的该模型在 Dify 中禁用，调额批准后自动恢复启用。
+            </p>
+            {mqErr && <p role="alert" style={{ color: '#dc2626', fontSize: 12 }}>{mqErr}</p>}
+            {mqMsg && <p role="status" style={{ color: '#15803d', fontSize: 12 }}>{mqMsg}</p>}
+
+            {editingQuota && (
+              <form onSubmit={saveQuotaPolicy} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: 14, marginBottom: 14 }}>
+                <h4 style={{ margin: '0 0 10px', fontSize: 13 }}>
+                  配置配额：{editingQuota.workspaceName}（{editingQuota.ownerName}） / {editingQuota.modelName}
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginBottom: 10 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                    Token 额度上限（留空不限）
+                    <input type="number" min={0} value={editTokenLimit} onChange={e => setEditTokenLimit(e.target.value)} placeholder="如：100000" style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                    调用次数上限（留空不限）
+                    <input type="number" min={0} value={editCallLimit} onChange={e => setEditCallLimit(e.target.value)} placeholder="如：500" style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                    统计周期
+                    <select value={editPeriod} onChange={e => setEditPeriod(e.target.value as 'monthly' | 'total')} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                      <option value="monthly">按自然月统计</option>
+                      <option value="total">按历史累计统计</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                    策略说明
+                    <input value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="备注依据" style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #cbd5e1' }} />
+                  </label>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                    <input type="checkbox" checked={editAutoDisable} onChange={e => setEditAutoDisable(e.target.checked)} />
+                    超限时自动在 Dify 禁用该工作区的此模型并生成告警事件
+                  </label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" className="secondary-button" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setEditingQuota(null)}>取消</button>
+                    <button type="submit" disabled={mqBusy === 'save'} style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                      {mqBusy === 'save' ? '保存中…' : '保存并立即生效'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            <div className="table-wrap" style={{ marginBottom: 16 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>工作区 / 负责人</th>
+                    <th>所属组织</th>
+                    <th>模型名称</th>
+                    <th>周期</th>
+                    <th>已用 Token / 额度</th>
+                    <th>已用次数 / 上限</th>
+                    <th>Dify 模型开关</th>
+                    <th>配额状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mqReport && mqReport.items.length > 0 ? mqReport.items.map(item => (
+                    <tr key={item.key}>
+                      <td>{item.workspaceName}<div style={{ fontSize: 11, color: '#64748b' }}>{item.ownerName} ({item.ownerAccount})</div></td>
+                      <td>{item.org}</td>
+                      <td><strong>{item.modelName}</strong><div style={{ fontSize: 11, color: '#64748b' }}>{item.providerName.split('/').at(-1)}</div></td>
+                      <td style={{ fontSize: 12 }}>{item.period === 'monthly' ? '本月' : '累计'}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                        {item.usedTokens.toLocaleString()} / {item.tokenLimit ? item.tokenLimit.toLocaleString() : '不限'}
+                        {item.tokenPercent !== null ? ` (${item.tokenPercent}%)` : ''}
+                      </td>
+                      <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                        {item.usedCalls} / {item.callLimit ?? '不限'}
+                        {item.callPercent !== null ? ` (${item.callPercent}%)` : ''}
+                      </td>
+                      <td>
+                        <span className={`status ${item.enabled ? 'success' : 'danger'}`}>
+                          {item.enabled ? '已启用' : '已禁用'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status ${item.exceeded ? 'danger' : item.warning ? 'warning' : 'success'}`}>
+                          {item.quotaStatus}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12 }} onClick={() => openQuotaEditor(item)}>设置额度</button>
+                          {item.enabled
+                            ? <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#dc2626' }} disabled={mqBusy === item.key} onClick={() => toggleModelEnabled(item, 'disable')}>禁用</button>
+                            : <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#15803d' }} disabled={mqBusy === item.key} onClick={() => toggleModelEnabled(item, 'enable')}>恢复启用</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af' }}>暂未扫描到已配置的 Dify 模型（请先在 Dify 工作区配置模型供应商后点击「刷新用量并执行超限巡检」）</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {mqReport && mqReport.tickets.length > 0 && (
+              <>
+                <h4 style={{ margin: '0 0 8px', fontSize: 13 }}>MOD-01 模型调额申请单</h4>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>单号</th><th>工作区 / 模型</th><th>申请人</th><th>申请额度</th><th>理由</th><th>状态</th><th>操作</th></tr>
+                    </thead>
+                    <tbody>
+                      {mqReport.tickets.map(t => (
+                        <tr key={t.ticketNo}>
+                          <td style={{ fontFamily: 'monospace' }}>{t.ticketNo}</td>
+                          <td>{t.workspaceName} / {t.modelName}</td>
+                          <td>{t.applicantName} ({t.org})</td>
+                          <td style={{ fontSize: 12 }}>Token: {t.requestedTokenLimit ?? '-'} · 次数: {t.requestedCallLimit ?? '-'}</td>
+                          <td>{t.reason}</td>
+                          <td>{t.status}</td>
+                          <td>
+                            {t.status === '待审批' ? (
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#15803d' }} disabled={mqBusy === t.ticketNo} onClick={() => handleQuotaTicket(t.ticketNo, 'approve')}>批准并解禁</button>
+                                <button type="button" className="secondary-button" style={{ padding: '3px 8px', fontSize: 12, color: '#dc2626' }} disabled={mqBusy === t.ticketNo} onClick={() => handleQuotaTicket(t.ticketNo, 'reject')}>驳回</button>
+                              </div>
+                            ) : (t.reviewNote || '-')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
 

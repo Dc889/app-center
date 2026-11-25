@@ -385,6 +385,83 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
       apiKeys = []
     }
 
+    // 4c. Sync per-workspace model configurations & real token/call usage (for P2 quota enforcement)
+    let modelUsage = []
+    try {
+      const usageRes = await client.query(`
+        WITH configured AS (
+          SELECT tenant_id::text AS workspace_id, provider_name, model_name, model_type
+          FROM provider_models
+          WHERE is_valid = true
+          UNION
+          SELECT tenant_id::text AS workspace_id, provider_name, model_name, model_type
+          FROM provider_model_settings
+          UNION
+          SELECT DISTINCT a.tenant_id::text AS workspace_id, m.model_provider AS provider_name, m.model_id AS model_name, 'text-generation' AS model_type
+          FROM messages m
+          JOIN apps a ON a.id = m.app_id
+          WHERE COALESCE(m.model_provider, '') <> '' AND COALESCE(m.model_id, '') <> ''
+        ),
+        msg_stats AS (
+          SELECT
+            a.tenant_id::text AS workspace_id,
+            m.model_provider AS provider_name,
+            m.model_id AS model_name,
+            COUNT(*)::int AS total_calls,
+            COALESCE(SUM(COALESCE(m.message_tokens, 0) + COALESCE(m.answer_tokens, 0)), 0)::bigint AS total_tokens,
+            COUNT(*) FILTER (WHERE m.created_at >= date_trunc('month', CURRENT_TIMESTAMP))::int AS monthly_calls,
+            COALESCE(SUM(COALESCE(m.message_tokens, 0) + COALESCE(m.answer_tokens, 0)) FILTER (WHERE m.created_at >= date_trunc('month', CURRENT_TIMESTAMP)), 0)::bigint AS monthly_tokens
+          FROM messages m
+          JOIN apps a ON a.id = m.app_id
+          WHERE COALESCE(m.model_provider, '') <> '' AND COALESCE(m.model_id, '') <> ''
+          GROUP BY a.tenant_id, m.model_provider, m.model_id
+        )
+        SELECT
+          c.workspace_id,
+          c.provider_name,
+          c.model_name,
+          c.model_type,
+          COALESCE(s.enabled, true) AS enabled,
+          COALESCE(u.monthly_calls, 0)::int AS monthly_calls,
+          COALESCE(u.monthly_tokens, 0)::bigint AS monthly_tokens,
+          COALESCE(u.total_calls, 0)::int AS total_calls,
+          COALESCE(u.total_tokens, 0)::bigint AS total_tokens,
+          t.name AS workspace_name
+        FROM configured c
+        LEFT JOIN provider_model_settings s
+          ON s.tenant_id::text = c.workspace_id
+          AND s.provider_name = c.provider_name
+          AND s.model_name = c.model_name
+          AND s.model_type = c.model_type
+        LEFT JOIN msg_stats u
+          ON u.workspace_id = c.workspace_id
+          AND u.provider_name = c.provider_name
+          AND u.model_name = c.model_name
+        LEFT JOIN tenants t ON t.id::text = c.workspace_id
+        ORDER BY COALESCE(u.monthly_tokens, 0) DESC, c.workspace_id, c.model_name
+      `)
+      modelUsage = usageRes.rows.map(r => {
+        const owner = tenantOwnerMap.get(r.workspace_id)
+        return {
+          workspaceId: r.workspace_id || '',
+          workspaceName: r.workspace_name || owner?.workspaceName || '',
+          ownerAccount: owner?.account || `workspace:${String(r.workspace_id || '').slice(0, 8)}`,
+          ownerName: owner?.name || r.workspace_name || 'Dify 工作区',
+          org: owner?.org || '待归属',
+          providerName: r.provider_name || '',
+          modelName: r.model_name || '',
+          modelType: r.model_type || 'text-generation',
+          enabled: r.enabled !== false,
+          monthlyCalls: Number(r.monthly_calls || 0),
+          monthlyTokens: Number(r.monthly_tokens || 0),
+          totalCalls: Number(r.total_calls || 0),
+          totalTokens: Number(r.total_tokens || 0),
+        }
+      })
+    } catch {
+      modelUsage = []
+    }
+
     // 5. Sync installed plugins across all tenants from dify_plugin DB (best-effort)
     let plugins = []
     const pluginDbName = String(record.pluginDbName ?? 'dify_plugin').trim() || 'dify_plugin'
@@ -444,6 +521,7 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
         mcpProviders,
         plugins,
         apiKeys,
+        modelUsage,
       })
     }
 
@@ -790,6 +868,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
     const mcpMap = new Map()
     const pluginsMap = new Map()
     const keysMap = new Map()
+    const modelUsageMap = new Map()
     let syncedAt = null
     for (const snap of inventoryStore.all()) {
       if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
@@ -814,6 +893,10 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
         const k = item?.keyId || `${item?.workspaceId}:${item?.appId}:${item?.tokenPreview}`
         if (k && !keysMap.has(k)) keysMap.set(k, item)
       }
+      for (const item of snap.modelUsage ?? []) {
+        const k = `${item?.workspaceId}::${item?.providerName}::${item?.modelName}`
+        if (k && !modelUsageMap.has(k)) modelUsageMap.set(k, item)
+      }
     }
     return {
       syncedAt,
@@ -822,6 +905,60 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       mcpProviders: [...mcpMap.values()],
       plugins: [...pluginsMap.values()],
       apiKeys: [...keysMap.values()],
+      modelUsage: [...modelUsageMap.values()],
+    }
+  }
+
+  async function setDifyModelEnabled({workspaceId, providerName, modelName, modelType = 'text-generation', enabled}) {
+    const all = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.dbPassword)
+    const rec = all.find(r => r.isDefault) ?? all[0] ?? null
+    if (!rec) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    const password = decryptSecret(rec.dbPassword)
+    const client = new pg.Client({
+      host: String(rec.dbHost).trim(),
+      port: Number(rec.dbPort) || 5432,
+      database: String(rec.dbName || 'dify').trim(),
+      user: String(rec.dbUser).trim(),
+      password,
+      connectionTimeoutMillis: 5000,
+      statement_timeout: 8000,
+    })
+    try {
+      await client.connect()
+      const existing = await client.query(
+        `SELECT id FROM provider_model_settings WHERE tenant_id = $1::uuid AND provider_name = $2 AND model_name = $3 AND model_type = $4 LIMIT 1`,
+        [workspaceId, providerName, modelName, modelType],
+      )
+      if (existing.rows.length > 0) {
+        await client.query(
+          `UPDATE provider_model_settings SET enabled = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+          [Boolean(enabled), existing.rows[0].id],
+        )
+      } else {
+        await client.query(
+          `INSERT INTO provider_model_settings (id, tenant_id, provider_name, model_name, model_type, enabled, load_balancing_enabled, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [workspaceId, providerName, modelName, modelType, Boolean(enabled)],
+        )
+      }
+      // Update cached inventory snapshot immediately so UI reflects new switch state
+      for (const snap of inventoryStore.all()) {
+        if (!snap || !Array.isArray(snap.modelUsage)) continue
+        let changed = false
+        const updatedUsage = snap.modelUsage.map(u => {
+          if (u.workspaceId === workspaceId && u.providerName === providerName && u.modelName === modelName) {
+            changed = true
+            return {...u, enabled: Boolean(enabled)}
+          }
+          return u
+        })
+        if (changed) inventoryStore.put(`dify:${snap.subsystemId}`, {...snap, modelUsage: updatedUsage})
+      }
+      return {ok: true, enabled: Boolean(enabled)}
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
     }
   }
 
@@ -839,6 +976,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       return all.find(r => r.isDefault) ?? all[0] ?? null
     },
     getDifyInventory: collectDifyInventory,
+    setDifyModelEnabled,
     refreshDifyInventory: async () => {
       const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.dbPassword)
       for (const rec of enabled) {
