@@ -1,5 +1,6 @@
 import {body,check,json,id,same} from '../../../../runtime/http.mjs'
 import {platformRoles} from '../../../platform/identity/public.server.mjs'
+import {hashPassword} from '../../../platform/identity/server/identity-directory.mjs'
 import {recoveryBaseline,verifiedRestoration} from './account-recovery.mjs'
 import {readExecution} from '../../../../runtime/execution-state.mjs'
 const text=v=>typeof v==='string' && v.trim() && v.length<=4000
@@ -108,8 +109,42 @@ export function accountWorkflows({directory,cap,types,headersFor,catalog,now=Dat
     const previous=get(input.ticketNo)
     if(path==='/api/account-applications') {
       check(Object.hasOwn(actions,input.ticketType) && input.ticketNo.startsWith(input.ticketType+'-'),400,'INVALID_ACCOUNT_TYPE')
-      const profile=directory.get(input.subjectId)
-      check(profile,404,'SUBJECT_NOT_FOUND')
+      let profile=input.subjectId ? directory.get(input.subjectId) : null
+      if(!profile && input.ticketType==='ACC-01' && input.fields?.operation==='开通' && input.newPerson) {
+        const np=input.newPerson
+        const newAcc=String(np.account ?? '').trim()
+        const newName=String(np.name ?? '').trim()
+        const newEmail=String(np.email ?? '').trim() || `${newAcc}@kpw.com`
+        const newPwd=String(np.password ?? '').trim() || 'Kpw@2026!'
+        check(accountName(newAcc),400,'INVALID_NEW_ACCOUNT','登录账号须由字母数字开头，仅含字母、数字、点、下划线或短横线')
+        check(newName.length>=1 && newName.length<=50,400,'INVALID_NEW_NAME','请填写真实姓名')
+        unique(newAcc,'')
+        const newSubjectId='person-'+newAcc.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+id().slice(0,6)
+        const defaultOrg=input.fields?.org || catalog.orgs[0] || '业务一部'
+        const defaultLine=input.fields?.businessLine || catalog.businessLines[0] || defaultOrg
+        profile=store.put('person:'+newSubjectId,{
+          kind:'person',
+          subjectId:newSubjectId,
+          account:newAcc,
+          email:newEmail,
+          name:newName,
+          roles:Array.isArray(input.fields?.roles) && input.fields.roles.length ? input.fields.roles : ['user'],
+          org:defaultOrg,
+          businessLine:defaultLine,
+          active:false,
+          revision:1,
+          aliases:[],
+          ragflowPermission:input.fields?.ragflowPermission || '个人',
+          difyRole:input.fields?.difyRole || '管理员',
+          ragflowAccountId:null,
+          difyAccountId:null,
+          workspaceId:input.fields?.workspaceId || 'ws-default',
+          passwordHash:hashPassword(newPwd),
+          pendingChange:null,
+        })
+        if(!input.fields.workspaceId) input.fields.workspaceId='ws-default'
+      }
+      check(profile,404,'SUBJECT_NOT_FOUND','请选择目标人员或填写新建人员信息')
       const value=target(profile,input.ticketType,input.fields)
       const submission={subjectId:profile.subjectId,fields:input.fields}
       if(previous){check(previous.applicantSubjectId===identity.subjectId && same(previous.submission,submission),409,'APPLICATION_CONFLICT');return json(res,previous)}
