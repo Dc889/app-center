@@ -1,0 +1,79 @@
+.e2e-nav {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 248px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px 12px 28px;
+  overflow: auto;
+  background: #f4f6f8;
+  border-right: 1px solid #d8dee4;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.e2e-nav-title {
+  margin: 0 8px 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2328;
+}
+
+.e2e-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.e2e-nav li {
+  margin: 0;
+}
+
+.e2e-nav a {
+  display: block;
+  margin: 1px 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #24292f;
+  text-decoration: none;
+}
+
+.e2e-nav a:hover,
+.e2e-nav a:focus {
+  background: #e7ecf0;
+}
+
+.e2e-nav a.stage {
+  margin-top: 8px;
+  font-weight: 600;
+  color: #0b3a66;
+}
+
+.e2e-nav a.case {
+  padding-left: 16px;
+  color: #424a53;
+  font-size: 12px;
+}
+
+.markdown-body:has(.e2e-nav) {
+  padding-left: 268px !important;
+  box-sizing: border-box;
+}
+
+@media (max-width: 960px) {
+  .e2e-nav {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0 0 16px;
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+  }
+
+  .markdown-body:has(.e2e-nav) {
+    padding-left: 16px !important;
+  }
+}
