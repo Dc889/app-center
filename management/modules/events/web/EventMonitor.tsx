@@ -9,9 +9,48 @@ const show=(s:string|null)=>s ?? '未采集'
 const date=(s:string|null)=>s?new Date(s).toLocaleString('zh-CN',{hour12:false}):'未采集'
 const minutes=(n:number|null)=>n===null?'未采集':n.toFixed(2)+' 分钟'
 function Table({headers,children}:{headers:string[];children:React.ReactNode}){return <div className="table-scroll"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{children}</tbody></table></div>}
+type ReconcileFinding={findingId:string;category:string;categoryLabel:string;objectType:string;ruleCode:string;severity:string;resourceId:string;resourceName:string;workspaceId:string;workspaceName:string;ownerAccount:string;ownerName:string;org:string;detail:string;detectedAt:string|null;linkedEventTicketNo:string|null;linkedEventStatus:string|null;remediationStatus:string}
+type ReconcileReport={capturedAt:string;syncedAt:string|null;scannedCounts:{apps:number;datasets:number;plugins:number;mcpProviders:number;apiKeys:number};summary:{total:number;pending:number;ticketed:number;closed:number;byCategory:{plugin:number;mcp:number;key:number;dataset:number;app:number}};totalFiltered:number;items:ReconcileFinding[]}
+const reconcileCategories:[string,string][]=[['','全部类别'],['plugin','未备案插件'],['mcp','未备案 MCP'],['key','未备案密钥'],['dataset','未备案共享知识库'],['app','已发布应用私自变更']]
+const reconcileStatuses:[string,string][]=[['','全部状态'],['待处置','待处置'],['已转安全事件','已转安全事件'],['已闭环','已闭环']]
+
 export function EventMonitor({role,onHandle}:{role:'user'|'ops'|'admin';onHandle:()=>void}) {
   const [filters,setFilters]=useState({range:'24h',q:'',status:'',objectType:'',severity:''}),[draft,setDraft]=useState(''),[page,setPage]=useState(1),[revision,setRevision]=useState(0)
   const [model,setModel]=useState<Model|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[selected,setSelected]=useState(''),[detail,setDetail]=useState<Detail|null>(null),[detailError,setDetailError]=useState('')
+  const [reconcile,setReconcile]=useState<ReconcileReport|null>(null),[reconcileLoading,setReconcileLoading]=useState(true),[reconcileError,setReconcileError]=useState(''),[reconcileNotice,setReconcileNotice]=useState('')
+  const [recCategory,setRecCategory]=useState(''),[recStatus,setRecStatus]=useState(''),[recQ,setRecQ]=useState(''),[recPage,setRecPage]=useState(1),[recBusyId,setRecBusyId]=useState('')
+  const loadReconcile=(refresh=false,signal?:AbortSignal)=>{
+    setReconcileLoading(true);setReconcileError('')
+    const q=new URLSearchParams()
+    if(refresh)q.set('refresh','1')
+    if(recCategory)q.set('category',recCategory)
+    if(recStatus)q.set('status',recStatus)
+    if(recQ.trim())q.set('q',recQ.trim())
+    const suffix=q.toString()?'?'+q.toString():''
+    fetch('/api/compliance-reconcile'+suffix,{signal}).then(async r=>{if(!r.ok)throw Error('合规对账读取失败');return r.json()}).then(data=>{if(!signal?.aborted)setReconcile(data)}).catch(e=>{if(!signal?.aborted)setReconcileError(e.message)}).finally(()=>{if(!signal?.aborted)setReconcileLoading(false)})
+  }
+  useEffect(()=>{
+    const c=new AbortController()
+    loadReconcile(false,c.signal)
+    return ()=>c.abort()
+  },[recCategory,recStatus,recQ,revision,role])
+  const createReconcileEvents=async (findingIds:string[],label:string)=>{
+    if(!findingIds.length)return
+    setRecBusyId(label);setReconcileNotice('');setReconcileError('')
+    try{
+      const r=await fetch('/api/compliance-reconcile/create-event',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({findingIds})})
+      const data=await r.json().catch(()=>({}))
+      if(!r.ok)throw Error(data?.message || '转安全事件单失败')
+      const createdCount=Array.isArray(data.created)?data.created.length:0
+      const skippedCount=Array.isArray(data.skipped)?data.skipped.length:0
+      setReconcileNotice(`已生成 ${createdCount} 条安全事件整改单${skippedCount?`（跳过 ${skippedCount} 条已建单项）`:''}，请前往下方「事件台账」或运维待办处置。`)
+      setRevision(n=>n+1)
+    }catch(e:any){
+      setReconcileError(e?.message || '转安全事件单失败')
+    }finally{
+      setRecBusyId('')
+    }
+  }
   useEffect(()=>{
     const c=new AbortController()
     const query=new URLSearchParams({...filters,page:String(page),limit:'25'});for(const [k,v] of [...query])if(!v)query.delete(k)
@@ -29,8 +68,66 @@ export function EventMonitor({role,onHandle}:{role:'user'|'ops'|'admin';onHandle
   const refresh=()=>{reset();setDetail(null);setDetailError('');setRevision(n=>n+1)}
   const change=(key:string,value:string)=>{reset();setPage(1);setSelected('');setFilters(f=>({...f,[key]:value}))}
   const gotoPage=(value:number)=>{reset();setSelected('');setPage(value)}
+  const recPageSize=15
+  const recItems=reconcile?.items ?? []
+  const recSlice=recItems.slice((recPage-1)*recPageSize,recPage*recPageSize)
+  const recPendingBatch=recItems.filter(i=>i.remediationStatus==='待处置').slice(0,20)
   return <div data-testid="event-monitor">
     <div className="page-header"><div><h1>安全事件</h1></div><button onClick={refresh}>刷新事件监控</button></div>
+    <section className="panel overview-block" data-testid="compliance-reconcile">
+      <div className="page-header" style={{marginBottom:12}}>
+        <div>
+          <h3 style={{margin:0}}>合规对账与旁路资源发现（Dify 实况 vs 已审批台账）</h3>
+          <p style={{margin:'4px 0 0',fontSize:13,color:'#64748b'}}>
+            自动比对 Dify 只读库实况与应用中心已批准工单，识别绕过审批私自安装的插件、绑定的 MCP、创建的密钥、开放共享的知识库及私自变更的已发布应用。
+            {reconcile?.syncedAt ? ` 最近对账同步：${date(reconcile.syncedAt)}（已扫描应用 ${reconcile.scannedCounts.apps}、知识库 ${reconcile.scannedCounts.datasets}、插件 ${reconcile.scannedCounts.plugins}、MCP ${reconcile.scannedCounts.mcpProviders}、密钥 ${reconcile.scannedCounts.apiKeys}）` : ''}
+          </p>
+        </div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button disabled={reconcileLoading || !!recBusyId} onClick={()=>{setRecPage(1);loadReconcile(true)}}>{reconcileLoading?'正在对账…':'立即重新对账'}</button>
+          {recPendingBatch.length>0 && <button disabled={!!recBusyId} onClick={()=>createReconcileEvents(recPendingBatch.map(i=>i.findingId),'batch')}>{recBusyId==='batch'?'正在建单…':`批量转安全事件（${recPendingBatch.length}条）`}</button>}
+        </div>
+      </div>
+      {reconcileError && <p role="alert">{reconcileError}</p>}
+      {reconcileNotice && <p role="status" style={{color:'#15803d',fontWeight:500}}>{reconcileNotice}</p>}
+      {reconcile && <>
+        <div className="metric-grid five" style={{marginBottom:12}}>
+          <article className="metric-card"><span>待处置旁路异常</span><strong>{reconcile.summary.pending}</strong></article>
+          <article className="metric-card"><span>未备案插件</span><strong>{reconcile.summary.byCategory.plugin}</strong></article>
+          <article className="metric-card"><span>未备案 MCP</span><strong>{reconcile.summary.byCategory.mcp}</strong></article>
+          <article className="metric-card"><span>未备案密钥</span><strong>{reconcile.summary.byCategory.key}</strong></article>
+          <article className="metric-card"><span>未审共享库 / 应用变更</span><strong>{reconcile.summary.byCategory.dataset + reconcile.summary.byCategory.app}</strong></article>
+        </div>
+        <div className="event-monitor-filters" style={{marginBottom:10}}>
+          <label>风险类别<select aria-label="对账风险类别" value={recCategory} onChange={e=>{setRecPage(1);setRecCategory(e.target.value)}}>{reconcileCategories.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label>
+          <label>处置状态<select aria-label="对账处置状态" value={recStatus} onChange={e=>{setRecPage(1);setRecStatus(e.target.value)}}>{reconcileStatuses.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label>
+          <label>关键字<input aria-label="对账关键字" placeholder="搜索资源名/工作区/负责人" value={recQ} onChange={e=>{setRecPage(1);setRecQ(e.target.value)}} maxLength={120}/></label>
+        </div>
+        {recItems.length===0 ? <p>当前筛选下无旁路未备案资源，Dify 实况与审批台账一致。</p> : <>
+          <Table headers={['风险类别','级别','资源名称','所属工作区 / 负责人','所属组织','旁路事实说明','状态','操作']}>
+            {recSlice.map(item=><tr key={item.findingId}>
+              <td>{item.categoryLabel}</td>
+              <td>{item.severity}</td>
+              <td>{item.resourceName}</td>
+              <td>{item.workspaceName} / {item.ownerName}</td>
+              <td>{item.org}</td>
+              <td style={{maxWidth:360,whiteSpace:'normal'}}>{item.detail}</td>
+              <td>{item.remediationStatus}{item.linkedEventTicketNo ? ` (${item.linkedEventTicketNo})` : ''}</td>
+              <td>
+                {item.linkedEventTicketNo && item.linkedEventStatus!=='已关闭'
+                  ? <button onClick={()=>open(item.linkedEventTicketNo!)}>查看事件</button>
+                  : <button disabled={!!recBusyId} onClick={()=>createReconcileEvents([item.findingId],item.findingId)}>{recBusyId===item.findingId?'建单中…':'转安全事件单'}</button>}
+              </td>
+            </tr>)}
+          </Table>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginTop:8}}>
+            <span style={{fontSize:13,color:'#64748b'}}>共 {recItems.length} 条异常 · 第 {recPage} / {Math.max(1,Math.ceil(recItems.length/recPageSize))} 页</span>
+            <button disabled={recPage<=1} onClick={()=>setRecPage(p=>p-1)}>上一页</button>
+            <button disabled={recPage*recPageSize>=recItems.length} onClick={()=>setRecPage(p=>p+1)}>下一页</button>
+          </div>
+        </>}
+      </>}
+    </section>
     <section className="panel overview-block"><div className="event-monitor-filters"><label>事件搜索<input aria-label="事件搜索" value={draft} onChange={e=>setDraft(e.target.value)} maxLength={200}/></label><button onClick={()=>change('q',draft)}>查询事件</button>
       <label>趋势范围<select aria-label="趋势范围" value={filters.range} onChange={e=>change('range',e.target.value)}>{[['1h','近1小时'],['24h','近24小时'],['7d','近7天']].map(([v,n])=><option value={v} key={v}>{n}</option>)}</select></label>
       {([['objectType','对象类型',kinds],['status','事件状态',states],['severity','事件级别',levels]] as const).map(([key,label,options])=><label key={key}>{label}<select aria-label={label} value={filters[key]} onChange={e=>change(key,e.target.value)}><option value="">全部</option>{options.map(o=><option key={o}>{o}</option>)}</select></label>)}

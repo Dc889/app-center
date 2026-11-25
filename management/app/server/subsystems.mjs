@@ -345,6 +345,46 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
       mcpProviders = []
     }
 
+    // 4b. Sync all Dify app API keys (masked) across all tenants for compliance reconciliation
+    let apiKeys = []
+    try {
+      const keyRes = await client.query(`
+        SELECT
+          k.id::text AS key_id,
+          k.app_id::text AS app_id,
+          k.tenant_id::text AS workspace_id,
+          k.type,
+          LEFT(k.token, 10) || '...' || RIGHT(k.token, 4) AS token_preview,
+          k.created_at,
+          k.last_used_at,
+          a.name AS app_name,
+          t.name AS workspace_name
+        FROM api_tokens k
+        LEFT JOIN apps a ON a.id = k.app_id
+        LEFT JOIN tenants t ON t.id = k.tenant_id
+        WHERE k.type = 'app'
+        ORDER BY k.created_at DESC
+      `)
+      apiKeys = keyRes.rows.map(r => {
+        const owner = tenantOwnerMap.get(r.workspace_id)
+        return {
+          keyId: r.key_id,
+          appId: r.app_id || '',
+          appName: r.app_name || r.app_id || '未命名应用',
+          workspaceId: r.workspace_id || '',
+          workspaceName: r.workspace_name || owner?.workspaceName || '',
+          tokenPreview: r.token_preview || '',
+          ownerAccount: owner?.account || `workspace:${String(r.workspace_id || '').slice(0, 8)}`,
+          ownerName: owner?.name || r.workspace_name || 'Dify 工作区',
+          org: owner?.org || '待归属',
+          createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+          lastUsedAt: r.last_used_at ? new Date(r.last_used_at).toISOString() : null,
+        }
+      })
+    } catch {
+      apiKeys = []
+    }
+
     // 5. Sync installed plugins across all tenants from dify_plugin DB (best-effort)
     let plugins = []
     const pluginDbName = String(record.pluginDbName ?? 'dify_plugin').trim() || 'dify_plugin'
@@ -403,6 +443,7 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
         datasets,
         mcpProviders,
         plugins,
+        apiKeys,
       })
     }
 
@@ -417,7 +458,8 @@ async function syncDifySubsystem(record, directory, inventoryStore) {
       datasetsCount: datasets.length,
       mcpCount: mcpProviders.length,
       pluginsCount: plugins.length,
-      message: `同步成功：租户 ${totalOwners} 个、应用 ${apps.length} 个、知识库 ${datasets.length} 个、插件 ${plugins.length} 个、MCP ${mcpProviders.length} 个`,
+      apiKeysCount: apiKeys.length,
+      message: `同步成功：租户 ${totalOwners} 个、应用 ${apps.length} 个、知识库 ${datasets.length} 个、插件 ${plugins.length} 个、MCP ${mcpProviders.length} 个、密钥 ${apiKeys.length} 个`,
     }
   } catch (err) {
     return {
@@ -760,6 +802,7 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
       const datasets = []
       const mcpProviders = []
       const plugins = []
+      const apiKeys = []
       let syncedAt = null
       for (const snap of inventoryStore.all()) {
         if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
@@ -768,8 +811,35 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
         if (Array.isArray(snap.datasets)) datasets.push(...snap.datasets)
         if (Array.isArray(snap.mcpProviders)) mcpProviders.push(...snap.mcpProviders)
         if (Array.isArray(snap.plugins)) plugins.push(...snap.plugins)
+        if (Array.isArray(snap.apiKeys)) apiKeys.push(...snap.apiKeys)
       }
-      return {syncedAt, apps, datasets, mcpProviders, plugins}
+      return {syncedAt, apps, datasets, mcpProviders, plugins, apiKeys}
+    },
+    refreshDifyInventory: async () => {
+      const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.dbPassword)
+      for (const rec of enabled) {
+        try {
+          const syncResult = await syncDifyOwners(rec, directory, inventoryStore)
+          store.put(rec.id, {...rec, lastSync: syncResult})
+        } catch {}
+      }
+      const activeIds = new Set(store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled).map(r => `dify:${r.id}`))
+      const apps = []
+      const datasets = []
+      const mcpProviders = []
+      const plugins = []
+      const apiKeys = []
+      let syncedAt = null
+      for (const snap of inventoryStore.all()) {
+        if (!snap || !activeIds.has(`dify:${snap.subsystemId}`)) continue
+        if (snap.syncedAt && (!syncedAt || snap.syncedAt > syncedAt)) syncedAt = snap.syncedAt
+        if (Array.isArray(snap.apps)) apps.push(...snap.apps)
+        if (Array.isArray(snap.datasets)) datasets.push(...snap.datasets)
+        if (Array.isArray(snap.mcpProviders)) mcpProviders.push(...snap.mcpProviders)
+        if (Array.isArray(snap.plugins)) plugins.push(...snap.plugins)
+        if (Array.isArray(snap.apiKeys)) apiKeys.push(...snap.apiKeys)
+      }
+      return {syncedAt, apps, datasets, mcpProviders, plugins, apiKeys}
     },
     close: () => {
       store.close()
