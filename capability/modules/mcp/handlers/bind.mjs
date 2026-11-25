@@ -1,5 +1,6 @@
 import {check} from '../../../../runtime/http.mjs'
-import {createBinding, readMcpApprovedInput} from '../adapters/mcp-store.mjs'
+import {createBinding, findRegistration, readMcpApprovedInput} from '../adapters/mcp-store.mjs'
+import {bindMcpToDifyWorkspace} from '../adapters/dify-mcp.mjs'
 
 export async function execute(context) {
   const {command, state, clients, openLedger} = context
@@ -15,12 +16,24 @@ export async function execute(context) {
   const approved = command.payload?.decisionRef ? await readMcpApprovedInput(clients, command) : null
   const targetAppId = approved?.fields?.['目标应用ID'] || approved?.fields?.targetAppId || command.payload?.targetAppId || ''
 
+  const reg = item.registrationId ? findRegistration(openLedger, item.registrationId) : null
+  const serverUrl = item.endpoint || item.serverUrl || reg?.endpoint || reg?.serverUrl || ''
+  const providerKey = item.provider || `mcp-${item.resourceId}`
+  const difySync = await bindMcpToDifyWorkspace({
+    account: command.account,
+    serverUrl,
+    name: item.name || reg?.name || item.resourceId,
+    serverIdentifier: providerKey,
+  })
+
   const db = openLedger('bindings')
   const binding = createBinding(db, {
     resourceId: item.resourceId,
     account: command.account,
     workspaceId,
-    providerId: item.provider || `mcp-${item.resourceId}`,
+    providerId: providerKey,
+    difyProviderId: difySync.difyProviderId || '',
+    serverIdentifier: difySync.serverIdentifier || '',
     targetAppId,
     startsAt,
     expiresAt,
@@ -39,6 +52,8 @@ export async function execute(context) {
       bindingId: binding.bindingId,
       workspaceId: binding.workspaceId,
       targetAppId: binding.targetAppId,
+      difySynced: difySync.synced,
+      difyProviderId: difySync.difyProviderId || '',
       status: '已绑定',
     },
   }

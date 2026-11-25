@@ -1,5 +1,6 @@
 import {check} from '../../../../runtime/http.mjs'
 import {deactivateBindings, readMcpApprovedInput} from '../adapters/mcp-store.mjs'
+import {unbindMcpFromDifyWorkspace} from '../adapters/dify-mcp.mjs'
 
 export async function execute(context) {
   const {command, state, clients, openLedger} = context
@@ -15,7 +16,18 @@ export async function execute(context) {
 
   const frozenBindings = Array.isArray(fields['绑定清单']) ? fields['绑定清单'] : []
   const db = openLedger('bindings')
-  const unboundCount = deactivateBindings(db, item.resourceId, frozenBindings)
+  const deactivated = deactivateBindings(db, item.resourceId, frozenBindings)
+  const unboundCount = deactivated.length
+
+  let difyRemovedCount = 0
+  for (const row of deactivated) {
+    const res = await unbindMcpFromDifyWorkspace({
+      account: row.account,
+      difyProviderId: row.difyProviderId || '',
+      serverIdentifier: row.serverIdentifier || row.providerId || '',
+    }).catch(() => ({removed: false}))
+    if (res?.removed) difyRemovedCount++
+  }
 
   let nextStatus = item.status
   let nextRevision = item.revision
@@ -44,6 +56,7 @@ export async function execute(context) {
       resourceId: item.resourceId,
       action: command.action,
       unboundCount,
+      difyRemovedCount,
       status: nextStatus,
       revision: nextRevision,
     },

@@ -15,7 +15,7 @@ export function listActiveBindings(db, resourceId) {
     .filter(b => b && b.resourceId === resourceId && b.status === 'active')
 }
 
-export function createBinding(db, {resourceId, account, workspaceId, providerId, targetAppId = '', startsAt, expiresAt}) {
+export function createBinding(db, {resourceId, account, workspaceId, providerId, difyProviderId = '', serverIdentifier = '', targetAppId = '', startsAt, expiresAt}) {
   const existing = db
     .all()
     .find(
@@ -28,7 +28,15 @@ export function createBinding(db, {resourceId, account, workspaceId, providerId,
         b.providerId === providerId,
     )
   if (existing) {
-    const updated = {...existing, targetAppId, startsAt, expiresAt, updatedAt: new Date().toISOString()}
+    const updated = {
+      ...existing,
+      difyProviderId: difyProviderId || existing.difyProviderId || '',
+      serverIdentifier: serverIdentifier || existing.serverIdentifier || '',
+      targetAppId,
+      startsAt,
+      expiresAt,
+      updatedAt: new Date().toISOString(),
+    }
     db.put(existing.bindingId, updated)
     return updated
   }
@@ -39,6 +47,8 @@ export function createBinding(db, {resourceId, account, workspaceId, providerId,
     account,
     workspaceId,
     providerId,
+    difyProviderId,
+    serverIdentifier,
     targetAppId,
     startsAt,
     expiresAt,
@@ -51,17 +61,18 @@ export function createBinding(db, {resourceId, account, workspaceId, providerId,
 
 export function deactivateBindings(db, resourceId, triples) {
   const keySet = new Set(triples.map(t => JSON.stringify([t.account, t.workspaceId, t.providerId])))
-  let count = 0
+  const deactivated = []
   const nowIso = new Date().toISOString()
   for (const row of db.all()) {
     if (!row || row.resourceId !== resourceId || row.status !== 'active') continue
     const key = JSON.stringify([row.account, row.workspaceId, row.providerId])
     if (keySet.has(key)) {
-      db.put(row.bindingId, {...row, status: 'unbound', unboundAt: nowIso})
-      count++
+      const updated = {...row, status: 'unbound', unboundAt: nowIso}
+      db.put(row.bindingId, updated)
+      deactivated.push(updated)
     }
   }
-  return count
+  return deactivated
 }
 
 export async function readMcpApprovedInput(clients, command) {
