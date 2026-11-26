@@ -1313,6 +1313,184 @@ function connectDefaultDifyDb(store) {
     }
   }
 
+  async function getDifyDatasetManifest(datasetId) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    try {
+      await client.connect()
+      const dsRes = await client.query(
+        `SELECT id::text AS id, tenant_id::text AS workspace_id, name, description, indexing_technique
+         FROM datasets WHERE id::text = $1 LIMIT 1`,
+        [datasetId],
+      )
+      if (dsRes.rows.length === 0) return {ok: false, error: 'DATASET_NOT_FOUND'}
+      const ds = dsRes.rows[0]
+      const docsRes = await client.query(
+        `SELECT id::text AS id, name, word_count, indexing_status, enabled, archived, updated_at, created_at
+         FROM documents
+         WHERE dataset_id::text = $1 AND COALESCE(archived, false) = false
+         ORDER BY position ASC, created_at ASC`,
+        [datasetId],
+      )
+      return {
+        ok: true,
+        id: ds.id,
+        name: ds.name,
+        workspaceId: ds.workspace_id,
+        documents: docsRes.rows.map(r => ({
+          id: r.id,
+          name: r.name,
+          word_count: Number(r.word_count || 0),
+          indexing_status: r.indexing_status || 'completed',
+          enabled: r.enabled !== false,
+          updated_at: r.updated_at ? Math.floor(new Date(r.updated_at).getTime() / 1000) : 0,
+        })),
+      }
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
+  async function copyDifyDatasetToWorkspace({sourceDatasetId, targetWorkspaceId, name}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    try {
+      await client.connect()
+      const srcRes = await client.query(`SELECT * FROM datasets WHERE id::text = $1 LIMIT 1`, [sourceDatasetId])
+      if (srcRes.rows.length === 0) return {ok: false, error: 'SOURCE_DATASET_NOT_FOUND'}
+      const src = srcRes.rows[0]
+
+      // Resolve owner account_id of target workspace
+      const ownerRes = await client.query(
+        `SELECT account_id::text AS account_id FROM tenant_account_joins WHERE tenant_id::text = $1 ORDER BY (CASE WHEN role = 'owner' THEN 0 ELSE 1 END), created_at ASC LIMIT 1`,
+        [targetWorkspaceId],
+      )
+      const targetOwnerId = ownerRes.rows?.[0]?.account_id || src.created_by
+
+      const cloneName = String(name || src.name || '共享知识库').slice(0, 200)
+      await client.query('BEGIN')
+      const newDsRes = await client.query(
+        `INSERT INTO datasets (
+           id, tenant_id, name, description, provider, permission, data_source_type,
+           indexing_technique, index_struct, created_by, created_at, updated_by, updated_at,
+           embedding_model, embedding_model_provider, retrieval_model, built_in_field_enabled
+         ) VALUES (
+           gen_random_uuid(), $1::uuid, $2, $3, $4, 'all_team_members', $5,
+           'economy', $6, $7::uuid, CURRENT_TIMESTAMP(0), $7::uuid, CURRENT_TIMESTAMP(0),
+           $8, $9, $10, $11
+         ) RETURNING id::text AS id`,
+        [
+          targetWorkspaceId,
+          cloneName,
+          src.description || `由应用中心受控复制自共享知识库（${src.name}）`,
+          src.provider || 'vendor',
+          src.data_source_type || 'upload_file',
+          src.index_struct || null,
+          targetOwnerId,
+          src.embedding_model || null,
+          src.embedding_model_provider || null,
+          src.retrieval_model || null,
+          Boolean(src.built_in_field_enabled),
+        ],
+      )
+      const replicaDatasetId = newDsRes.rows[0].id
+
+      const srcDocs = await client.query(
+        `SELECT * FROM documents WHERE dataset_id::text = $1 AND COALESCE(archived, false) = false ORDER BY position ASC, created_at ASC`,
+        [sourceDatasetId],
+      )
+      let copiedDocuments = 0
+      let copiedSegments = 0
+      for (const doc of srcDocs.rows) {
+        const newDocRes = await client.query(
+          `INSERT INTO documents (
+             id, tenant_id, dataset_id, position, data_source_type, data_source_info,
+             batch, name, created_from, created_by, created_at, indexing_status,
+             enabled, archived, updated_at, doc_form, word_count, tokens,
+             completed_at, indexing_latency, doc_language
+           ) VALUES (
+             gen_random_uuid(), $1::uuid, $2::uuid, $3, $4, $5,
+             $6, $7, $8, $9::uuid, CURRENT_TIMESTAMP(0), 'completed',
+             true, false, CURRENT_TIMESTAMP(0), $10, $11, $12,
+             CURRENT_TIMESTAMP(0), $13, $14
+           ) RETURNING id::text AS id`,
+          [
+            targetWorkspaceId,
+            replicaDatasetId,
+            doc.position ?? copiedDocuments + 1,
+            doc.data_source_type || 'upload_file',
+            doc.data_source_info || null,
+            doc.batch || `clone-${Date.now()}`,
+            doc.name,
+            doc.created_from || 'web',
+            targetOwnerId,
+            doc.doc_form || 'text_model',
+            doc.word_count ?? 0,
+            doc.tokens ?? 0,
+            doc.indexing_latency ?? 0,
+            doc.doc_language || 'Chinese',
+          ],
+        )
+        const newDocId = newDocRes.rows[0].id
+        copiedDocuments += 1
+
+        const srcSegs = await client.query(
+          `SELECT * FROM document_segments WHERE document_id::text = $1 ORDER BY position ASC`,
+          [doc.id],
+        )
+        for (const seg of srcSegs.rows) {
+          await client.query(
+            `INSERT INTO document_segments (
+               id, tenant_id, dataset_id, document_id, position, content, answer,
+               word_count, tokens, keywords, index_node_id, index_node_hash,
+               hit_count, enabled, status, created_by, created_at, updated_at, completed_at
+             ) VALUES (
+               gen_random_uuid(), $1::uuid, $2::uuid, $3::uuid, $4, $5, $6,
+               $7, $8, $9, $10, $11,
+               0, true, 'completed', $12::uuid, CURRENT_TIMESTAMP(0), CURRENT_TIMESTAMP(0), CURRENT_TIMESTAMP(0)
+             )`,
+            [
+              targetWorkspaceId,
+              replicaDatasetId,
+              newDocId,
+              seg.position ?? 1,
+              seg.content || '',
+              seg.answer || null,
+              seg.word_count ?? 0,
+              seg.tokens ?? 0,
+              seg.keywords || null,
+              seg.index_node_id || null,
+              seg.index_node_hash || null,
+              targetOwnerId,
+            ],
+          )
+          copiedSegments += 1
+        }
+      }
+
+      // Clone economy keyword table if present so Dify keyword retrieval works immediately
+      try {
+        const kwRes = await client.query(`SELECT data_source_type, keyword_table FROM dataset_keyword_tables WHERE dataset_id::text = $1 LIMIT 1`, [sourceDatasetId])
+        if (kwRes.rows.length > 0) {
+          await client.query(
+            `INSERT INTO dataset_keyword_tables (id, dataset_id, keyword_table, data_source_type) VALUES (gen_random_uuid(), $1::uuid, $2, $3)`,
+            [replicaDatasetId, kwRes.rows[0].keyword_table, kwRes.rows[0].data_source_type || 'database'],
+          )
+        }
+      } catch {}
+
+      await client.query('COMMIT')
+      return {ok: true, replicaDatasetId, copiedDocuments, copiedSegments}
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {})
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
   return {
     handle: async (req, res, path, actor) => {
       if (path === '/api/subsystems' && req.method === 'GET') {
@@ -1331,6 +1509,8 @@ function connectDefaultDifyDb(store) {
     batchUpsertDifyModel,
     batchDeleteDifyModel,
     batchToggleDifyModel,
+    getDifyDatasetManifest,
+    copyDifyDatasetToWorkspace,
     refreshDifyInventory: async () => {
       const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
       for (const rec of enabled) {

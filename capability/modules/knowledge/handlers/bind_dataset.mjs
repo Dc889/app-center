@@ -1,6 +1,6 @@
 import {check, id} from '../../../../runtime/http.mjs'
 import {
-  getDifyDatasetDetail,
+  getDifyDatasetDetailWithFallback,
   createDifyExternalBinding,
   grantDifySameWorkspaceAccess,
   copyDifyDatasetCrossWorkspace,
@@ -68,7 +68,7 @@ export async function execute({command, state, row, clients, openLedger}) {
     // Dify跨workspace复制
     const manifestPre = preconditions.find(p => p.kind === 'dataset_manifest')
     check(manifestPre && typeof manifestPre.sha256 === 'string', 409, 'MISSING_COPY_MANIFEST', '跨区复制缺少文档清单前置指纹')
-    const live = await getDifyDatasetDetail(dataset.sourceResourceId, dataset.sourceScopeId)
+    const live = await getDifyDatasetDetailWithFallback(dataset.sourceResourceId, dataset.sourceScopeId, {clients, fallbackDataset: dataset})
     check(
       live.manifestSnapshotId === manifestPre.id && live.manifestSha256 === manifestPre.sha256,
       409,
@@ -76,6 +76,7 @@ export async function execute({command, state, row, clients, openLedger}) {
       '源知识库文档指纹已变化，停止跨区复制',
     )
     const copied = await copyDifyDatasetCrossWorkspace({
+      clients,
       name: dataset.name,
       sourceDatasetId: dataset.sourceResourceId,
       sourceWorkspaceId: dataset.sourceScopeId,

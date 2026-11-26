@@ -539,9 +539,29 @@ export function managementApi(options) {
       check(identity?.active && hasRole(identity,'admin'),403,'ACCESS_DENIED','仅系统管理员可管理工单类型')
       return types.handle(req,res,path,identity.account)
     }
-    if ((path === '/internal/v1/keyword-rules' || path === '/internal/v1/mcp-test-suites') && req.method === 'GET') {
+    if ((path === '/internal/v1/keyword-rules' || path === '/internal/v1/mcp-test-suites' || path === '/internal/v1/organizations') && req.method === 'GET') {
       check(req.headers.authorization === 'Bearer '+options.token,403,'ACCESS_DENIED')
       return configs.handle(req,res,path.replace('/internal/v1','/api'),{account:'system_executor',roles:['admin'],active:true})
+    }
+    if (path === '/internal/v1/dify/dataset-manifest' && req.method === 'GET') {
+      check(req.headers.authorization === 'Bearer '+options.token,403,'ACCESS_DENIED')
+      const dsId = new URL(req.url,'http://localhost').searchParams.get('datasetId') ?? ''
+      check(dsId.trim(),400,'INVALID_DATASET_ID')
+      const manifest = await subsystems.getDifyDatasetManifest(dsId.trim())
+      check(manifest?.ok, manifest?.error === 'DATASET_NOT_FOUND' ? 404 : 502, manifest?.error || 'MANIFEST_FAILED')
+      return json(res, manifest)
+    }
+    if (path === '/internal/v1/dify/copy-dataset' && req.method === 'POST') {
+      check(req.headers.authorization === 'Bearer '+options.token,403,'ACCESS_DENIED')
+      const input = await body(req)
+      check(input?.sourceDatasetId && input?.targetWorkspaceId, 400, 'INVALID_COPY_INPUT')
+      const result = await subsystems.copyDifyDatasetToWorkspace({
+        sourceDatasetId: String(input.sourceDatasetId).trim(),
+        targetWorkspaceId: String(input.targetWorkspaceId).trim(),
+        name: input.name ? String(input.name).trim() : '',
+      })
+      check(result?.ok, 502, result?.error || 'COPY_DATASET_FAILED')
+      return json(res, result)
     }
     const approved = /^\/internal\/v1\/approved-inputs\/([\w-]+)(\/documents)?$/.exec(path)
     if (approved && req.method === 'GET') {

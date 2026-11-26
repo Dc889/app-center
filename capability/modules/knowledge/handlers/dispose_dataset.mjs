@@ -1,5 +1,5 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyDatasetDetail, disableDifyDocument, revokeDifyDatasetAccess} from '../adapters/dify-datasets.mjs'
+import {getDifyDatasetDetailWithFallback, disableDifyDocument, revokeDifyDatasetAccess} from '../adapters/dify-datasets.mjs'
 import {getRagflowDatasetDetail, disableRagflowDocument} from '../adapters/ragflow-datasets.mjs'
 import {fetchApprovedKnowledgeInputs} from '../adapters/knowledge-store.mjs'
 
@@ -22,7 +22,7 @@ export async function execute({command, state, clients, openLedger}) {
   const live =
     dataset.sourceSystem === 'RAGFlow'
       ? await getRagflowDatasetDetail(dataset.sourceResourceId)
-      : await getDifyDatasetDetail(dataset.sourceResourceId, dataset.sourceScopeId)
+      : await getDifyDatasetDetailWithFallback(dataset.sourceResourceId, dataset.sourceScopeId, {clients, fallbackDataset: dataset})
 
   check(
     live.manifestSnapshotId === manifestPre.id && live.manifestSha256 === manifestPre.sha256,

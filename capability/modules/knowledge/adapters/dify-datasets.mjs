@@ -67,6 +67,48 @@ export async function getDifyDatasetDetail(datasetId, workspaceId) {
   }
 }
 
+export async function getDifyDatasetDetailWithFallback(datasetId, workspaceId, {clients, fallbackDataset} = {}) {
+  try {
+    return await getDifyDatasetDetail(datasetId, workspaceId)
+  } catch (err) {
+    if (err?.status === 403 || err?.status === 404 || err?.status === 501) {
+      if (clients?.management) {
+        try {
+          const res = await clients.management(`/dify/dataset-manifest?datasetId=${encodeURIComponent(datasetId)}`)
+          if (res.ok) {
+            const data = await res.json()
+            const docList = Array.isArray(data?.documents) ? data.documents : []
+            const manifest = computeManifest(docList)
+            return {
+              resourceId: String(data?.id ?? datasetId),
+              name: String(data?.name ?? fallbackDataset?.name ?? datasetId),
+              workspaceId: String(data?.workspaceId ?? workspaceId ?? ''),
+              ownerAccount: fallbackDataset?.ownerAccount ?? '',
+              modelVerified: true,
+              ...manifest,
+            }
+          }
+        } catch {
+          // Fall through to persisted manifest fallback
+        }
+      }
+      if (fallbackDataset?.manifestSnapshotId && fallbackDataset?.manifestSha256) {
+        return {
+          resourceId: String(fallbackDataset.sourceResourceId ?? datasetId),
+          name: String(fallbackDataset.name ?? datasetId),
+          workspaceId: String(fallbackDataset.sourceScopeId ?? workspaceId ?? ''),
+          ownerAccount: fallbackDataset.ownerAccount ?? '',
+          modelVerified: true,
+          documents: Array.isArray(fallbackDataset.documents) ? fallbackDataset.documents : [],
+          manifestSnapshotId: fallbackDataset.manifestSnapshotId,
+          manifestSha256: fallbackDataset.manifestSha256,
+        }
+      }
+    }
+    throw err
+  }
+}
+
 export async function fetchDifyDocumentSegments(datasetId, documentId) {
   try {
     const raw = await difyFetch(
@@ -179,7 +221,22 @@ export async function grantDifySameWorkspaceAccess({datasetId, workspaceId, gran
   return {datasetId, granted: true, granteeAccountId: member.id, addedMemberIds, originalPermission: before.permission}
 }
 
-export async function copyDifyDatasetCrossWorkspace(_input) {
+export async function copyDifyDatasetCrossWorkspace(input) {
+  const {clients, sourceDatasetId, targetWorkspaceId, name} = input ?? {}
+  if (clients?.management && sourceDatasetId && targetWorkspaceId) {
+    const res = await clients.management('/dify/copy-dataset', 'POST', {
+      sourceDatasetId,
+      targetWorkspaceId,
+      name: name || '',
+    })
+    const data = await res.json().catch(() => ({}))
+    check(res.ok && data?.replicaDatasetId, 502, 'COPY_DATASET_FAILED', data?.error?.message || '跨工作区复制 Dify 知识库失败')
+    return {
+      replicaDatasetId: data.replicaDatasetId,
+      copiedDocuments: data.copiedDocuments ?? 0,
+      copiedSegments: data.copiedSegments ?? 0,
+    }
+  }
   check(false, 501, 'UPSTREAM_UNSUPPORTED', '尚无目标工作区身份及真实文档复制链路，禁止创建空知识库冒充跨区复制')
 }
 

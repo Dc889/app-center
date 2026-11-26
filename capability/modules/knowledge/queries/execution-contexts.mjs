@@ -1,13 +1,48 @@
 import {check, json, id} from '../../../../runtime/http.mjs'
-import {fetchDifyDocumentSegments, getDifyDatasetDetail} from '../adapters/dify-datasets.mjs'
+import {fetchDifyDocumentSegments, getDifyDatasetDetail, getDifyDatasetDetailWithFallback} from '../adapters/dify-datasets.mjs'
 import {fetchRagflowDocumentChunks, getRagflowDatasetDetail, getRagflowExternalEndpoint} from '../adapters/ragflow-datasets.mjs'
 import {diffDocuments, resolveBindingVariant, sha256Hex} from '../adapters/knowledge-store.mjs'
 
-async function fetchLiveDataset(dataset) {
+async function fetchLiveDataset(dataset, clients) {
   if (dataset.sourceSystem === 'RAGFlow') {
     return getRagflowDatasetDetail(dataset.sourceResourceId)
   }
-  return getDifyDatasetDetail(dataset.sourceResourceId, dataset.sourceScopeId)
+  return getDifyDatasetDetailWithFallback(dataset.sourceResourceId, dataset.sourceScopeId, {clients, fallbackDataset: dataset})
+}
+
+async function fetchOrgItems(clients) {
+  if (!clients?.management) return []
+  try {
+    const res = await clients.management('/organizations')
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data?.items) ? data.items : []
+  } catch {
+    return []
+  }
+}
+
+function orgMatchesBoundary(userOrg, boundaryList, orgItems) {
+  const list = Array.isArray(boundaryList) ? boundaryList.filter(Boolean) : []
+  if (list.length === 0 || !userOrg) return true
+  if (list.includes(userOrg) || list.includes('全员') || list.includes('全部')) return true
+  if (!Array.isArray(orgItems) || orgItems.length === 0) return false
+  const byId = new Map()
+  const byName = new Map()
+  for (const node of orgItems) {
+    if (!node) continue
+    if (node.id) byId.set(node.id, node)
+    if (node.name) byName.set(node.name, node)
+  }
+  let cur = byName.get(userOrg) || byId.get(userOrg)
+  const visited = new Set()
+  while (cur && !visited.has(cur.id || cur.name)) {
+    visited.add(cur.id || cur.name)
+    if (cur.name && list.includes(cur.name)) return true
+    if (cur.id && list.includes(cur.id)) return true
+    cur = cur.parentId ? byId.get(cur.parentId) : null
+  }
+  return false
 }
 
 async function fetchKeywordRules(clients) {
@@ -98,7 +133,7 @@ export async function kb02Context(ctx) {
 
   const dataset = await autoSyncDatasetIfMissing(openLedger, resourceId, workspaceId, identity)
   check(dataset, 404, 'NOT_FOUND', '未找到已纳管的知识库')
-  const live = await fetchLiveDataset(dataset)
+  const live = await fetchLiveDataset(dataset, clients)
   const {ruleSetVersion, rules} = await fetchKeywordRules(clients)
 
   let totalScannedChunks = 0
@@ -153,7 +188,7 @@ export async function kb02Context(ctx) {
 }
 
 export async function kb03Candidates(ctx) {
-  const {query, identity, res, openLedger} = ctx
+  const {query, identity, res, openLedger, clients} = ctx
   const action = query.get('action')
   const workspaceId = query.get('workspaceId')
   const permission = query.get('permission') ?? '检索使用'
@@ -169,6 +204,7 @@ export async function kb03Candidates(ctx) {
   const limit = Math.min(Math.max(Number(query.get('limit') ?? 50) || 50, 1), 100)
   const account = identity?.account ?? ''
   const org = identity?.org ?? ''
+  const orgItems = await fetchOrgItems(clients)
 
   const rows = openLedger('datasets')
     .all()
@@ -177,11 +213,11 @@ export async function kb03Candidates(ctx) {
       if (row.status === '已纳管' && row.ownerAccount !== account) return false
       if (row.status === '已发布') {
         const boundary = row.boundaryOrgs ?? []
-        if (boundary.length > 0 && org && !boundary.includes(org) && row.ownerAccount !== account) return false
+        if (boundary.length > 0 && org && !orgMatchesBoundary(org, boundary, orgItems) && row.ownerAccount !== account) return false
         if (row.shareMode === '指定人员' && !(row.targetAccounts ?? []).includes(account) && row.ownerAccount !== account) {
           return false
         }
-        if (row.shareMode === '指定组织' && org && !(row.targetOrgs ?? []).includes(org) && row.ownerAccount !== account) {
+        if (row.shareMode === '指定组织' && org && !orgMatchesBoundary(org, row.targetOrgs ?? [], orgItems) && row.ownerAccount !== account) {
           return false
         }
       }
@@ -211,7 +247,7 @@ export async function kb03Candidates(ctx) {
 }
 
 export async function kb03Context(ctx) {
-  const {query, identity, res, openLedger} = ctx
+  const {query, identity, res, openLedger, clients} = ctx
   const action = query.get('action')
   const resourceId = query.get('resourceId')
   const workspaceId = query.get('workspaceId')
@@ -237,12 +273,13 @@ export async function kb03Context(ctx) {
     check(dataset.ownerAccount === account, 403, 'PRIVATE_DATASET_NOT_OWNED', '仅知识库所有者可绑定私有知识库')
   }
 
+  const orgItems = await fetchOrgItems(clients)
   const boundaryOrgs = dataset.boundaryOrgs?.length ? dataset.boundaryOrgs : [org || '默认组织']
   const boundaryMatched =
     !isPublished ||
     dataset.ownerAccount === account ||
     !org ||
-    boundaryOrgs.includes(org)
+    orgMatchesBoundary(org, boundaryOrgs, orgItems)
 
   const variant = resolveBindingVariant(dataset.sourceSystem, dataset.sourceScopeId, workspaceId)
   const fields = {
@@ -268,7 +305,7 @@ export async function kb03Context(ctx) {
     fields['外部知识库API地址'] = getRagflowExternalEndpoint()
   }
   if (variant === 'Dify跨workspace复制') {
-    const live = await fetchLiveDataset(dataset)
+    const live = await fetchLiveDataset(dataset, clients)
     fields['源文档版本指纹'] = live.manifestSha256
     fields['文档清单快照ID'] = live.manifestSnapshotId
     preconditions.push({kind: 'dataset_manifest', id: live.manifestSnapshotId, sha256: live.manifestSha256})
@@ -287,7 +324,7 @@ export async function kb03Context(ctx) {
 }
 
 export async function kb04Context(ctx) {
-  const {query, res, openLedger} = ctx
+  const {query, res, openLedger, clients} = ctx
   const action = query.get('action')
   const resourceId = query.get('resourceId')
   const sourceEventId = query.get('sourceEventId')
@@ -304,7 +341,7 @@ export async function kb04Context(ctx) {
   const dataset = openLedger('datasets').get(resourceId)
   check(dataset && ['已发布', '暂停分享'].includes(dataset.status), 404, 'NOT_FOUND', '未找到可进行变更再审的知识库')
 
-  const live = await fetchLiveDataset(dataset)
+  const live = await fetchLiveDataset(dataset, clients)
   const changes = diffDocuments(dataset.documents ?? [], live.documents)
   check(
     changes.length > 0 && live.manifestSnapshotId !== dataset.manifestSnapshotId,
@@ -390,7 +427,7 @@ export async function kb05Candidates(ctx) {
 }
 
 export async function kb05Context(ctx) {
-  const {query, identity, res, openLedger} = ctx
+  const {query, identity, res, openLedger, clients} = ctx
   const action = query.get('action') ?? 'dispose_dataset'
   const resourceId = query.get('resourceId')
   const sourceEventId = query.get('sourceEventId') || null
@@ -411,7 +448,7 @@ export async function kb05Context(ctx) {
     alertEvidence = alert.evidence
   }
 
-  const live = await fetchLiveDataset(dataset)
+  const live = await fetchLiveDataset(dataset, clients)
   const bindings = activeBindingsFor(openLedger, resourceId)
   const impactedApps = new Set(bindings.map(b => b.targetAppId).filter(Boolean))
 
