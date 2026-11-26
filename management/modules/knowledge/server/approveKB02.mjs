@@ -24,7 +24,8 @@ export async function approveKB02(services) {
           command.action='publish_dataset'
           command.payload={decisionRef:'dec-'+command.executionId}
           approvedFields={'来源系统':current.fields['来源系统'],'workspace/tenant ID':current.fields['workspace/tenant ID'],
-            '文档清单快照ID':current.fields['文档清单快照ID'],'分享方式':fields.shareMode,'目标组织':fields.targetOrgs ?? [],
+            '文档清单快照ID':current.fields['文档清单快照ID'],'分享方式':fields.shareMode,'组织边界':fields.boundaryOrgs ?? [],
+            '密级':fields.classification ?? '内部','业务线':fields.businessLine ?? '通用业务','目标组织':fields.targetOrgs ?? [],
             '目标人员':fields.targetAccounts ?? [],'关联智能体ID':related?.appId ?? null,'关联Dify workspace ID':related?.workspaceId ?? null,'关联应用登记ID':related?.targetRef ?? null,'关联应用名称':related?.name ?? null,
             '目录展示名称':fields.name,'目录简介':fields.description,'目录标签':fields.tags,
             '有效期截止时间':fields.expiresAt ?? null,policyRef:policy.ref,'文档确认记录':confirmations}
