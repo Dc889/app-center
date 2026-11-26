@@ -47,7 +47,8 @@ export function agentWarehouseReport({
         const resolvedMethods = Array.isArray(fields.usages) && fields.usages.length ? fields.usages : ['run', 'api']
         const resolvedVisibleOrgs = fields.scope === 'orgs' && Array.isArray(fields.targetOrgs) ? fields.targetOrgs : []
         const rawMode = app.snapshot?.data?.mode
-        const difyPublicBase = (process.env.DIFY_PUBLIC_BASE || process.env.DIFY_WEB_BASE || process.env.DIFY_API_BASE || 'http://192.168.0.7').replace(/\/+$/, '')
+        const rawDifyPublic = (process.env.DIFY_PUBLIC_BASE || process.env.DIFY_WEB_BASE || '').replace(/\/+$/, '')
+        const isPublicUrl = /^https?:\/\//i.test(rawDifyPublic) && !/docker-nginx|host\.docker\.internal|127\.0\.0\.1|localhost/i.test(rawDifyPublic)
         agent = {
           id: targetAgentId,
           name: resolvedName,
@@ -62,8 +63,7 @@ export function agentWarehouseReport({
           unavailableReason: '',
           visibleOrgs: resolvedVisibleOrgs,
           mode: MODE_LABELS[rawMode] ?? rawMode ?? 'Chatflow',
-          runUrl: `${difyPublicBase}/app/${targetAgentId}/overview`,
-          apiBaseUrl: `${difyPublicBase}/v1`,
+          ...(isPublicUrl ? { runUrl: `${rawDifyPublic}/app/${targetAgentId}/overview`, apiBaseUrl: `${rawDifyPublic}/v1` } : {}),
           baseSuccessCount: 0,
           releases: [
             {
