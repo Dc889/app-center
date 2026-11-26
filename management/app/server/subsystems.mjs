@@ -91,11 +91,79 @@ function applyDefaultToEnv(record) {
   }
 }
 
+function formatNetworkError(err, targetLabel = '') {
+  const cause = err?.cause ?? err
+  const code = String(cause?.code || err?.code || '').toUpperCase()
+  const rawMsg = String(cause?.message || err?.message || '')
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || /getaddrinfo/i.test(rawMsg)) {
+    return `主机名/容器名无法解析${targetLabel ? `（${targetLabel}）` : ''}，请核对容器名或网络挂载`
+  }
+  if (code === 'ECONNREFUSED') {
+    return `目标端口拒绝连接${targetLabel ? `（${targetLabel}）` : ''}，请确认服务已启动`
+  }
+  if (code === 'ETIMEDOUT' || err?.name === 'TimeoutError' || /timeout|aborted/i.test(rawMsg)) {
+    return `连接超时${targetLabel ? `（${targetLabel}）` : ''}`
+  }
+  if (code === '28P01' || /password authentication failed/i.test(rawMsg)) {
+    return '数据库账号或密码错误'
+  }
+  if (code === '3D000' || /does not exist/i.test(rawMsg)) {
+    return '目标数据库不存在'
+  }
+  return rawMsg || '网络不可达或超时'
+}
+
+async function probeDifyDatabase(spec) {
+  const host = String(spec.dbHost ?? '').trim()
+  const port = Number(spec.dbPort || 5432)
+  const database = String(spec.dbName || 'dify').trim()
+  const user = String(spec.dbUser ?? '').trim()
+  const password = String(spec.dbPassword ?? '').trim()
+  if (!host || !user || !password) {
+    return {checked: false, ok: false, latencyMs: 0, message: '未完整填写只读数据库主机/账号/密码'}
+  }
+  const started = Date.now()
+  const client = new pg.Client({
+    host,
+    port: Number.isFinite(port) && port > 0 ? port : 5432,
+    database,
+    user,
+    password,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 5000,
+  })
+  try {
+    await client.connect()
+    const res = await client.query('SELECT COUNT(*)::int AS cnt FROM tenants')
+    const cnt = Number(res.rows?.[0]?.cnt ?? 0)
+    return {
+      checked: true,
+      ok: true,
+      latencyMs: Date.now() - started,
+      tenantsCount: cnt,
+      message: `只读库连通正常（${host} · 共 ${cnt} 个租户）`,
+    }
+  } catch (err) {
+    return {
+      checked: true,
+      ok: false,
+      latencyMs: Date.now() - started,
+      message: `只读库连接失败：${formatNetworkError(err, `${host}:${port}`)}`,
+    }
+  } finally {
+    await client.end().catch(() => {})
+  }
+}
+
 async function probeSubsystem(spec) {
   const started = Date.now()
   const base = normalizeUrl(spec.apiBase)
   if (!base) return {ok: false, status: 0, latencyMs: 0, message: '未填写 API 地址'}
 
+  let httpHost = ''
+  try { httpHost = new URL(base).host } catch {}
+
+  let httpResult
   try {
     if (spec.type === 'dify') {
       let token = spec.consoleToken || ''
@@ -110,7 +178,7 @@ async function probeSubsystem(spec) {
         if (loginRes.ok && loginJson?.result === 'success' && loginJson?.data?.access_token) {
           token = loginJson.data.access_token
         } else {
-          return {
+          httpResult = {
             ok: false,
             status: loginRes.status,
             latencyMs: Date.now() - started,
@@ -118,26 +186,27 @@ async function probeSubsystem(spec) {
           }
         }
       }
-      const probeUrl = token ? `${base}/console/api/workspaces/current` : `${base}/console/api/setup`
-      const res = await fetch(probeUrl, {
-        headers: token ? {authorization: `Bearer ${token}`} : {},
-        signal: AbortSignal.timeout(8000),
-      })
-      const latencyMs = Date.now() - started
-      if (res.ok) {
-        const payload = await res.json().catch(() => null)
-        const wsName = payload?.name ? `（工作区：${payload.name}）` : ''
-        return {
-          ok: true,
-          status: res.status,
-          latencyMs,
-          message: token ? `Dify 鉴权连通正常${wsName}` : 'Dify 端点可达（未配置鉴权凭据）',
+      if (!httpResult) {
+        const probeUrl = token ? `${base}/console/api/workspaces/current` : `${base}/console/api/setup`
+        const res = await fetch(probeUrl, {
+          headers: token ? {authorization: `Bearer ${token}`} : {},
+          signal: AbortSignal.timeout(8000),
+        })
+        const latencyMs = Date.now() - started
+        if (res.ok) {
+          const payload = await res.json().catch(() => null)
+          const wsName = payload?.name ? `（工作区：${payload.name}）` : ''
+          httpResult = {
+            ok: true,
+            status: res.status,
+            latencyMs,
+            message: token ? `Dify API 鉴权连通正常${wsName}` : 'Dify API 端点可达（未配置鉴权凭据）',
+          }
+        } else {
+          httpResult = {ok: false, status: res.status, latencyMs, message: `Dify API 响应异常 (HTTP ${res.status})`}
         }
       }
-      return {ok: false, status: res.status, latencyMs, message: `Dify 响应异常 (HTTP ${res.status})`}
-    }
-
-    if (spec.type === 'ragflow') {
+    } else if (spec.type === 'ragflow') {
       const headers = spec.apiKey ? {authorization: `Bearer ${spec.apiKey}`} : {}
       const res = await fetch(`${base}/api/v1/datasets?page=1&page_size=1`, {
         headers,
@@ -150,27 +219,46 @@ async function probeSubsystem(spec) {
       }
       const msg = payload?.message ? `：${payload.message}` : ''
       return {ok: false, status: res.status, latencyMs, message: `RAGFlow 探活失败 (HTTP ${res.status}${msg})`}
-    }
-
-    const headers = spec.authToken ? {authorization: `Bearer ${spec.authToken}`} : {}
-    const res = await fetch(`${base}/healthz`, {headers, signal: AbortSignal.timeout(8000)}).catch(() =>
-      fetch(base, {headers, signal: AbortSignal.timeout(8000)}),
-    )
-    const latencyMs = Date.now() - started
-    return {
-      ok: res.ok,
-      status: res.status,
-      latencyMs,
-      message: res.ok ? `服务连通正常 (HTTP ${res.status})` : `服务返回 HTTP ${res.status}`,
+    } else {
+      const headers = spec.authToken ? {authorization: `Bearer ${spec.authToken}`} : {}
+      const res = await fetch(`${base}/healthz`, {headers, signal: AbortSignal.timeout(8000)}).catch(() =>
+        fetch(base, {headers, signal: AbortSignal.timeout(8000)}),
+      )
+      const latencyMs = Date.now() - started
+      return {
+        ok: res.ok,
+        status: res.status,
+        latencyMs,
+        message: res.ok ? `服务连通正常 (HTTP ${res.status})` : `服务返回 HTTP ${res.status}`,
+      }
     }
   } catch (err) {
-    return {
+    httpResult = {
       ok: false,
       status: 0,
       latencyMs: Date.now() - started,
-      message: `连接失败：${err instanceof Error ? err.message : '网络不可达或超时'}`,
+      message: `API 连接失败：${formatNetworkError(err, httpHost)}`,
     }
   }
+
+  // For Dify, perform dual-channel verification (HTTP API + PostgreSQL read-only DB)
+  if (spec.type === 'dify') {
+    const dbResult = await probeDifyDatabase(spec)
+    const totalLatency = Date.now() - started
+    const combinedOk = httpResult.ok && (!dbResult.checked || dbResult.ok)
+    const combinedMessage = dbResult.checked
+      ? `${httpResult.message}；${dbResult.message}`
+      : `${httpResult.message}（未检测只读库：${dbResult.message}）`
+    return {
+      ok: combinedOk,
+      status: httpResult.status,
+      latencyMs: totalLatency,
+      message: combinedMessage,
+      http: httpResult,
+      db: dbResult,
+    }
+  }
+  return httpResult
 }
 
 async function syncDifySubsystem(record, directory, inventoryStore) {
@@ -684,6 +772,11 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
         consolePassword: resolveSec('consolePassword'),
         apiKey: resolveSec('apiKey'),
         authToken: resolveSec('authToken'),
+        dbHost: input.dbHost ?? existing?.dbHost ?? '',
+        dbPort: input.dbPort ?? existing?.dbPort ?? 5432,
+        dbName: input.dbName ?? existing?.dbName ?? 'dify',
+        dbUser: input.dbUser ?? existing?.dbUser ?? '',
+        dbPassword: resolveSec('dbPassword'),
       })
       return json(res, result)
     }
@@ -785,6 +878,11 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
         consolePassword: decryptSecret(existing.secrets?.consolePassword),
         apiKey: decryptSecret(existing.secrets?.apiKey),
         authToken: decryptSecret(existing.secrets?.authToken),
+        dbHost: existing.dbHost,
+        dbPort: existing.dbPort,
+        dbName: existing.dbName,
+        dbUser: existing.dbUser,
+        dbPassword: decryptSecret(existing.secrets?.dbPassword),
       })
       const nowIso = new Date().toISOString()
       const updated = store.put(existing.id, {

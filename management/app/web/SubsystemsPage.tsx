@@ -587,11 +587,11 @@ export function SubsystemsPage() {
                     </label>
                     <div className="sub-form-2col">
                       <label className="org-field">
-                        <span>管理账号邮箱</span>
+                        <span>控制台鉴权邮箱</span>
                         <input
                           aria-label="Dify 管理账号邮箱"
                           value={form.consoleEmail}
-                          placeholder="li.qiang@kpw.com"
+                          placeholder="仅用于 API 鉴权，例如 chen.yu@kpw.com"
                           onChange={e => setForm(f => ({...f, consoleEmail: e.target.value}))}
                         />
                       </label>
@@ -605,6 +605,9 @@ export function SubsystemsPage() {
                           onChange={e => setForm(f => ({...f, consolePassword: e.target.value}))}
                         />
                       </label>
+                    </div>
+                    <div style={{fontSize: 12, color: '#64748b', marginTop: -2}}>
+                      说明：控制台邮箱仅用于校验 Dify HTTP API 连通性与鉴权；下方只读库面向整个 Dify 实例纳管，将同步该实例下全部租户资产，普通用户按角色视图自动隔离。
                     </div>
                     <label className="org-field">
                       <span>Console Token {editingRecord?.hasSecrets?.consoleToken && <em className="sub-secret-tag">{editingRecord.secretMasks.consoleToken}</em>}</span>
@@ -647,7 +650,7 @@ export function SubsystemsPage() {
                           <input
                             aria-label="Dify 数据库主机"
                             value={form.dbHost}
-                            placeholder="dify171-db_postgres-1"
+                            placeholder="docker-db-1"
                             onChange={e => setForm(f => ({...f, dbHost: e.target.value}))}
                           />
                         </label>
