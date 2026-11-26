@@ -19,8 +19,9 @@ COPY contracts ./contracts
 COPY management ./management
 COPY server/lifecycle.mjs server/start-management.mjs ./server/
 
-# 移除仅用于前端构建的 TSX/CSS/web 目录，保持后端镜像纯净
-RUN rm -rf management/shared-ui management/app/web management/modules/*/web management/platform/*/web \
+# 移除仅用于前端构建的 TSX/CSS/web 目录，保持后端镜像纯净；安装 openssh-client/sshpass 以支持管理员固定重启脚本 SSH 执行
+RUN apk add --no-cache openssh-client sshpass \
+    && rm -rf management/shared-ui management/app/web management/modules/*/web management/platform/*/web \
     && find management -name '*.ts' -o -name '*.tsx' -o -name '*.css' | xargs rm -f \
     && mkdir -p /data/management
 

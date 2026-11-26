@@ -15,6 +15,7 @@ import {applicationApi} from './application-workflows.mjs'
 import {subsystemRegistry} from './subsystems.mjs'
 import {enforceModelQuotas} from '../../modules/accounts/server/routeModelQuotas.mjs'
 import {monitorPluginProcesses} from '../../modules/plugins/server/routePluginGovernance.mjs'
+import {monitorSubsystemAutoHeal} from '../../modules/services/server/routeServiceRestart.mjs'
 import {platformConfigs} from './platform-configs.mjs'
 import {draftApi,typeRegistry} from '../../platform/workflow/public.server.mjs'
 import {body,check,client,digest,id,json,ledger,listen} from '../../../runtime/http.mjs'
@@ -187,6 +188,7 @@ export function managementApi(options) {
     const hasPolicies = directory.store.all().some(r => r?.kind === 'model-quota' && r.autoDisable !== false && (r.tokenLimit > 0 || r.callLimit > 0))
     const tasks = [
       monitorPluginProcesses({events, types}).catch(() => {}),
+      monitorSubsystemAutoHeal({directory, events, now: options.now}).catch(() => {}),
       ...(hasPolicies ? [enforceModelQuotas({subsystems, directory, events, types, refresh: true}).catch(() => {})] : []),
     ]
     void Promise.all(tasks).finally(() => { quotaSweepRunning = false })

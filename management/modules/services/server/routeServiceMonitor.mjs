@@ -10,7 +10,7 @@ export async function routeServiceMonitor(services) {
   check(directory.isActive(current) && current.revision === identity.profileRevision && !directory.restricted(identity.account), 403, 'ACTOR_SESSION_CHANGED')
   const now = (options.now ?? Date.now)()
   const probe = await probeSubsystemServices(options.serviceProbe ? {run: options.serviceProbe} : {})
-  const enabled = options.serviceAutoRestart ?? process.env.SERVICE_AUTO_RESTART !== '0'
+  const enabled = options.serviceAutoRestart ?? false
   const restart = options.serviceRestart ?? dockerRestart
   const actions = probe.availability === 'collected'
     ? await restartUnavailableServices({services: probe.services, applications, restart, now, enabled})
