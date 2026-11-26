@@ -29,18 +29,34 @@ function orgMatchesBoundary(userOrg, boundaryList, orgItems) {
   if (!Array.isArray(orgItems) || orgItems.length === 0) return false
   const byId = new Map()
   const byName = new Map()
+  const addByName = (key, node) => {
+    if (!key) return
+    const arr = byName.get(key) ?? []
+    arr.push(node)
+    byName.set(key, arr)
+  }
   for (const node of orgItems) {
     if (!node) continue
-    if (node.id) byId.set(node.id, node)
-    if (node.name) byName.set(node.name, node)
+    const nid = node.orgId || node.id
+    if (nid) byId.set(nid, node)
+    if (node.name) addByName(node.name, node)
+    if (Array.isArray(node.aliases)) {
+      for (const a of node.aliases) addByName(a, node)
+    }
   }
-  let cur = byName.get(userOrg) || byId.get(userOrg)
-  const visited = new Set()
-  while (cur && !visited.has(cur.id || cur.name)) {
-    visited.add(cur.id || cur.name)
-    if (cur.name && list.includes(cur.name)) return true
-    if (cur.id && list.includes(cur.id)) return true
-    cur = cur.parentId ? byId.get(cur.parentId) : null
+  const starts = [...(byName.get(userOrg) ?? []), ...(byId.has(userOrg) ? [byId.get(userOrg)] : [])]
+  for (const start of starts) {
+    let cur = start
+    const visited = new Set()
+    while (cur) {
+      const cid = cur.orgId || cur.id || cur.name
+      if (visited.has(cid)) break
+      visited.add(cid)
+      if (cur.name && list.includes(cur.name)) return true
+      if (cid && list.includes(cid)) return true
+      if (Array.isArray(cur.aliases) && cur.aliases.some(a => list.includes(a))) return true
+      cur = cur.parentId ? byId.get(cur.parentId) : null
+    }
   }
   return false
 }
