@@ -207,7 +207,22 @@ export function SkillWarehouse({role}: {role: Role; onWorkOrder?: (title: string
                     <div className="dify-tile-tags">
                       <span className="dify-tile-tag">{accessTag}</span>
                     </div>
-                    <b>{item.successCount ?? 0} 次</b>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <b>{item.successCount ?? 0} 次</b>
+                      {!item.withdrawn && (
+                        <button
+                          type="button"
+                          className="secondary-button compact"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            window.history.pushState({}, '', '/manual/SKL-03')
+                            window.dispatchEvent(new PopStateEvent('popstate'))
+                          }}
+                        >
+                          申请下载
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </article>
               )

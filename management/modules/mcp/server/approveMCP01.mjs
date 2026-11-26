@@ -9,8 +9,11 @@ export async function approveMCP01(services) {
 
           check(input.securityVerdict==='通过' && typeof input.securityNote==='string' && input.securityNote.trim() &&
             input.securityNote.length<=4000 && ['允许','禁止'].includes(input.externalAllowed),400,'SECURITY_REVIEW_REQUIRED')
-          const current=await mcpRegistration(cap,headersFor({command:{account:previous.account,org:previous.org,actorRole:previous.applicantRole ?? accounts.role(previous.account)}}),previous.submission.resourceId)
-          check(same(current.data,previous.snapshot.data),409,'STALE_SNAPSHOT')
+          const isDirect = Boolean(previous.snapshot?.data?.endpointUrl)
+          const current = isDirect
+            ? previous.snapshot
+            : await mcpRegistration(cap,headersFor({command:{account:previous.account,org:previous.org,actorRole:previous.applicantRole ?? accounts.role(previous.account)}}),previous.submission.resourceId)
+          if (!isDirect) check(same(current.data,previous.snapshot.data),409,'STALE_SNAPSHOT')
           check(applications.get(input.ticketNo).revision===input.revision,409,'VERSION_CONFLICT')
           command.action='register_mcp';command.resourceId=previous.catalogId
           command.payload={decisionRef:'dec-'+command.executionId}
@@ -18,6 +21,7 @@ export async function approveMCP01(services) {
             targetOrgs:fields.boundaryOrgs,boundaryOrgs:fields.boundaryOrgs,targetAccounts:[],
             classification:fields.classification,businessLine:fields.businessLine,usages:input.externalAllowed==='允许'?['invoke_mcp','bind']:[]}
           approvedFields={'技术注册ID':current.data.registrationId,'URL指纹':current.data.urlFingerprint,
+            ...(current.data.endpointUrl ? {'服务地址':current.data.endpointUrl,'传输方式':current.data.transport,'工具清单':current.data.tools ?? []} : {}),
             'MCP名称':fields.name,'MCP用途':fields.purpose,'组织边界':fields.boundaryOrgs,'对外使用权限':input.externalAllowed,
             '安全审查结果':'通过','安全审查意见':input.securityNote.trim(),policyRef:policy.ref}
         

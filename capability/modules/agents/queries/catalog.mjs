@@ -16,8 +16,11 @@ async function fetchAgent(clients, resourceId) {
 
 function canManage(item, identity) {
   if (!identity?.account && !identity?.role) return false
-  if (['operator', 'admin'].includes(identity.role)) return true
-  return Boolean(identity.account && item.ownerAccount === identity.account)
+  if (['operator', 'ops', 'admin'].includes(identity.role)) return true
+  if (!identity.account || !item.ownerAccount) return false
+  const acct = String(identity.account).toLowerCase()
+  const owner = String(item.ownerAccount).toLowerCase()
+  return acct === owner || acct.split('@')[0] === owner.split('@')[0]
 }
 
 function agentActions(item, requestedAction, identity) {

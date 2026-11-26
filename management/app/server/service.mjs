@@ -435,6 +435,12 @@ export function managementApi(options) {
         const password=String(input.password ?? '')
         check(username && password,400,'INVALID_CREDENTIALS','请输入账号和密码')
         let profile=directory.authenticate(username, password)
+        if (!profile) {
+          const existingLocal=directory.byLogin?.(username)
+          if (existingLocal && !directory.isActive(existingLocal)) {
+            check(false,403,'ACCOUNT_DISABLED','该账号已被停用，请联系系统管理员')
+          }
+        }
         if (!profile && username.includes('@')) {
           const dify=subsystems.defaultDify?.()
           const rawDifyBase=(dify?.apiBase || process.env.DIFY_API_BASE || '').replace(/\/+$/,'')
@@ -473,6 +479,9 @@ export function managementApi(options) {
                     isOwner=members.some(m=>m.id===profJson.id && m.role==='owner')
                   }
                   const existingLocal=directory.byLogin(profJson.email || username)
+                  if (existingLocal && !directory.isActive(existingLocal)) {
+                    check(false,403,'ACCOUNT_DISABLED','该账号已被停用，请联系系统管理员')
+                  }
                   if (isOwner || existingLocal?.difyRole==='owner') {
                     const upserted=directory.upsertDifyOwner({
                       difyAccountId:profJson.id,

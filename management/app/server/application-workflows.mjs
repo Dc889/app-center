@@ -99,8 +99,9 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
       if(closed)return
       const latest=applications.get(row.ticketNo)
       if(latest.command?.executionId!==row.command.executionId || latest.execution?.result)return
-      let status=execution.status==='succeeded'?(['AG-01','KB-01','KB-02','KB-03','KB-05'].includes(row.ticketType) || ['MCP-02','PLG-03'].includes(row.ticketType) && !row.approvedBy || row.ticketType==='AG-03' && !row.approvedBy?'已完成':'待结果确认'):execution.status==='failed'?'执行失败':execution.status==='cancelled'?'已终止':'执行中'
+      let status=execution.status==='succeeded'?'已完成':execution.status==='failed'?'执行失败':execution.status==='cancelled'?'已终止':'执行中'
       if(row.ticketType==='KEY-01' && execution.status==='succeeded')status='待领取密钥'
+      if(row.ticketType==='KEY-02' && row.command?.action==='rotate_key' && execution.status==='succeeded')status='待领取密钥'
       if(row.ticketType==='KB-05' && row.node==='pause')status=execution.status==='succeeded'?'待运维确认':execution.status==='failed'?'执行失败':'自动暂停中'
       const safety=row.ticketType==='PLG-04'?pluginSafety.afterResult(latest,execution):{}
       const updated=applications.put(row.ticketNo,{...latest,execution,executionKnown:true,deliveryBlocked:false,status,...safety,
@@ -347,7 +348,7 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
     if(input.ticketType==='KB-03')fields={purpose:fields?.purpose,permission:fields?.permission,targetAppId:fields?.targetAppId ?? '',startsAt:fields?.startsAt,expiresAt:fields?.expiresAt}
     if(input.ticketType==='MCP-02')fields={purpose:fields?.purpose,targetAppId:fields?.targetAppId ?? '',startsAt:fields?.startsAt,expiresAt:fields?.expiresAt}
     if(input.ticketType==='PLG-03')fields={operation:fields?.operation,purpose:fields?.purpose ?? '',installationId:fields?.installationId ?? ''}
-    if(input.ticketType==='MCP-01')fields={name:fields?.name,purpose:fields?.purpose,boundaryOrgs:fields?.boundaryOrgs,classification:fields?.classification,businessLine:fields?.businessLine}
+    if(input.ticketType==='MCP-01')fields={name:fields?.name,purpose:fields?.purpose,boundaryOrgs:fields?.boundaryOrgs,classification:fields?.classification,businessLine:fields?.businessLine,...(fields?.endpointUrl?{endpointUrl:String(fields.endpointUrl).trim(),transport:fields?.transport || 'streamable-http',authType:fields?.authType || 'none'}:{})}
     if(input.ticketType==='KEY-01')fields={purpose:fields?.purpose,callerName:fields?.callerName,callerOrg:fields?.callerOrg,environment:fields?.environment,allowedCidrs:fields?.allowedCidrs,peakQps:fields?.peakQps,expiresAt:fields?.expiresAt,publicationTicketNo:fields?.publicationTicketNo}
     if(input.ticketType==='KEY-02') {
       fields={operation:fields?.operation,reason:fields?.reason,effectiveAt:fields?.effectiveAt,newExpiresAt:fields?.newExpiresAt}

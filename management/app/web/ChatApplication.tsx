@@ -1,4 +1,4 @@
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {ArrowRight, Send, Sparkles, WandSparkles} from 'lucide-react'
 import fieldSchemas from '../../../contracts/management-api/draft-fields.json'
 import {matchDialogue, statedResource, type CatalogType, type DialogueMatch} from '../../platform/workflow/public.web'
@@ -48,9 +48,53 @@ export function ChatApplication({ role, account, catalog }: { role: Role; accoun
   const [fields, setFields] = useState<Fields>({})
   const [draftId, setDraftId] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
+  const [savedDrafts, setSavedDrafts] = useState<{ draftId: string; ticketType: string; revision: number; updatedAt?: string; fields?: Record<string, unknown> }[]>([])
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState('')
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/drafts')
+      .then(res => res.ok ? res.json() : { items: [] })
+      .then(data => {
+        if (active && Array.isArray(data?.items)) setSavedDrafts(data.items)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  function restoreDraft(item: { draftId: string; ticketType: string; revision: number; fields?: Record<string, unknown> }) {
+    const matched = catalog.find(c => c.code === item.ticketType)
+    const nextMatch: DialogueMatch = matched
+      ? { code: matched.code, name: matched.name, mode: matched.mode, scene: matched.scene, confidence: 1, hits: [] }
+      : { code: item.ticketType, name: item.ticketType, mode: '审批', scene: '', confidence: 1, hits: [] }
+    const nextFields: Fields = {}
+    for (const key of keysOf(item.ticketType)) {
+      const raw = item.fields?.[key]
+      nextFields[key] = Array.isArray(raw) ? raw.join(', ') : String(raw ?? '')
+    }
+    setSelected(nextMatch)
+    setFields(nextFields)
+    setDraftId(item.draftId)
+    setRevision(item.revision)
+    setSubmitted('')
+    setMessage('已恢复草稿，可继续填写或一键带入标准表单。')
+  }
+
+  async function openInManualForm() {
+    if (!selected) return
+    setBusy(true)
+    try {
+      await persist()
+      window.history.pushState({}, '', `/manual/${encodeURIComponent(selected.code)}`)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '跳转表单失败')
+    } finally {
+      setBusy(false)
+    }
+  }
   function apply(match: DialogueMatch, source: string) {
     setSelected(match)
     setFields(seed(match.code, source))
@@ -96,7 +140,11 @@ export function ChatApplication({ role, account, catalog }: { role: Role; accoun
   }
   async function save() {
     setBusy(true)
-    try { await persist(); setMessage('申请草稿已保存。草稿不是已获准输入。') }
+    try {
+      await persist()
+      setMessage('申请草稿已保存。草稿不是已获准输入。')
+      fetch('/api/drafts').then(r => r.ok ? r.json() : null).then(d => { if (Array.isArray(d?.items)) setSavedDrafts(d.items) }).catch(() => {})
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : '保存草稿失败') }
     finally { setBusy(false) }
   }
@@ -156,10 +204,28 @@ export function ChatApplication({ role, account, catalog }: { role: Role; accoun
           : <div className="draft-empty"><div><WandSparkles size={28} /></div><strong>从一句话开始</strong></div>}
         <div className="draft-actions">
           <button className="secondary-button" disabled={!selected || busy || !!submitted} onClick={save}>保存草稿</button>
+          <button className="secondary-button" disabled={!selected || busy} onClick={openInManualForm}>一键带入申请表单</button>
           <button className="secondary-button" disabled={!selected || busy} onClick={check}>检查</button>
           <button className="primary-button" disabled={!selected || busy || !!submitted} onClick={submit}>{submitted ? '已提交' : '提交申请'} <ArrowRight size={16} /></button>
         </div>
         <p role="status">{submitted ? `已提交 ${submitted}` : message}</p>
+        {savedDrafts.length > 0 && (
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
+            <small style={{ color: '#64748b', display: 'block', marginBottom: 6 }}>已保存草稿（点击恢复）</small>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {savedDrafts.slice(0, 8).map(item => (
+                <button
+                  key={item.draftId}
+                  type="button"
+                  className="secondary-button compact"
+                  onClick={() => restoreDraft(item)}
+                >
+                  {item.ticketType} · v{item.revision}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   </>

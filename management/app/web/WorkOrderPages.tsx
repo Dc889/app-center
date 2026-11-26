@@ -124,6 +124,7 @@ export function ManualApplication({ role, ticketType, onSelectTicketType }: { ro
   const [facts,setFacts]=useState('')
   const [eventKind,setEventKind]=useState('插件')
   const [eventObject,setEventObject]=useState('')
+  const [eventSeverity,setEventSeverity]=useState('一般')
   const [submitting, setSubmitting] = useState(false)
   const [checkNote,setCheckNote]=useState('')
   const onMeta = useCallback((meta: ResourceStamp) => {
@@ -233,7 +234,23 @@ export function ManualApplication({ role, ticketType, onSelectTicketType }: { ro
                 <select value={path} onChange={(event) => setPath(event.target.value)}><option>解绑</option><option>隔离</option><option>下架</option></select>
               </FormField>
             )}
-            {selected[0] === 'EVT-01' ? <><label>事件对象类型<select value={eventKind} onChange={e=>setEventKind(e.target.value)}>{['知识库','智能体','插件','MCP','智能体仓库','账号与集成'].map(k=><option key={k}>{k}</option>)}</select></label><FormField label="事件对象标识" source="用户" required><input aria-label="事件对象标识" value={eventObject} onChange={e=>setEventObject(e.target.value)} /></FormField></> : selected[2] === '账号' ? (
+            {selected[0] === 'EVT-01' ? (
+              <div className="form-row">
+                <FormField label="事件对象类型" source="用户" required>
+                  <select aria-label="事件对象类型" value={eventKind} onChange={e=>setEventKind(e.target.value)}>
+                    {['知识库','智能体','插件','MCP','智能体仓库','账号与集成'].map(k=><option key={k}>{k}</option>)}
+                  </select>
+                </FormField>
+                <FormField label="严重级别" source="用户" required>
+                  <select aria-label="严重级别" value={eventSeverity} onChange={e=>setEventSeverity(e.target.value)}>
+                    {['提示','一般','重要','严重','紧急'].map(s=><option key={s}>{s}</option>)}
+                  </select>
+                </FormField>
+                <FormField label="事件对象标识" source="用户" required>
+                  <input aria-label="事件对象标识" value={eventObject} onChange={e=>setEventObject(e.target.value)} placeholder="请输入对象名称或标识" />
+                </FormField>
+              </div>
+            ) : selected[2] === '账号' ? (
               <div className="form-row">
                 <FormField label="目标人员" source="用户" required>
                   <select value={resourceName} onChange={(event) => applyResource(event.target.value)}>
@@ -299,7 +316,7 @@ export function ManualApplication({ role, ticketType, onSelectTicketType }: { ro
               setSubmitting(true)
               try {
                 if(selected[0]==='EVT-01') {
-                  const response=await eventDraft.submit('/api/events',{resourceId:eventObject.trim(),objectType:eventKind,facts})
+                  const response=await eventDraft.submit('/api/events',{resourceId:eventObject.trim(),objectType:eventKind,severity:eventSeverity,facts})
                   const data=await response.json()
                   if(!response.ok) throw Error(data.error?.message ?? '提交失败')
                   setExecution({ticketNo,status:data.status,ok:false,resultId:'',failureReason:ticketNo})

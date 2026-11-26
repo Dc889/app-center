@@ -283,6 +283,13 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
               {view==='mine' && (row.isApplicant || row.account===account) && row.execution?.status==='succeeded' &&
                 (row.ticketType==='KEY-01' || row.ticketType==='KEY-02' && row.command?.action==='rotate_key') &&
                 row.revealState!=='shown' && <div className="app-banner info"><button className="primary-button" disabled={busy} onClick={reveal}>一次性领取密钥</button></div>}
+              {row.execution?.status==='succeeded' &&
+                (row.ticketType==='KEY-01' || row.ticketType==='KEY-02' && row.command?.action==='rotate_key') &&
+                row.revealState==='shown' && !secret && (
+                <div className="app-banner info">
+                  <span>密钥已领取（一次性明文已销毁）· 脱敏掩码：<code>{`app-****${String((row.execution?.result?.details as Record<string, unknown> | undefined)?.['新密钥后四位'] || (row.execution?.result?.details as Record<string, unknown> | undefined)?.['密钥后四位'] || '****')}`}</code></span>
+                </div>
+              )}
               {secret && <div className="app-banner info"><label>一次性密钥<textarea aria-label="一次性密钥" readOnly value={secret}/></label><button className="secondary-button" onClick={()=>setSecret('')}>关闭密钥展示</button></div>}
               {row.deliveryBlocked && <div className="app-banner danger" role="alert"><AlertTriangle size={15}/> 执行结果需要查证 · {row.lastError?.code}</div>}
               {row.execution?.result?.failureCode && <div className="app-banner danger"><AlertTriangle size={15}/> {row.execution.result.failureCode} · {row.execution.result.failureReason}</div>}

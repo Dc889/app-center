@@ -22,10 +22,19 @@ export function agentWarehouseReport({
   const agentMap = new Map()
 
   // 2. 遍历已完成的相关工单动态更新状态
+  const grantsByAgent = new Map()
   for (const app of applications) {
-    if (app.status !== '已完成') continue
+    if (!['已完成', '待结果确认'].includes(app.status)) continue
     const targetAgentId = app.submission?.resourceId ?? app.snapshot?.resourceId
     if (!targetAgentId) continue
+
+    if (app.ticketType === 'AG-03') {
+      const set = grantsByAgent.get(targetAgentId) ?? {accounts: new Set(), orgs: new Set()}
+      if (app.account) set.accounts.add(String(app.account).toLowerCase())
+      if (app.org) set.orgs.add(app.org)
+      grantsByAgent.set(targetAgentId, set)
+      continue
+    }
 
     let agent = agentMap.get(targetAgentId)
     if (!agent) {
@@ -38,6 +47,7 @@ export function agentWarehouseReport({
         const resolvedMethods = Array.isArray(fields.usages) && fields.usages.length ? fields.usages : ['run', 'api']
         const resolvedVisibleOrgs = fields.scope === 'orgs' && Array.isArray(fields.targetOrgs) ? fields.targetOrgs : []
         const rawMode = app.snapshot?.data?.mode
+        const difyPublicBase = (process.env.DIFY_PUBLIC_BASE || process.env.DIFY_WEB_BASE || process.env.DIFY_API_BASE || 'http://192.168.0.7').replace(/\/+$/, '')
         agent = {
           id: targetAgentId,
           name: resolvedName,
@@ -52,6 +62,8 @@ export function agentWarehouseReport({
           unavailableReason: '',
           visibleOrgs: resolvedVisibleOrgs,
           mode: MODE_LABELS[rawMode] ?? rawMode ?? 'Chatflow',
+          runUrl: `${difyPublicBase}/app/${targetAgentId}/overview`,
+          apiBaseUrl: `${difyPublicBase}/v1`,
           baseSuccessCount: 0,
           releases: [
             {
@@ -98,10 +110,14 @@ export function agentWarehouseReport({
   }
 
   // 3. 角色可见性与组织隔离规则
+  const currentAccountLower = String(identity.account || '').toLowerCase()
   let visibleAgents = Array.from(agentMap.values())
   if (isUser) {
     visibleAgents = visibleAgents.filter((agent) => {
       if (!agent.directlyUsable) return false
+      const grant = grantsByAgent.get(agent.id)
+      if (grant && (grant.accounts.has(currentAccountLower) || (userOrg && grant.orgs.has(userOrg)))) return true
+      if (String(agent.developerAccount || '').toLowerCase() === currentAccountLower) return true
       if (!agent.visibleOrgs || agent.visibleOrgs.length === 0) return true
       return agent.visibleOrgs.includes(userOrg)
     })

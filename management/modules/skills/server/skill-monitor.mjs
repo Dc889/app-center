@@ -33,10 +33,10 @@ export async function skillMonitorReport({
   check(admin || ops, 403, 'ACCESS_DENIED')
 
   const filterOrg = query.get('org') || null
-  if (!admin && filterOrg && filterOrg !== identity.org) {
+  if (!admin && !ops && filterOrg && filterOrg !== identity.org) {
     throw new (await import('../../../../runtime/http.mjs')).ApiError(403, 'ACCESS_DENIED', '无权查询其他组织的数据')
   }
-  const effectiveOrg = admin ? filterOrg : (filterOrg || identity.org)
+  const effectiveOrg = (admin || ops) ? filterOrg : (filterOrg || identity.org)
 
   const range = query.get('window') || '24h'
   const win = skillMonitorWindow(range, now)

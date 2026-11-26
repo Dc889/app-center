@@ -218,7 +218,22 @@ export function PluginWarehouse({role}: {role: Role}) {
                     <div className="dify-tile-tags">
                       <span className="dify-tile-tag">{accessTag}</span>
                     </div>
-                    <b>{downloadCountOf(item.data)} 次</b>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <b>{downloadCountOf(item.data)} 次</b>
+                      {!blocked && (
+                        <button
+                          type="button"
+                          className="secondary-button compact"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            window.history.pushState({}, '', '/manual/PLG-03')
+                            window.dispatchEvent(new PopStateEvent('popstate'))
+                          }}
+                        >
+                          申请安装
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </article>
               )

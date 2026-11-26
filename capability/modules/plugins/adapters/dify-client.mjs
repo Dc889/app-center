@@ -1,5 +1,5 @@
 import {check} from '../../../../runtime/http.mjs'
-import {getDifyConfig, difyConsoleFetch} from '../../../platform/dify/public.mjs'
+import {getDifyConfig, getDifyPluginDaemonConfig, difyConsoleFetch, difyPluginDaemonFetch} from '../../../platform/dify/public.mjs'
 
 export async function pluginConsole(path, {method = 'GET', body} = {}) {
   const {isReal} = getDifyConfig()
@@ -24,6 +24,30 @@ export async function verifyPluginWorkspace(workspaceId) {
 }
 
 export async function listInstalledPlugins(workspaceId) {
+  const daemon = getDifyPluginDaemonConfig()
+  if (daemon.isReal && workspaceId) {
+    const rows = []
+    for (let page = 1; page < 100; page++) {
+      const res = await difyPluginDaemonFetch(`/plugin/${encodeURIComponent(workspaceId)}/management/list?page=${page}&page_size=100`, {timeoutMs: 15000})
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json) break
+      const list = json?.data?.list ?? json?.list ?? json?.plugins ?? []
+      if (!Array.isArray(list)) break
+      for (const item of list) {
+        if (item && typeof item.plugin_unique_identifier === 'string') {
+          rows.push({
+            id: item.installation_id || item.id || item.plugin_unique_identifier,
+            tenant_id: item.tenant_id || workspaceId,
+            plugin_unique_identifier: item.plugin_unique_identifier,
+            version: item.version || '',
+          })
+        }
+      }
+      const total = json?.data?.total ?? json?.total ?? rows.length
+      if (rows.length >= total || list.length < 100) return rows
+    }
+    return rows
+  }
   await verifyPluginWorkspace(workspaceId)
   const rows = [], ids = new Set()
   let total

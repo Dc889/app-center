@@ -8,7 +8,24 @@ export async function execute(context) {
   const registrationId = fields['技术注册ID'] || fields.registrationId
   check(typeof registrationId === 'string' && registrationId, 409, 'MISSING_MCP_REGISTRATION', '获准输入缺少技术注册 ID')
 
-  const reg = findRegistration(openLedger, registrationId)
+  let reg = findRegistration(openLedger, registrationId)
+  if (!reg && fields['服务地址'] && fields['URL指纹']) {
+    const directReg = {
+      registrationId,
+      name: fields['MCP名称'] || registrationId,
+      status: 'registered',
+      transport: fields['传输方式'] || 'streamable-http',
+      endpointUrl: fields['服务地址'],
+      urlFingerprint: fields['URL指纹'],
+      authType: 'none',
+      tools: Array.isArray(fields['工具清单']) ? fields['工具清单'] : [],
+      syncedAt: new Date().toISOString(),
+    }
+    if (openLedger) {
+      openLedger('mcp_registrations').put(registrationId, directReg)
+    }
+    reg = directReg
+  }
   check(reg && ['active', 'registered'].includes(reg.status), 409, 'INCOMPLETE_MCP_REGISTRATION', '技术注册不可用')
   const frozenFingerprint = fields['URL指纹'] || fields.urlFingerprint
   if (frozenFingerprint) {

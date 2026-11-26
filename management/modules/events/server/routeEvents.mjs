@@ -42,8 +42,9 @@ export async function routeEvents(services) {
           check(directory.owns(previous.account,identity) && previous.facts===input.facts.trim() && previous.resourceId===input.resourceId && previous.objectType===input.objectType,409,'EVENT_CONFLICT')
           return json(res,previous)
         }
+        const severity=['提示','一般','重要','严重','紧急'].includes(input.severity)?input.severity:'一般'
         return json(res,events.put(input.ticketNo,{ticketNo:input.ticketNo,account:actor,resourceId:input.resourceId,originDraft:req.draftClaim ?? null,
-          facts:input.facts.trim(),objectType:input.objectType,creationMode:'人工报告',alertId:'AL-'+id(),ruleCode:'MANUAL_REPORT',originalSeverity:'一般',firstOccurredAt:at,lastOccurredAt:at,
+          facts:input.facts.trim(),objectType:input.objectType,creationMode:'人工报告',alertId:'AL-'+id(),ruleCode:'MANUAL_REPORT',originalSeverity:severity,firstOccurredAt:at,lastOccurredAt:at,
           evidence:{facts:input.facts.trim()},status:'未研判',version:types.activeVersion('EVT-01'),revision:1,history:[{at,actor,action:'人工报告',fromStatus:null,toStatus:'未研判'}]}),201)
       }
       check(operator,403,'ACCESS_DENIED')

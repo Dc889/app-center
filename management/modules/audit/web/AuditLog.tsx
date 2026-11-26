@@ -107,10 +107,21 @@ export function AuditLog({role}:{role:'user'|'ops'|'admin'}) {
         const problem=await response.json().catch(()=>({}))
         throw Error(problem?.error?.message ?? '审计导出失败')
       }
-      const rows=await response.json()
-      const url=URL.createObjectURL(new Blob([JSON.stringify(rows,null,2)],{type:'application/json;charset=utf-8'}))
+      const payload=await response.json()
+      const list=Array.isArray(payload)?payload:Array.isArray(payload?.items)?payload.items:[]
+      const esc=(v:unknown)=>`"${String(v ?? '').replace(/"/g,'""')}"`
+      const csvLines=table==='management'
+        ? [
+            ['时间','来源','分类','动作','操作人','目标','结果','原因'].map(esc).join(','),
+            ...list.map((r:Record<string,unknown>)=>[r.at,r.source,r.category,r.action,r.actor,r.target,r.result,r.reason].map(esc).join(',')),
+          ]
+        : [
+            ['时间','渠道','主体','来源','动作','资源','结果','工单/原因'].map(esc).join(','),
+            ...list.map((r:Record<string,unknown>)=>[r.at,r.channel,r.subject,r.source,r.action,r.resource,r.result,r.ticketNo ?? r.reason].map(esc).join(',')),
+          ]
+      const url=URL.createObjectURL(new Blob(['\uFEFF'+csvLines.join('\r\n')],{type:'text/csv;charset=utf-8'}))
       const link=document.createElement('a')
-      link.href=url;link.download=table==='management'?'管理审计.json':'访问审计.json';link.click()
+      link.href=url;link.download=table==='management'?'管理审计.csv':'访问审计.csv';link.click()
       setTimeout(()=>URL.revokeObjectURL(url),1000)
     }catch(e){
       setExportError(e instanceof Error?e.message:'审计导出失败')

@@ -67,6 +67,7 @@ export function TypeRegistry({names}:{names:Record<string,string>}) {
   }
   return <section className="panel list-panel"><fieldset disabled={busy} className="editor-section">
     <legend>工单类型与执行能力</legend>
+    {immutable && <p role="note" style={{background:'#f8fafc',border:'1px solid #cbd5e1',borderRadius:6,padding:'8px 12px',fontSize:13,color:'#475569',margin:'0 0 12px'}}>当前为已发布或已停用版本（只读锁定）。如需修改配置，请先点击下方“复制为新版本草稿”，再编辑、核验并发布。</p>}
     <div className="form-row"><label>类型编码<input list="type-codes" value={code} onChange={e=>select(e.target.value,'1')}/></label>
     <datalist id="type-codes">{Object.keys(routes).map(key=><option key={key} value={key}>{names[key]}</option>)}</datalist>
     <label>版本<input value={version} onChange={e=>select(code,e.target.value)}/></label></div>

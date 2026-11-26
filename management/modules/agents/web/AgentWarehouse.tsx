@@ -29,6 +29,8 @@ type WarehouseAgentItem = {
   unavailableReason: string
   visibleOrgs: string[]
   mode: string
+  runUrl?: string
+  apiBaseUrl?: string
   successCount: number
   releases: AgentRelease[]
 }
@@ -157,9 +159,11 @@ export function AgentWarehouse({
   }
 
   const accessText = (agent: WarehouseAgentItem, methodId: UsageMethodId) => {
-    if (methodId === 'run') return `https://ai.internal/apps/${agent.id}/run`
-    if (methodId === 'embed') return `<iframe src="https://ai.internal/embed/${agent.id}" width="100%" height="600"></iframe>`
-    return `curl -X POST https://ai.internal/v1/apps/${agent.id}/completion -H "Authorization: Bearer app_key_..."`
+    const runUrl = agent.runUrl || `${window.location.protocol}//${window.location.hostname}/app/${agent.id}/overview`
+    const apiBase = agent.apiBaseUrl || `${window.location.protocol}//${window.location.hostname}/v1`
+    if (methodId === 'run') return runUrl
+    if (methodId === 'embed') return `<iframe src="${runUrl}" width="100%" height="600" frameborder="0"></iframe>`
+    return `curl -X POST ${apiBase}/chat-messages -H "Authorization: Bearer app-xxxx" -H "Content-Type: application/json" -d '{"inputs":{},"query":"你好","response_mode":"blocking","user":"demo"}'`
   }
 
   return (
@@ -399,14 +403,27 @@ export function AgentWarehouse({
                     ) : (
                       <small>{selected.unavailableReason || '发布工单没有开通这一方式。'}</small>
                     )}
-                    <button
-                      type="button"
-                      className="secondary-button compact"
-                      disabled={!opened}
-                      onClick={() => copyAccess(copyKey, text)}
-                    >
-                      <Copy size={13} /> {copied === copyKey ? '已复制' : '复制地址'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      {item.id === 'run' && opened && (
+                        <a
+                          href={text}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="primary-button compact"
+                          style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <ArrowUpRight size={13} /> 打开使用
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        className="secondary-button compact"
+                        disabled={!opened}
+                        onClick={() => copyAccess(copyKey, text)}
+                      >
+                        <Copy size={13} /> {copied === copyKey ? '已复制' : '复制地址'}
+                      </button>
+                    </div>
                   </div>
                 )
               })}
