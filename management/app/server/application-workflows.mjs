@@ -99,7 +99,7 @@ export function applicationApi(dir,cap,types,accounts,headersFor,canWithdrawSkil
       if(closed)return
       const latest=applications.get(row.ticketNo)
       if(latest.command?.executionId!==row.command.executionId || latest.execution?.result)return
-      let status=execution.status==='succeeded'?(['AG-01','KB-01'].includes(row.ticketType) || ['KB-03','MCP-02','PLG-03'].includes(row.ticketType) && !row.approvedBy || row.ticketType==='AG-03' && !row.approvedBy?'已完成':'待结果确认'):execution.status==='failed'?'执行失败':execution.status==='cancelled'?'已终止':'执行中'
+      let status=execution.status==='succeeded'?(['AG-01','KB-01','KB-02'].includes(row.ticketType) || ['KB-03','MCP-02','PLG-03'].includes(row.ticketType) && !row.approvedBy || row.ticketType==='AG-03' && !row.approvedBy?'已完成':'待结果确认'):execution.status==='failed'?'执行失败':execution.status==='cancelled'?'已终止':'执行中'
       if(row.ticketType==='KEY-01' && execution.status==='succeeded')status='待领取密钥'
       if(row.ticketType==='KB-05' && row.node==='pause')status=execution.status==='succeeded'?'待运维确认':execution.status==='failed'?'执行失败':'自动暂停中'
       const safety=row.ticketType==='PLG-04'?pluginSafety.afterResult(latest,execution):{}

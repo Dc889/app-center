@@ -82,7 +82,16 @@ export function DatasetPublicationContext() {
     finally{setBusy(false)}
   }
 
-  const scanDocs = Array.isArray(context?.fields?.['文档审查明细']) ? (context!.fields['文档审查明细'] as {documentId:string;name?:string;autoVerdict:string}[]) : []
+  const scanDocs = Array.isArray(context?.fields?.['文档审查明细'])
+    ? (context!.fields['文档审查明细'] as {
+        documentId: string
+        name?: string
+        autoVerdict: string
+        scannedChunks?: number
+        matchedRules?: {ruleId?: string; category?: string; severity?: string; pattern: string; note?: string}[]
+      }[])
+    : []
+  const scanBlocked = scanDocs.some(d => d.autoVerdict !== '通过') || String(context?.fields?.['关键词扫描结论'] ?? '').includes('阻断')
 
   return <fieldset className="form-section" disabled={busy || resource.busy || draft.controller.busy}><legend>知识库分享申请</legend>
     <fieldset disabled={submitted}><legend>来源知识库</legend>
@@ -96,32 +105,56 @@ export function DatasetPublicationContext() {
           setWorkspaceId(scope)
           const dsName=String(snapshot.data.name ?? '')
           if(dsName)setForm(cur=>({...cur,name:cur.name || dsName}))
+          void read(scope, value.resourceId)
         })
       }}/>
-      <button className="secondary-button" disabled={!resource.snapshot} onClick={()=>read()}>读取文档审查与模型核对</button>
+      <button className="secondary-button" disabled={!resource.snapshot} onClick={()=>read()}>
+        {context ? '重新扫描文档与模型核对' : '读取文档审查与模型核对'}
+      </button>
     </fieldset>
     {context && (
-      <div className="app-audit-card is-pass" style={{marginBlock:12}}>
+      <div className={`app-audit-card ${scanBlocked ? 'has-warn' : 'is-pass'}`} style={{marginBlock:12}}>
         <div className="app-audit-head">
           <div className="app-audit-title">
             <h4>文档与敏感词扫描核验</h4>
             <span className="app-mode-chip">文档数：{String(context.fields['文档数'] ?? 0)}</span>
             <span className="app-mode-chip">模型核对：{String(context.fields['模型目录核对结果'] ?? '—')}</span>
           </div>
-          <span className="app-status-pill tone-success">{String(context.fields['关键词扫描结论'] ?? '扫描通过')}</span>
+          <span className={`app-status-pill tone-${scanBlocked ? 'danger' : 'success'}`}>
+            {String(context.fields['关键词扫描结论'] ?? (scanBlocked ? '命中敏感词' : '扫描通过'))}
+          </span>
         </div>
         {!!context.fields['关键词扫描规则版本'] && <p className="app-link-note">扫描引擎：{String(context.fields['关键词扫描规则版本'])}</p>}
         {scanDocs.length > 0 && (
           <div className="app-audit-table-wrap">
             <table className="app-audit-table">
-              <thead><tr><th>文档名称</th><th>自动审查结果</th></tr></thead>
+              <thead><tr><th>文档名称</th><th>自动审查结果</th><th>命中敏感词与不通过原因</th></tr></thead>
               <tbody>
-                {scanDocs.map(d => (
-                  <tr key={d.documentId}>
-                    <td><strong>{d.name || d.documentId}</strong></td>
-                    <td><span className={`app-status-pill tone-${d.autoVerdict==='通过'?'success':'danger'}`}>{d.autoVerdict}</span></td>
-                  </tr>
-                ))}
+                {scanDocs.map(d => {
+                  const failed = d.autoVerdict !== '通过'
+                  const rules = Array.isArray(d.matchedRules) ? d.matchedRules : []
+                  return (
+                    <tr key={d.documentId} style={failed ? {background: '#fef2f2'} : undefined}>
+                      <td><strong style={failed ? {color: '#b42318'} : undefined}>{d.name || d.documentId}</strong></td>
+                      <td><span className={`app-status-pill tone-${failed ? 'danger' : 'success'}`}>{d.autoVerdict}</span></td>
+                      <td>
+                        {rules.length > 0 ? (
+                          <div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
+                            {rules.map((r, idx) => (
+                              <span key={`${r.ruleId || r.pattern}-${idx}`} style={{display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600, background: '#fee2e2', color: '#b42318', border: '1px solid #fecaca'}}>
+                                {r.severity || '阻断'} · {r.category || '敏感词'}：命中「{r.pattern}」
+                              </span>
+                            ))}
+                          </div>
+                        ) : failed ? (
+                          <span style={{color: '#b42318', fontSize: 12}}>文档自动安全审查未通过</span>
+                        ) : (
+                          <span style={{color: '#027a48', fontSize: 12}}>未命中敏感词</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
