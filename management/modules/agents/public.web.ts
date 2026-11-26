@@ -8,10 +8,12 @@ export * from './web/AgentWithdrawForm'
 export * from './web/ApplicationTargetPicker'
 export * from './web/PublicationApplicationPicker'
 export * from './web/PublishResource'
+export * from './web/AgentAnalysisConfigForm'
 
 import {createElement} from 'react'
 import {defineWebModule} from '../../shared-ui/module-contracts'
 import {AgentAccessForm} from './web/AgentAccessForm'
+import {AgentAnalysisConfigForm} from './web/AgentAnalysisConfigForm'
 import {AgentMonitor} from './web/AgentMonitor'
 import {AgentWarehouse} from './web/AgentWarehouse'
 import {AgentWithdrawForm} from './web/AgentWithdrawForm'
@@ -21,7 +23,7 @@ export const moduleWeb = defineWebModule({
   id: 'agents',
   views: {
     agents: ({role, onWorkOrder}) => createElement(AgentWarehouse, {key: role, role, onWorkOrder}),
-    agentMonitor: ({role, onWorkOrder}) => createElement(AgentMonitor, {key: role, role, onWorkOrder}),
+    agentMonitor: ({role, onWorkOrder, onNavigate}) => createElement(AgentMonitor, {key: role, role, onWorkOrder, onNavigate}),
   },
   ticketForms: {
     'AG-01': ({onMeta}) => createElement(PublishResource, {key: 'AG-01', ticketType: 'AG-01', onMeta}),
@@ -29,5 +31,6 @@ export const moduleWeb = defineWebModule({
     'AG-03': () => createElement(AgentAccessForm, {key: 'AG-03'}),
     'AG-04': () => createElement(AgentWithdrawForm, {key: 'AG-04', ticketType: 'AG-04'}),
     'AG-05': () => createElement(AgentWithdrawForm, {key: 'AG-05', ticketType: 'AG-05'}),
+    'CFG-04': () => createElement(AgentAnalysisConfigForm, {key: 'CFG-04'}),
   },
 })

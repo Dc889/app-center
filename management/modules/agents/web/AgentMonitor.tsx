@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Users, Bot, Layers3, Search, X } from 'lucide-react'
+import type { View } from '../../../shared-ui/UiContextData'
+import { AgentAppInsightsPanel } from './AgentAppInsightsPanel'
 
 export type InvocationLog = {
   seq: number
@@ -166,9 +168,11 @@ function InvocationTrace({ log, onClose }: { log: InvocationLog; onClose: () => 
 
 export function AgentMonitor({
   onWorkOrder: _onWorkOrder,
+  onNavigate,
 }: {
   role: 'user' | 'ops' | 'admin'
   onWorkOrder?: (title: string) => void
+  onNavigate?: (view: View, ticketType?: string | null) => void
 }) {
   const [account, setAccount] = useState('全部账户')
   const [appName, setAppName] = useState('全部应用')
@@ -298,7 +302,7 @@ export function AgentMonitor({
         <article className="metric-card"><div className="metric-icon tone-3"><Bot size={19} /></div><span>Dify 应用数量</span><strong>{metricText(data?.overview?.difyAppCount ?? (data?.sources.difyCatalog === 'collected' ? data.metrics.totalAppCount : null))}</strong><small>子系统内全部应用</small></article>
         <article className="metric-card"><div className="metric-icon tone-4"><Layers3 size={19} /></div><span>仓库应用数量</span><strong>{data ? data.overview?.warehouseAppCount ?? 0 : '—'}</strong><small>已进入智能体仓库</small></article>
       </div>
-      <AgentAnalysis data={data} groups={groups} usageApp={usageApp} setUsageApp={setUsageApp} usageFrom={usageFrom} setUsageFrom={setUsageFrom} usageTo={usageTo} setUsageTo={setUsageTo} callGrain={callGrain} setCallGrain={setCallGrain} tokenModel={tokenModel} setTokenModel={setTokenModel} callModel={callModel} setCallModel={setCallModel} />
+      <AgentAnalysis data={data} groups={groups} usageApp={usageApp} setUsageApp={setUsageApp} usageFrom={usageFrom} setUsageFrom={setUsageFrom} usageTo={usageTo} setUsageTo={setUsageTo} callGrain={callGrain} setCallGrain={setCallGrain} tokenModel={tokenModel} setTokenModel={setTokenModel} callModel={callModel} setCallModel={setCallModel} onNavigate={onNavigate} />
 
       {/* 监控主体布局 */}
       <div className="monitor-layout">
@@ -323,9 +327,9 @@ export function AgentMonitor({
               </button>
               {group.apps.map(app => (
                 <button
-                  key={app.name}
+                  key={app.appId || app.name}
                   className={`app-node ${account === group.account && appName === app.name ? 'active' : ''}`}
-                  onClick={() => chooseApp(group.account, app.name)}
+                  onClick={() => { chooseApp(group.account, app.name); if (app.appId) setUsageApp(app.appId) }}
                 >
                   <strong>{app.name}</strong>
                   <small>{app.inWarehouse ? '工单应用' : '仅 Dify'}</small>
@@ -493,7 +497,7 @@ function rankedValue(row: RankingRow, model: string, field: 'tokens' | 'calls') 
 }
 
 function AgentAnalysis({
-  data, groups, usageApp, setUsageApp, usageFrom, setUsageFrom, usageTo, setUsageTo, callGrain, setCallGrain, tokenModel, setTokenModel, callModel, setCallModel,
+  data, groups, usageApp, setUsageApp, callGrain, setCallGrain, tokenModel, setTokenModel, callModel, setCallModel, onNavigate,
 }: {
   data: AgentMonitorModel | null
   groups: AccountGroup[]
@@ -509,6 +513,7 @@ function AgentAnalysis({
   setTokenModel: (value: string) => void
   callModel: string
   setCallModel: (value: string) => void
+  onNavigate?: (view: View, ticketType?: string | null) => void
 }) {
   const analysis = data?.analysis
   const apps = groups.flatMap(group => group.apps)
@@ -518,6 +523,12 @@ function AgentAnalysis({
   const callRows = [...(analysis?.modelCallRanking ?? [])].sort((a, b) => (rankedValue(b, callModel, 'calls') ?? 0) - (rankedValue(a, callModel, 'calls') ?? 0))
   return (
     <>
+      <AgentAppInsightsPanel
+        apps={apps}
+        selectedAppId={usageApp}
+        onSelectAppId={setUsageApp}
+        onNavigate={onNavigate}
+      />
       <section className="panel" data-testid="agent-run-analysis" style={{ marginTop: 16 }}>
         <div className="panel-title"><div><h3>智能体次数分析</h3><p>运行数量按应用累计调用次数分档。调用趋势按北京时间统计每小时、每天和每月。</p></div></div>
         {analysis?.runDistribution ? (
@@ -529,29 +540,6 @@ function AgentAnalysis({
         {callSeries ? (
           <div style={{ height: 220 }}><ResponsiveContainer width="100%" height="100%"><LineChart data={callSeries}><CartesianGrid stroke="#edf0f5" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} /><Tooltip /><Line dataKey="count" name="调用次数" stroke="#5b6cf9" dot={false} /></LineChart></ResponsiveContainer></div>
         ) : <p>每小时、每天、每月调用次数未采集。</p>}
-      </section>
-      <section className="panel" data-testid="agent-usage-analysis" style={{ marginTop: 16 }}>
-        <div className="panel-title"><div><h3>智能体应用使用情况分析</h3><p>选择一个应用和时间范围后，查看调用 IP、应用介绍、迭代次数和版本时间。</p></div></div>
-        <div className="log-filters">
-          <label className="log-filter"><span>智能体应用</span>
-            <select aria-label="分析指定智能体" value={usageApp} onChange={event => setUsageApp(event.target.value)}>
-              <option value="">请选择应用</option>
-              {apps.map(app => <option key={app.appId} value={app.appId}>{app.name}</option>)}
-            </select>
-          </label>
-          <label className="log-filter"><span>开始时间</span><input aria-label="使用分析开始时间" type="datetime-local" value={usageFrom} onChange={event => setUsageFrom(event.target.value)} /></label>
-          <label className="log-filter"><span>结束时间</span><input aria-label="使用分析结束时间" type="datetime-local" value={usageTo} onChange={event => setUsageTo(event.target.value)} /></label>
-        </div>
-        {!analysis?.usage ? <p>请选择智能体应用。</p> : (
-          <div>
-            <p>应用介绍 · {analysis.usage.description ?? '未采集'}</p>
-            <p>迭代次数 · {metricText(analysis.usage.iterationCount)}</p>
-            <div className="table-wrap"><table><thead><tr><th>迭代版本</th><th>时间</th></tr></thead><tbody>{analysis.usage.versions.length ? analysis.usage.versions.map(version => <tr key={version.version}><td>{version.version}</td><td>{version.publishedAt || version.at || '未采集'}</td></tr>) : <tr><td colSpan={2}>迭代版本未采集</td></tr>}</tbody></table></div>
-            {analysis.usage.ipDistribution ? (
-              <div className="table-wrap"><table><thead><tr><th>调用 IP</th><th>次数</th></tr></thead><tbody>{analysis.usage.ipDistribution.length ? analysis.usage.ipDistribution.map(row => <tr key={row.ip}><td>{row.ip}</td><td>{row.count}</td></tr>) : <tr><td colSpan={2}>所选时间范围内没有调用 IP</td></tr>}</tbody></table></div>
-            ) : <p>调用 IP 分布未采集。</p>}
-          </div>
-        )}
       </section>
       <section className="panel" data-testid="agent-token-analysis" style={{ marginTop: 16 }}>
         <div className="panel-title"><div><h3>智能体使用 token 数量分析</h3><p>按 token 区间统计应用数量，并分别按总消耗和指定模型查看 token 与调用次数排行。</p></div></div>

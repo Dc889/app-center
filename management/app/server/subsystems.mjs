@@ -1,5 +1,6 @@
 import {constants as cryptoConstants, createCipheriv, createDecipheriv, createHash, publicEncrypt, randomBytes} from 'node:crypto'
 import pg from 'pg'
+import YAML from 'yaml'
 import {body, check, id, json, ledger} from '../../../runtime/http.mjs'
 
 const ALLOWED_TYPES = ['dify', 'ragflow', 'model_gateway', 'custom']
@@ -1491,6 +1492,294 @@ function connectDefaultDifyDb(store) {
     }
   }
 
+  function shortProviderName(raw) {
+    const s = String(raw || '').trim()
+    if (!s) return '其他'
+    const parts = s.split('/').filter(Boolean)
+    const last = parts[parts.length - 1] || s
+    if (last === 'openai_api_compatible') return 'openai-compatible'
+    return last
+  }
+
+  async function getDifyAppInsights({appId, days = 30}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    const safeDays = Math.max(1, Math.min(365, Number(days) || 30))
+    try {
+      await client.connect()
+      const appRes = await client.query(
+        `SELECT a.id::text AS id, a.name, a.mode, a.description, a.tenant_id::text AS workspace_id,
+                t.name AS workspace_name, ac.name AS owner_name, ac.email AS owner_email
+         FROM apps a
+         LEFT JOIN tenants t ON t.id = a.tenant_id
+         LEFT JOIN accounts ac ON ac.id = a.created_by
+         WHERE a.id::text = $1 LIMIT 1`,
+        [appId],
+      )
+      if (appRes.rows.length === 0) return {ok: false, error: 'APP_NOT_FOUND'}
+      const app = appRes.rows[0]
+
+      // 1. Model usage from messages
+      const msgRes = await client.query(
+        `SELECT
+           COALESCE(NULLIF(TRIM(model_id), ''), 'unknown') AS model_name,
+           COALESCE(NULLIF(TRIM(model_provider), ''), '其他') AS provider_name,
+           COUNT(*)::int AS calls,
+           COALESCE(SUM(COALESCE(message_tokens, 0) + COALESCE(answer_tokens, 0)), 0)::bigint AS tokens,
+           AVG(NULLIF(provider_response_latency, 0)) AS avg_latency,
+           COUNT(*) FILTER (WHERE COALESCE(status, 'normal') <> 'normal' OR COALESCE(error, '') <> '')::int AS errors
+         FROM messages
+         WHERE app_id::text = $1 AND created_at >= CURRENT_TIMESTAMP - ($2::int * INTERVAL '1 day')
+         GROUP BY 1, 2`,
+        [appId, safeDays],
+      )
+
+      const modelMap = new Map()
+      for (const r of msgRes.rows) {
+        const provider = shortProviderName(r.provider_name)
+        const key = `${r.model_name}::${provider}`
+        modelMap.set(key, {
+          model: r.model_name,
+          provider,
+          calls: Number(r.calls || 0),
+          tokens: Number(r.tokens || 0),
+          latencySum: Number(r.avg_latency || 0) * Number(r.calls || 0),
+          latencyCount: Number(r.avg_latency) > 0 ? Number(r.calls || 0) : 0,
+          errors: Number(r.errors || 0),
+        })
+      }
+
+      // 1b. Supplement workflow-only apps via workflow_node_executions (LLM nodes) when messages has 0 rows
+      if (modelMap.size === 0) {
+        try {
+          const wfNodeRes = await client.query(
+            `SELECT elapsed_time, status, error, execution_metadata
+             FROM workflow_node_executions
+             WHERE app_id::text = $1 AND node_type = 'llm'
+               AND created_at >= CURRENT_TIMESTAMP - ($2::int * INTERVAL '1 day')
+             LIMIT 5000`,
+            [appId, safeDays],
+          )
+          for (const r of wfNodeRes.rows) {
+            let meta = {}
+            try { meta = typeof r.execution_metadata === 'string' ? JSON.parse(r.execution_metadata) : (r.execution_metadata || {}) } catch {}
+            const modelName = String(meta.model_name || meta.model || 'workflow-llm')
+            const provider = shortProviderName(meta.provider_name || meta.provider || '其他')
+            const key = `${modelName}::${provider}`
+            const entry = modelMap.get(key) ?? {model: modelName, provider, calls: 0, tokens: 0, latencySum: 0, latencyCount: 0, errors: 0}
+            entry.calls += 1
+            entry.tokens += Number(meta.total_tokens || 0)
+            if (Number(r.elapsed_time) > 0) {
+              entry.latencySum += Number(r.elapsed_time)
+              entry.latencyCount += 1
+            }
+            if (r.status === 'failed' || r.error) entry.errors += 1
+            modelMap.set(key, entry)
+          }
+        } catch {}
+      }
+
+      const models = [...modelMap.values()]
+        .map(m => ({
+          model: m.model,
+          provider: m.provider,
+          calls: m.calls,
+          tokens: m.tokens,
+          avgLatencySec: m.latencyCount > 0 ? Math.round((m.latencySum / m.latencyCount) * 100) / 100 : 0,
+          errorRatePct: m.calls > 0 ? Math.round((m.errors / m.calls) * 1000) / 10 : 0,
+          errors: m.errors,
+        }))
+        .sort((a, b) => b.calls - a.calls || b.tokens - a.tokens)
+
+      const totalCalls = models.reduce((s, m) => s + m.calls, 0)
+      const totalTokens = models.reduce((s, m) => s + m.tokens, 0)
+      const totalErrors = models.reduce((s, m) => s + m.errors, 0)
+      const weightedLatency = models.reduce((s, m) => s + m.avgLatencySec * m.calls, 0)
+      const avgLatencySec = totalCalls > 0 ? Math.round((weightedLatency / totalCalls) * 100) / 100 : 0
+      const errorRatePct = totalCalls > 0 ? Math.round((totalErrors / totalCalls) * 1000) / 10 : 0
+
+      // 2. Source channel breakdown from messages + workflow_runs
+      const srcRes = await client.query(
+        `SELECT COALESCE(from_source, 'console') AS source, COUNT(*)::int AS count
+         FROM messages
+         WHERE app_id::text = $1 AND created_at >= CURRENT_TIMESTAMP - ($2::int * INTERVAL '1 day')
+         GROUP BY 1 ORDER BY 2 DESC`,
+        [appId, safeDays],
+      )
+      const wfRunRes = await client.query(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE status = 'failed' OR COALESCE(error, '') <> '')::int AS failed,
+                COALESCE(SUM(total_tokens), 0)::bigint AS tokens,
+                AVG(NULLIF(elapsed_time, 0)) AS avg_elapsed
+         FROM workflow_runs
+         WHERE app_id::text = $1 AND created_at >= CURRENT_TIMESTAMP - ($2::int * INTERVAL '1 day')`,
+        [appId, safeDays],
+      )
+      const wfRun = wfRunRes.rows?.[0] ?? {total: 0, failed: 0, tokens: 0, avg_elapsed: 0}
+
+      // 3. Reconstruct DSL / YAML & static structure from workflows + app_model_configs
+      const wfRes = await client.query(
+        `SELECT version, type, graph, features, created_at, updated_at
+         FROM workflows WHERE app_id::text = $1 ORDER BY updated_at DESC LIMIT 10`,
+        [appId],
+      )
+      const cfgRes = await client.query(
+        `SELECT provider, model_id, model, pre_prompt, dataset_configs, agent_mode, updated_at
+         FROM app_model_configs WHERE app_id::text = $1 ORDER BY updated_at DESC LIMIT 1`,
+        [appId],
+      )
+
+      const latestWf = wfRes.rows?.[0] ?? null
+      const latestCfg = cfgRes.rows?.[0] ?? null
+      let parsedGraph = null
+      try { parsedGraph = latestWf?.graph ? (typeof latestWf.graph === 'string' ? JSON.parse(latestWf.graph) : latestWf.graph) : null } catch {}
+      let parsedModelCfg = null
+      try { parsedModelCfg = latestCfg?.model ? (typeof latestCfg.model === 'string' ? JSON.parse(latestCfg.model) : latestCfg.model) : null } catch {}
+      let parsedDatasetCfg = null
+      try { parsedDatasetCfg = latestCfg?.dataset_configs ? (typeof latestCfg.dataset_configs === 'string' ? JSON.parse(latestCfg.dataset_configs) : latestCfg.dataset_configs) : null } catch {}
+
+      const nodes = Array.isArray(parsedGraph?.nodes) ? parsedGraph.nodes : []
+      const nodeTypes = {}
+      const dslModels = new Set()
+      const dslDatasets = new Set()
+      const dslTools = []
+      const promptSnippets = []
+
+      for (const n of nodes) {
+        const d = n?.data ?? {}
+        const ntype = String(d.type || n.type || 'unknown')
+        nodeTypes[ntype] = (nodeTypes[ntype] || 0) + 1
+        if (d.model?.name) dslModels.add(`${d.model.name} (${shortProviderName(d.model.provider)})`)
+        if (Array.isArray(d.dataset_ids)) for (const idItem of d.dataset_ids) dslDatasets.add(String(idItem))
+        if (ntype === 'http-request' && d.url) dslTools.push(`HTTP: ${d.method || 'GET'} ${d.url}`)
+        if (ntype === 'tool' && (d.tool_name || d.provider_name)) dslTools.push(`Tool: ${d.provider_name || ''}/${d.tool_name || ''}`)
+        if (Array.isArray(d.prompt_template)) {
+          for (const p of d.prompt_template) {
+            if (p?.text) promptSnippets.push(`[${d.title || ntype}] ${String(p.text).slice(0, 180)}`)
+          }
+        }
+      }
+      if (parsedModelCfg?.name) dslModels.add(`${parsedModelCfg.name} (${shortProviderName(parsedModelCfg.provider)})`)
+      if (latestCfg?.pre_prompt) promptSnippets.push(`[System Prompt] ${String(latestCfg.pre_prompt).slice(0, 300)}`)
+      if (Array.isArray(parsedDatasetCfg?.datasets?.datasets)) {
+        for (const ds of parsedDatasetCfg.datasets.datasets) {
+          if (ds?.dataset?.id) dslDatasets.add(String(ds.dataset.id))
+        }
+      }
+
+      const dslObj = {
+        version: '0.1.5',
+        kind: 'app',
+        app: {
+          name: app.name,
+          mode: app.mode,
+          description: app.description || '',
+        },
+        ...(latestWf ? {
+          workflow: {
+            version: latestWf.version || 'draft',
+            graph: parsedGraph || {},
+          },
+        } : {}),
+        ...(latestCfg ? {
+          model_config: {
+            model: parsedModelCfg || {provider: latestCfg.provider, name: latestCfg.model_id},
+            pre_prompt: latestCfg.pre_prompt || '',
+            dataset_configs: parsedDatasetCfg || {},
+          },
+        } : {}),
+      }
+      const yamlText = YAML.stringify(dslObj)
+
+      return {
+        ok: true,
+        days: safeDays,
+        app: {
+          appId: app.id,
+          name: app.name,
+          mode: app.mode || 'chat',
+          description: app.description || '',
+          source: 'Dify',
+          workspaceId: app.workspace_id,
+          workspaceName: app.workspace_name || '',
+          ownerName: app.owner_name || app.owner_email || 'Dify 租户',
+          ownerEmail: app.owner_email || '',
+        },
+        summary: {
+          calls: totalCalls || Number(wfRun.total || 0),
+          tokens: totalTokens || Number(wfRun.tokens || 0),
+          avgLatencySec: totalCalls > 0 ? avgLatencySec : (Number(wfRun.avg_elapsed) > 0 ? Math.round(Number(wfRun.avg_elapsed) * 100) / 100 : 0),
+          errorRatePct: totalCalls > 0 ? errorRatePct : (Number(wfRun.total) > 0 ? Math.round((Number(wfRun.failed || 0) / Number(wfRun.total)) * 1000) / 10 : 0),
+          modelCount: models.length,
+        },
+        models,
+        sourceChannels: srcRes.rows.map(r => ({source: r.source, count: Number(r.count || 0)})),
+        versions: wfRes.rows.map(r => ({version: r.version || 'draft', at: r.updated_at ? new Date(r.updated_at).toISOString() : null})),
+        dsl: {
+          nodeCount: nodes.length,
+          nodeTypes,
+          models: [...dslModels],
+          datasetCount: dslDatasets.size,
+          externalTools: dslTools.slice(0, 20),
+          promptPreviews: promptSnippets.slice(0, 4),
+          yamlText,
+        },
+      }
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
+  async function getDifyHighFreqApps({minRuns = 1, days = 30}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED', items: []}
+    const safeDays = Math.max(1, Math.min(365, Number(days) || 30))
+    const safeMin = Math.max(0, Number(minRuns) || 0)
+    try {
+      await client.connect()
+      const res = await client.query(
+        `WITH msg_counts AS (
+           SELECT app_id, COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(message_tokens,0)+COALESCE(answer_tokens,0)),0)::bigint AS tokens
+           FROM messages WHERE created_at >= CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 day') GROUP BY app_id
+         ),
+         wf_counts AS (
+           SELECT app_id, COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(total_tokens,0)),0)::bigint AS tokens
+           FROM workflow_runs WHERE created_at >= CURRENT_TIMESTAMP - ($1::int * INTERVAL '1 day') GROUP BY app_id
+         )
+         SELECT a.id::text AS app_id, a.name AS app_name, a.mode,
+                GREATEST(COALESCE(m.cnt, 0), COALESCE(w.cnt, 0))::int AS run_count,
+                GREATEST(COALESCE(m.tokens, 0), COALESCE(w.tokens, 0))::bigint AS total_tokens,
+                ac.name AS owner_name, t.name AS workspace_name
+         FROM apps a
+         LEFT JOIN msg_counts m ON m.app_id = a.id
+         LEFT JOIN wf_counts w ON w.app_id = a.id
+         LEFT JOIN accounts ac ON ac.id = a.created_by
+         LEFT JOIN tenants t ON t.id = a.tenant_id
+         WHERE GREATEST(COALESCE(m.cnt, 0), COALESCE(w.cnt, 0)) >= $2
+         ORDER BY run_count DESC, total_tokens DESC
+         LIMIT 200`,
+        [safeDays, safeMin],
+      )
+      return {
+        ok: true,
+        items: res.rows.map(r => ({
+          appId: r.app_id,
+          appName: r.app_name,
+          mode: r.mode || 'chat',
+          runCount: Number(r.run_count || 0),
+          totalTokens: Number(r.total_tokens || 0),
+          ownerName: r.owner_name || r.workspace_name || 'Dify 租户',
+        })),
+      }
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err), items: []}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
   return {
     handle: async (req, res, path, actor) => {
       if (path === '/api/subsystems' && req.method === 'GET') {
@@ -1511,6 +1800,8 @@ function connectDefaultDifyDb(store) {
     batchToggleDifyModel,
     getDifyDatasetManifest,
     copyDifyDatasetToWorkspace,
+    getDifyAppInsights,
+    getDifyHighFreqApps,
     refreshDifyInventory: async () => {
       const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
       for (const rec of enabled) {
