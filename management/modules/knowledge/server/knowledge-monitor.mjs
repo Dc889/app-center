@@ -261,10 +261,14 @@ export async function knowledgeMonitorReport({
     }
 
     const duration = app.snapshot?.fields?.['耗时'] || ''
+    const dsMatch = liveDatasets.find(d => d.resourceId === app.resourceId || d.name === name)
+    const ownerProfile = directory?.byAccount?.(app.account)
     const taskItem = {
       taskId: app.ticketNo,
       source: src,
       datasetName: name,
+      ownerName: ownerProfile?.name || dsMatch?.ownerName || app.account || '—',
+      org: ownerProfile?.org || app.org || dsMatch?.org || '待归属',
       stage,
       progress,
       duration,
@@ -275,7 +279,7 @@ export async function knowledgeMonitorReport({
 
     // 关键字过滤
     if (q) {
-      const match = [taskItem.taskId, taskItem.datasetName, taskItem.ticketNo, taskItem.source, taskItem.status].some(
+      const match = [taskItem.taskId, taskItem.datasetName, taskItem.ownerName, taskItem.org, taskItem.ticketNo, taskItem.source, taskItem.status].some(
         str => str && str.toLowerCase().includes(q)
       )
       if (!match) continue
@@ -303,6 +307,8 @@ export async function knowledgeMonitorReport({
       taskId: ds.resourceId,
       source: ds.source,
       datasetName: ds.name,
+      ownerName: ds.ownerName || ds.ownerAccount || '—',
+      org: ds.org || '待归属',
       stage: '索引就绪',
       progress: '100%',
       duration: '—',
@@ -311,7 +317,7 @@ export async function knowledgeMonitorReport({
       updatedAt: ds.updatedAt,
     }
     if (q) {
-      const match = [taskItem.taskId, taskItem.datasetName, taskItem.source, taskItem.status].some(
+      const match = [taskItem.taskId, taskItem.datasetName, taskItem.ownerName, taskItem.org, taskItem.source, taskItem.status].some(
         str => str && str.toLowerCase().includes(q),
       )
       if (!match) continue

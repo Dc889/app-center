@@ -28,6 +28,8 @@ type TaskItem = {
   taskId: string
   source: string
   datasetName: string
+  ownerName?: string
+  org?: string
   stage: string
   progress: string
   duration: string
@@ -95,6 +97,7 @@ export function KnowledgeMonitor({
   const [data, setData] = useState<KnowledgeMonitorModel | null>(null)
   const [insights, setInsights] = useState<InsightsModel | null>(null)
   const [tierFilter, setTierFilter] = useState<'全部' | '标杆推荐' | '正常活跃' | '僵尸待治理' | '变更待复审'>('全部')
+  const [insightSearch, setInsightSearch] = useState('')
   const [driftBusy, setDriftBusy] = useState(false)
   const [driftMsg, setDriftMsg] = useState('')
 
@@ -215,10 +218,10 @@ export function KnowledgeMonitor({
           </ResponsiveContainer>
         </div>
         <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <h3>构建任务追踪 ({data?.tasks.total ?? 0})</h3>
+          <h3>知识库台账与构建任务追踪 ({data?.tasks.total ?? 0})</h3>
           <form onSubmit={event => { event.preventDefault(); setKeyword(queryInput.trim()); setPage(1) }} style={{ display: 'flex', gap: 6 }}>
             <div style={{ position: 'relative' }}>
-              <input aria-label="搜索构建任务" placeholder="搜索任务、知识库或工单号..." value={queryInput} onChange={event => setQueryInput(event.target.value)} style={{ padding: '6px 12px 6px 28px', fontSize: 12, borderRadius: 6, border: '1px solid #d1d5db', width: 220 }} />
+              <input aria-label="搜索构建任务" placeholder="搜索知识库、所有者、组织或工单..." value={queryInput} onChange={event => setQueryInput(event.target.value)} style={{ padding: '6px 12px 6px 28px', fontSize: 12, borderRadius: 6, border: '1px solid #d1d5db', width: 240 }} />
               <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
             </div>
             <button type="submit" className="secondary-button" style={{ padding: '6px 12px', fontSize: 12 }}>搜索</button>
@@ -226,13 +229,15 @@ export function KnowledgeMonitor({
         </div>
         <div className="table-wrap">
           <table data-testid="knowledge-tasks-table">
-            <thead><tr><th>任务 ID</th><th>来源系统</th><th>知识库名称</th><th>当前阶段</th><th>进度</th><th>持续时长</th><th>状态</th><th>关联工单</th><th>操作</th></tr></thead>
+            <thead><tr><th>任务 / 知识库 ID</th><th>来源系统</th><th>知识库名称</th><th>所有者</th><th>所属组织</th><th>当前阶段</th><th>进度</th><th>持续时长</th><th>状态</th><th>关联工单</th><th>操作</th></tr></thead>
             <tbody>
               {data && data.tasks.items.length > 0 ? data.tasks.items.map(row => (
                 <tr key={row.taskId}>
                   <td style={{ fontFamily: 'monospace' }}>{row.taskId}</td>
                   <td>{row.source}</td>
-                  <td>{row.datasetName}</td>
+                  <td style={{ fontWeight: 500 }}>{row.datasetName}</td>
+                  <td>{row.ownerName || '—'}</td>
+                  <td>{row.org || '待归属'}</td>
                   <td>{row.stage}</td>
                   <td>{row.progress}</td>
                   <td>{row.duration || '未采集'}</td>
@@ -240,7 +245,7 @@ export function KnowledgeMonitor({
                   <td style={{ fontFamily: 'monospace' }}>{row.ticketNo}</td>
                   <td>{onWorkOrder && <button className="row-action" onClick={() => onWorkOrder(`知识库任务 · ${row.datasetName} (${row.ticketNo})`)}>打开工单 <ArrowRight size={12} /></button>}</td>
                 </tr>
-              )) : <tr><td colSpan={9}>{loading ? '正在加载数据...' : '当前筛选条件下暂无构建任务'}</td></tr>}
+              )) : <tr><td colSpan={11}>{loading ? '正在加载数据...' : '当前筛选条件下暂无知识库记录'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -294,9 +299,9 @@ export function KnowledgeMonitor({
         <section className="panel overview-block" data-testid="knowledge-insights-ranking" style={{ marginTop: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
             <div>
-              <h3 style={{ margin: 0 }}>优秀知识库综合排行与后台私改指纹检测</h3>
+              <h3 style={{ margin: 0 }}>知识库全量台账 · 优秀排行与后台私改指纹检测 ({insights.items.length})</h3>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: '#667085' }}>
-                按复用热度 40% + 检索命中质量 35% + 维护健康度 25% 综合评分，自动识别标杆知识库、僵尸待治理库及 Dify 后台私改变更。
+                按复用热度 40% + 检索命中质量 35% + 维护健康度 25% 综合评分，完整展示全部纳管知识库的所有者、所属组织及 Dify 后台私改状态。
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -311,10 +316,22 @@ export function KnowledgeMonitor({
 
           {driftMsg && <p role="status" style={{ fontSize: 13, color: '#027a48', fontWeight: 500, marginBottom: 10 }}>{driftMsg}</p>}
 
-          <div className="usable-switch" style={{ marginBottom: 12 }}>
-            {(['全部', '标杆推荐', '正常活跃', '僵尸待治理', '变更待复审'] as const).map(t => (
-              <button key={t} type="button" className={tierFilter === t ? 'active' : ''} onClick={() => setTierFilter(t)}>{t}</button>
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+            <div className="usable-switch">
+              {(['全部', '标杆推荐', '正常活跃', '僵尸待治理', '变更待复审'] as const).map(t => (
+                <button key={t} type="button" className={tierFilter === t ? 'active' : ''} onClick={() => setTierFilter(t)}>{t}</button>
+              ))}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                aria-label="搜索知识库台账"
+                placeholder="搜索知识库名称、所有者或所属组织..."
+                value={insightSearch}
+                onChange={e => setInsightSearch(e.target.value)}
+                style={{ paddingLeft: 28, width: 240 }}
+              />
+              <Search size={14} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+            </div>
           </div>
 
           <div className="org-table-wrap">
@@ -322,7 +339,8 @@ export function KnowledgeMonitor({
               <thead>
                 <tr>
                   <th>排名</th>
-                  <th>知识库名称 / 负责人</th>
+                  <th>知识库名称</th>
+                  <th>所有者</th>
                   <th>所属组织</th>
                   <th>关联智能体</th>
                   <th>30天检索</th>
@@ -333,13 +351,21 @@ export function KnowledgeMonitor({
                 </tr>
               </thead>
               <tbody>
-                {insights.items.filter(i => tierFilter === '全部' || i.tier === tierFilter).slice(0, 20).map((item, idx) => (
+                {insights.items
+                  .filter(i => tierFilter === '全部' || i.tier === tierFilter)
+                  .filter(i => {
+                    const q = insightSearch.trim().toLowerCase()
+                    if (!q) return true
+                    return [i.name, i.ownerName, i.org, i.workspaceName].some(v => String(v || '').toLowerCase().includes(q))
+                  })
+                  .map((item, idx) => (
                   <tr key={item.resourceId}>
                     <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>#{idx + 1}</td>
                     <td>
                       <strong>{item.name}</strong>
-                      <div style={{ fontSize: 12, color: '#667085' }}>{item.ownerName} · {item.workspaceName}</div>
+                      <div style={{ fontSize: 12, color: '#667085' }}>{item.workspaceName}</div>
                     </td>
+                    <td style={{ fontWeight: 500 }}>{item.ownerName}</td>
                     <td>{item.org}</td>
                     <td style={{ fontWeight: 600 }}>{item.appCount}</td>
                     <td style={{ fontFamily: 'monospace' }}>{item.queryCount30d} / {item.totalQueries}</td>
