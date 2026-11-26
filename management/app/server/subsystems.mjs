@@ -1,4 +1,4 @@
-import {createCipheriv, createDecipheriv, createHash, randomBytes} from 'node:crypto'
+import {constants as cryptoConstants, createCipheriv, createDecipheriv, createHash, publicEncrypt, randomBytes} from 'node:crypto'
 import pg from 'pg'
 import {body, check, id, json, ledger} from '../../../runtime/http.mjs'
 
@@ -986,6 +986,235 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
     }
   }
 
+function aes128EcbBlock(key, block) {
+  const c = createCipheriv('aes-128-ecb', key, null)
+  c.setAutoPadding(false)
+  return Buffer.concat([c.update(block), c.final()])
+}
+
+function xorBuf(a, b) {
+  const out = Buffer.alloc(a.length)
+  for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i]
+  return out
+}
+
+function cmacSubkeys(key) {
+  const zero = Buffer.alloc(16, 0)
+  const L = aes128EcbBlock(key, zero)
+  const dbl = (buf) => {
+    const out = Buffer.alloc(16)
+    let carry = 0
+    for (let i = 15; i >= 0; i--) {
+      const v = (buf[i] << 1) | carry
+      out[i] = v & 0xff
+      carry = (buf[i] & 0x80) ? 1 : 0
+    }
+    if (buf[0] & 0x80) out[15] ^= 0x87
+    return out
+  }
+  const K1 = dbl(L)
+  const K2 = dbl(K1)
+  return {K1, K2}
+}
+
+function omac1(key, tagByte, data) {
+  const {K1, K2} = cmacSubkeys(key)
+  const prefix = Buffer.alloc(16, 0)
+  prefix[15] = tagByte
+  const msg = Buffer.concat([prefix, data])
+  const n = Math.ceil(msg.length / 16)
+  const complete = msg.length > 0 && msg.length % 16 === 0
+  let state = Buffer.alloc(16, 0)
+  for (let i = 0; i < n - 1; i++) {
+    state = aes128EcbBlock(key, xorBuf(state, msg.subarray(i * 16, (i + 1) * 16)))
+  }
+  const lastSlice = msg.subarray((n - 1) * 16)
+  let lastBlock
+  if (complete) {
+    lastBlock = xorBuf(lastSlice, K1)
+  } else {
+    const padded = Buffer.alloc(16, 0)
+    lastSlice.copy(padded, 0)
+    padded[lastSlice.length] = 0x80
+    lastBlock = xorBuf(padded, K2)
+  }
+  return aes128EcbBlock(key, xorBuf(state, lastBlock))
+}
+
+// Dify 1.7.1 compatible HYBRID: RSA-OAEP(SHA-1) + AES-128-EAX encryption
+function encryptDifyHybrid(text, publicKeyPem) {
+  const aesKey = randomBytes(16)
+  const nonce = randomBytes(16)
+  const plain = Buffer.from(String(text ?? ''), 'utf8')
+  const N = omac1(aesKey, 0, nonce)
+  const H = omac1(aesKey, 1, Buffer.alloc(0))
+  const ctr = createCipheriv('aes-128-ctr', aesKey, N)
+  const ciphertext = Buffer.concat([ctr.update(plain), ctr.final()])
+  const C = omac1(aesKey, 2, ciphertext)
+  const tag = xorBuf(xorBuf(N, H), C)
+  const encAesKey = publicEncrypt(
+    {key: String(publicKeyPem), padding: cryptoConstants.RSA_PKCS1_OAEP_PADDING, oaepHash: 'sha1'},
+    aesKey,
+  )
+  return Buffer.concat([Buffer.from('HYBRID:', 'ascii'), encAesKey, nonce, tag, ciphertext]).toString('base64')
+}
+
+function connectDefaultDifyDb(store) {
+  const all = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
+  const rec = all.find(r => r.isDefault) ?? all[0] ?? null
+  if (!rec) return null
+  const password = decryptSecret(rec.secrets?.dbPassword)
+  return new pg.Client({
+    host: String(rec.dbHost).trim(),
+    port: Number(rec.dbPort) || 5432,
+    database: String(rec.dbName || 'dify').trim(),
+    user: String(rec.dbUser).trim(),
+    password,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 15000,
+  })
+}
+
+  async function batchUpsertDifyModel({
+    workspaceIds = null,
+    providerName = 'langgenius/openai_api_compatible/openai_api_compatible',
+    modelName,
+    modelType = 'text-generation',
+    displayName = '',
+    endpointUrl = '',
+    apiKey = '',
+    contextSize = '4096',
+    maxTokens = '4096',
+    mode = 'chat',
+  }) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    try {
+      await client.connect()
+      const tenantsRes = workspaceIds && workspaceIds.length > 0
+        ? await client.query(`SELECT id::text AS id, name, encrypt_public_key FROM tenants WHERE id::text = ANY($1::text[])`, [workspaceIds])
+        : await client.query(`SELECT id::text AS id, name, encrypt_public_key FROM tenants ORDER BY created_at ASC`)
+      let succeeded = 0
+      let failed = 0
+      const errors = []
+      for (const t of tenantsRes.rows) {
+        try {
+          const cfg = {
+            mode: mode || 'chat',
+            api_type: 'chat_completions',
+            context_size: String(contextSize || '4096'),
+            display_name: displayName || modelName,
+            endpoint_url: endpointUrl,
+            max_tokens_to_sample: String(maxTokens || '4096'),
+            stream_include_usage: 'enabled',
+            compatibility_mode: 'strict',
+            token_param_name: 'auto',
+            stream_mode_auth: 'not_use',
+            stream_mode_delimiter: '\\n\\n',
+            user_identity_support: 'support',
+            enable_request_metadata: 'disabled',
+            vision_support: 'no_support',
+            audio_support: 'no_support',
+            video_support: 'no_support',
+            document_support: 'no_support',
+            agent_thought_support: 'not_supported',
+            function_calling_type: 'no_call',
+            stream_function_calling: 'not_supported',
+            structured_output_support: 'not_supported',
+            web_search_support: 'not_supported',
+          }
+          if (apiKey && t.encrypt_public_key) {
+            cfg.api_key = encryptDifyHybrid(apiKey, t.encrypt_public_key)
+          }
+          await client.query(
+            `INSERT INTO provider_models (id, tenant_id, provider_name, model_name, model_type, encrypted_config, is_valid, created_at, updated_at)
+             VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5, true, CURRENT_TIMESTAMP(0), CURRENT_TIMESTAMP(0))
+             ON CONFLICT (tenant_id, provider_name, model_name, model_type)
+             DO UPDATE SET encrypted_config = EXCLUDED.encrypted_config, is_valid = true, updated_at = CURRENT_TIMESTAMP(0)`,
+            [t.id, providerName, modelName, modelType, JSON.stringify(cfg)],
+          )
+          const existSet = await client.query(
+            `SELECT id FROM provider_model_settings WHERE tenant_id = $1::uuid AND provider_name = $2 AND model_name = $3 AND model_type = $4 LIMIT 1`,
+            [t.id, providerName, modelName, modelType],
+          )
+          if (existSet.rows.length > 0) {
+            await client.query(`UPDATE provider_model_settings SET enabled = true, updated_at = CURRENT_TIMESTAMP(0) WHERE id = $1`, [existSet.rows[0].id])
+          } else {
+            await client.query(
+              `INSERT INTO provider_model_settings (id, tenant_id, provider_name, model_name, model_type, enabled, load_balancing_enabled, created_at, updated_at)
+               VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, true, false, CURRENT_TIMESTAMP(0), CURRENT_TIMESTAMP(0))`,
+              [t.id, providerName, modelName, modelType],
+            )
+          }
+          succeeded += 1
+        } catch (err) {
+          failed += 1
+          errors.push(`${t.name || t.id}: ${err?.message || err}`)
+        }
+      }
+      return {ok: failed === 0 && succeeded > 0, totalTenants: tenantsRes.rows.length, succeeded, failed, errors: errors.slice(0, 10)}
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
+  async function batchDeleteDifyModel({workspaceIds = null, providerName, modelName, modelType = null}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    try {
+      await client.connect()
+      const params = [providerName, modelName]
+      let where = `provider_name = $1 AND model_name = $2`
+      if (modelType) { params.push(modelType); where += ` AND model_type = $${params.length}` }
+      if (workspaceIds && workspaceIds.length > 0) { params.push(workspaceIds); where += ` AND tenant_id::text = ANY($${params.length}::text[])` }
+      const delModels = await client.query(`DELETE FROM provider_models WHERE ${where}`, params)
+      const delSettings = await client.query(`DELETE FROM provider_model_settings WHERE ${where}`, params)
+      try {
+        await client.query(`DELETE FROM tenant_default_models WHERE ${where}`, params)
+      } catch {}
+      return {ok: true, deletedModels: delModels.rowCount ?? 0, deletedSettings: delSettings.rowCount ?? 0}
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
+  async function batchToggleDifyModel({workspaceIds = null, providerName, modelName, modelType = 'text-generation', enabled}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    try {
+      await client.connect()
+      const tenantsRes = workspaceIds && workspaceIds.length > 0
+        ? await client.query(`SELECT id::text AS id FROM tenants WHERE id::text = ANY($1::text[])`, [workspaceIds])
+        : await client.query(`SELECT DISTINCT tenant_id::text AS id FROM provider_models WHERE provider_name = $1 AND model_name = $2 UNION SELECT DISTINCT tenant_id::text AS id FROM provider_model_settings WHERE provider_name = $1 AND model_name = $2`, [providerName, modelName])
+      let affected = 0
+      for (const row of tenantsRes.rows) {
+        const ex = await client.query(
+          `SELECT id FROM provider_model_settings WHERE tenant_id = $1::uuid AND provider_name = $2 AND model_name = $3 AND model_type = $4 LIMIT 1`,
+          [row.id, providerName, modelName, modelType],
+        )
+        if (ex.rows.length > 0) {
+          await client.query(`UPDATE provider_model_settings SET enabled = $1, updated_at = CURRENT_TIMESTAMP(0) WHERE id = $2`, [Boolean(enabled), ex.rows[0].id])
+        } else {
+          await client.query(
+            `INSERT INTO provider_model_settings (id, tenant_id, provider_name, model_name, model_type, enabled, load_balancing_enabled, created_at, updated_at)
+             VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5, false, CURRENT_TIMESTAMP(0), CURRENT_TIMESTAMP(0))`,
+            [row.id, providerName, modelName, modelType, Boolean(enabled)],
+          )
+        }
+        affected += 1
+      }
+      return {ok: true, affected, enabled: Boolean(enabled)}
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
   return {
     handle: async (req, res, path, actor) => {
       if (path === '/api/subsystems' && req.method === 'GET') {
@@ -1001,6 +1230,9 @@ export function subsystemRegistry(dir, actorSnapshot, {directory} = {}) {
     },
     getDifyInventory: collectDifyInventory,
     setDifyModelEnabled,
+    batchUpsertDifyModel,
+    batchDeleteDifyModel,
+    batchToggleDifyModel,
     refreshDifyInventory: async () => {
       const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
       for (const rec of enabled) {

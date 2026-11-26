@@ -4,6 +4,7 @@ export * from './web/AccountMonitor'
 export * from './web/TenantModelMonitor'
 export * from './web/ProfilePage'
 export * from './web/SelfServiceAccountForms'
+export * from './web/ModelBatchTicketForm'
 
 import {createElement} from 'react'
 import {defineWebModule} from '../../shared-ui/module-contracts'
@@ -12,6 +13,7 @@ import {AccountMonitor} from './web/AccountMonitor'
 import {TenantModelMonitor} from './web/TenantModelMonitor'
 import {ProfilePage} from './web/ProfilePage'
 import {HandoverTicketForm, ModelQuotaTicketForm, OrgRoleTicketForm} from './web/SelfServiceAccountForms'
+import {ModelBatchTicketForm} from './web/ModelBatchTicketForm'
 
 export const moduleWeb = defineWebModule({
   id: 'accounts',
@@ -26,5 +28,6 @@ export const moduleWeb = defineWebModule({
     'ACC-03': () => createElement(HandoverTicketForm, {key: 'ACC-03'}),
     'ACC-04': () => createElement(OrgRoleTicketForm, {key: 'ACC-04'}),
     'MOD-01': () => createElement(ModelQuotaTicketForm, {key: 'MOD-01'}),
+    'MOD-02': () => createElement(ModelBatchTicketForm, {key: 'MOD-02'}),
   },
 })

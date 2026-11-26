@@ -98,6 +98,34 @@ function pillTone(status: string) {
   return 'tone-muted'
 }
 
+type ModelBatchSnapshot = {
+  canApprove: boolean
+  uniqueModels: {
+    key: string
+    providerName: string
+    modelName: string
+    modelType: string
+    configuredWorkspacesCount: number
+    enabledWorkspacesCount: number
+    totalWorkspacesCount: number
+    monthlyTokens: number
+    monthlyCalls: number
+  }[]
+  templates: {providerName: string; modelName: string; endpointUrl: string}[]
+  tickets: {
+    ticketNo: string
+    operationType: string
+    providerName: string | null
+    modelName: string | null
+    targetWorkspaceName: string | null
+    reason: string
+    applicantName: string
+    status: string
+    executionSummary: string | null
+    reviewNote: string | null
+  }[]
+}
+
 export function TenantModelMonitor({
   role,
   onNavigate,
@@ -106,6 +134,7 @@ export function TenantModelMonitor({
   onNavigate?: (view: View, ticketType?: string | null) => void
 }) {
   const [report, setReport] = useState<Report | null>(null)
+  const [batchData, setBatchData] = useState<ModelBatchSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
@@ -119,14 +148,17 @@ export function TenantModelMonitor({
   useEffect(() => {
     const c = new AbortController()
     setLoading(true)
-    fetch('/api/model-quotas', {signal: c.signal})
-      .then(async r => {
+    Promise.all([
+      fetch('/api/model-quotas', {signal: c.signal}).then(async r => {
         if (!r.ok) throw new Error('读取租户与模型监控数据失败')
         return r.json()
-      })
-      .then(data => {
+      }),
+      fetch('/api/model-batch', {signal: c.signal}).then(async r => (r.ok ? r.json() : null)),
+    ])
+      .then(([data, batch]) => {
         if (!c.signal.aborted) {
           setReport(data)
+          if (batch) setBatchData(batch)
           setErr('')
         }
       })
@@ -144,6 +176,32 @@ export function TenantModelMonitor({
       sessionStorage.setItem('mod01-prefill', JSON.stringify({key: item.key, operationType}))
     } catch {}
     onNavigate?.('manual', 'MOD-01')
+  }
+
+  const openMod02Ticket = (prefill: Record<string, string>) => {
+    try {
+      sessionStorage.setItem('mod02-prefill', JSON.stringify(prefill))
+    } catch {}
+    onNavigate?.('manual', 'MOD-02')
+  }
+
+  const reviewBatchTicket = async (ticketNo: string, decision: 'approve' | 'reject') => {
+    setBusy(ticketNo); setErr(''); setMsg('')
+    try {
+      const r = await fetch('/api/model-batch/approve', {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({ticketNo, decision}),
+      })
+      const body = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(body?.message || body?.error?.message || '审批执行失败')
+      setMsg(decision === 'approve' ? (body.executionSummary || `工单 ${ticketNo} 已审批执行`) : `工单 ${ticketNo} 已驳回`)
+      setRevision(n => n + 1)
+    } catch (e: any) {
+      setErr(e?.message || '审批执行失败')
+    } finally {
+      setBusy('')
+    }
   }
 
   const focusWorkspaceModels = (workspaceId: string) => {
@@ -459,6 +517,96 @@ export function TenantModelMonitor({
               </table>
             </div>
           </section>
+
+          {batchData && (
+            <section className="panel overview-block" data-testid="model-batch-panel">
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12}}>
+                <div>
+                  <h3 style={{margin: 0}}>全员模型批量配置与下线管控 · MOD-02</h3>
+                  <div style={{fontSize: 12, color: '#667085', marginTop: 2}}>
+                    统一向全平台所有 Dify 账号配置并按租户公钥加密下发模型、新户默认配齐或全员批量删除下线
+                  </div>
+                </div>
+                <div style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+                  <button type="button" className="primary-button" onClick={() => openMod02Ticket({operationType: '全员统一配置模型'})}>
+                    全员统一配置模型
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => openMod02Ticket({operationType: '新户默认配齐公共模型'})}>
+                    新户默认配齐公共模型
+                  </button>
+                </div>
+              </div>
+
+              <div className="org-table-wrap" style={{marginBottom: batchData.tickets.length > 0 ? 16 : 0}}>
+                <table className="org-table">
+                  <thead>
+                    <tr>
+                      <th>模型名称</th><th>供应商</th><th>模型类型</th><th>租户覆盖</th><th>本月 Token</th><th>全员批量管控工单</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchData.uniqueModels.length > 0 ? batchData.uniqueModels.map(m => (
+                      <tr key={m.key}>
+                        <td style={{fontWeight: 600}}>{m.modelName}</td>
+                        <td><code className="org-code">{m.providerName}</code></td>
+                        <td>{m.modelType}</td>
+                        <td>{m.configuredWorkspacesCount} / {m.totalWorkspacesCount} 租户（启用 {m.enabledWorkspacesCount}）</td>
+                        <td style={{fontFamily: 'monospace'}}>{m.monthlyTokens.toLocaleString()}</td>
+                        <td>
+                          <div style={{display: 'flex', gap: 6, flexWrap: 'wrap'}}>
+                            <button type="button" className="secondary-button compact" onClick={() => openMod02Ticket({operationType: '全员批量启用模型', modelKey: m.key})}>
+                              全员启用
+                            </button>
+                            <button type="button" className="secondary-button compact" onClick={() => openMod02Ticket({operationType: '全员批量禁用模型', modelKey: m.key})}>
+                              全员禁用
+                            </button>
+                            <button type="button" className="secondary-button compact" style={{color: '#b42318'}} onClick={() => openMod02Ticket({operationType: '全员统一删除模型', modelKey: m.key})}>
+                              全员删除
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={6} style={{textAlign: 'center', color: '#667085', padding: '20px 0'}}>暂无已配置的跨租户模型，可点击右上角「全员统一配置模型」发起 MOD-02 工单</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {batchData.tickets.length > 0 && (
+                <div>
+                  <div style={{fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 8}}>MOD-02 全员模型批量工单审批</div>
+                  <div className="org-table-wrap">
+                    <table className="org-table">
+                      <thead>
+                        <tr><th>工单号</th><th>操作类型</th><th>目标对象</th><th>申请人</th><th>申请原因</th><th>状态</th><th>审批与执行结果</th></tr>
+                      </thead>
+                      <tbody>
+                        {batchData.tickets.slice(0, 10).map(t => (
+                          <tr key={t.ticketNo}>
+                            <td><code className="org-code">{t.ticketNo}</code></td>
+                            <td>{t.operationType}</td>
+                            <td>{t.targetWorkspaceName || t.modelName || '-'}</td>
+                            <td>{t.applicantName}</td>
+                            <td>{t.reason}</td>
+                            <td><span className={`app-status-pill ${pillTone(t.status)}`}>{t.status}</span></td>
+                            <td>
+                              {t.status === '待审批' && batchData.canApprove ? (
+                                <div style={{display: 'flex', gap: 6}}>
+                                  <button type="button" className="secondary-button compact" style={{color: '#027a48'}} disabled={busy === t.ticketNo} onClick={() => reviewBatchTicket(t.ticketNo, 'approve')}>批准执行</button>
+                                  <button type="button" className="secondary-button compact" style={{color: '#b42318'}} disabled={busy === t.ticketNo} onClick={() => reviewBatchTicket(t.ticketNo, 'reject')}>驳回</button>
+                                </div>
+                              ) : (t.executionSummary || t.reviewNote || '-')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           {report.tickets.length > 0 && (
             <section className="panel overview-block">
