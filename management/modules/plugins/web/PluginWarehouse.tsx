@@ -42,6 +42,7 @@ export function PluginWarehouse({role}: {role: Role}) {
   const [usableTab, setUsableTab] = useState<'全部' | '可直接使用' | '暂不可用'>('全部')
   const [methodFilter, setMethodFilter] = useState<'全部方式' | '直接安装' | '申请安装'>('全部方式')
   const [selectedId, setSelectedId] = useState('')
+  const [versions, setVersions] = useState<{version: string; status?: string; publishedAt?: string}[]>([])
   const request = useRef(0)
   const [reload, setReload] = useState(0)
 
@@ -101,6 +102,20 @@ export function PluginWarehouse({role}: {role: Role}) {
     return true
   })
   const selected = filtered.find(item => item.resourceId === selectedId) ?? filtered[0]
+
+  useEffect(() => {
+    if (!selected?.resourceId) { setVersions([]); return }
+    let active = true
+    fetch(`/api/catalog/plugin/${encodeURIComponent(selected.resourceId)}/versions`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!active) return
+        const list = Array.isArray(d?.versions) ? d.versions : Array.isArray(d?.items) ? d.items : []
+        setVersions(list)
+      })
+      .catch(() => { if (active) setVersions([]) })
+    return () => { active = false }
+  }, [selected?.resourceId])
 
   return (
     <div data-testid="plugin-warehouse">
@@ -241,6 +256,41 @@ export function PluginWarehouse({role}: {role: Role}) {
             {filtered.length === 0 && !loading && <div className="agent-empty">没有符合当前筛选的插件。</div>}
           </div>
         </div>
+
+        {selected && (
+          <aside className="panel agent-detail" data-testid="plugin-detail-panel">
+            <div className="agent-detail-head">
+              <span className="dify-tile-icon tone-plugin"><PackageCheck size={20} /></span>
+              <div>
+                <span className="mini-label">{selected.install} · {selected.data?.installAccess === 'instant' ? '直接安装' : '需审批安装'}</span>
+                <h3>{selected.name}</h3>
+                <p>{typeof selected.data?.description === 'string' && selected.data.description ? selected.data.description : '已审批入库的标准 Dify 插件'}</p>
+              </div>
+            </div>
+            <div className="detail-block">
+              <h4>历史版本列表</h4>
+              <div className="table-wrap">
+                <table className="release-table">
+                  <thead>
+                    <tr><th>版本号</th><th>状态</th><th>发布说明</th></tr>
+                  </thead>
+                  <tbody>
+                    {(versions.length > 0 ? versions : [{
+                      version: typeof selected.data?.version === 'string' ? selected.data.version : '1.0.0',
+                      status: selected.status === 'approved' ? '当前生效' : selected.status,
+                    }]).map((ver, idx) => (
+                      <tr key={`${ver.version}-${idx}`}>
+                        <td>v{ver.version}{idx === 0 && <i>当前</i>}</td>
+                        <td>{ver.status === 'approved' || ver.status === 'available' ? '可用' : (ver.status || '可用')}</td>
+                        <td>{ver.publishedAt ? new Date(ver.publishedAt).toLocaleDateString('zh-CN') : '通过静态安全扫描入库'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
       <p data-role={role} hidden>插件仓库</p>
     </div>

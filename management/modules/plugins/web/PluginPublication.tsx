@@ -18,7 +18,7 @@ const PLG_INST_PRESETS = [
 export function PluginPublication() {
   const orgs = useOrgOptions()
   const [upload,setUpload]=useState<Intake|null>(null)
-  const [form,setForm]=useState({description:'',instructions:'',permissions:'读取文本',accessMode:'公开免审安装',visibleOrgs:'',installationMethod:'本地包'})
+  const [form,setForm]=useState({name:'',description:'',instructions:'',permissions:'读取文本',accessMode:'公开免审安装',visibleOrgs:'',installationMethod:'本地包'})
   const [network,setNetwork]=useState<{domain:string;port:string;purpose:string}[]>([])
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState('')
@@ -44,7 +44,8 @@ export function PluginPublication() {
   }
 
   return <fieldset className="form-section" disabled={busy || uploadBusy || draft.controller.busy}><legend>插件上架申请</legend>
-    <UploadIntake kind="plugin" key={restoreKey} initialReference={restoredReference} onReference={setIntakeId} onBusyChange={setUploadBusy} onReady={setUpload}/>
+    <UploadIntake kind="plugin" key={restoreKey} initialReference={restoredReference} onReference={setIntakeId} onBusyChange={setUploadBusy} onReady={(item)=>{setUpload(item);if(item?.packageMetadata?.name && !form.name)setForm(prev=>({...prev,name:String(item.packageMetadata?.name || '')}))}}/>
+    <label>插件名称<input value={form.name || upload?.packageMetadata?.name || ''} placeholder="上传插件包后自动读取，也可手动调整展示名称" onChange={e=>setForm({...form,name:e.target.value})}/></label>
     {upload?.packageMetadata && (
       <div className="app-audit-card is-pass" style={{marginBlock:10}}>
         <div className="app-audit-head">

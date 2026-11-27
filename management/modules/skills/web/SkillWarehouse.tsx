@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
-import {ChevronRight, PackageCheck, Search, Trophy} from 'lucide-react'
-import type {Role} from '../../../shared-ui/UiContextData'
+import {ChevronRight, Download, PackageCheck, Search, Trophy} from 'lucide-react'
+import {personOf, type Role} from '../../../shared-ui/UiContextData'
 import {PageHeader} from '../../../shared-ui/UiContext'
 
 type CatalogItem = {
@@ -50,6 +50,58 @@ export function SkillWarehouse({role}: {role: Role; onWorkOrder?: (title: string
   const [usableTab, setUsableTab] = useState<'全部' | '可直接使用' | '暂不可用'>('全部')
   const [methodFilter, setMethodFilter] = useState<'全部方式' | '直接下载' | '申请下载'>('全部方式')
   const [selectedId, setSelectedId] = useState('')
+  const [dlBusy, setDlBusy] = useState(false)
+  const [dlNotice, setDlNotice] = useState('')
+  const [dlResult, setDlResult] = useState<{ticketNo: string; skillName: string; downloadUrl?: string; ok?: boolean; status?: string} | null>(null)
+
+  async function requestDownload(item: Entry) {
+    setSelectedId(item.id)
+    setDlBusy(true)
+    setDlNotice('')
+    try {
+      const account = personOf(role).account
+      const ticketNo = 'SKL-03-' + crypto.randomUUID()
+      const r = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({ticketNo, ticketType: 'SKL-03', action: 'download', resourceId: item.id, account}),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data?.error?.message ?? '申领下载失败')
+      setDlResult({ticketNo: data.ticketNo || ticketNo, skillName: item.name, downloadUrl: data.downloadUrl, ok: data.ok, status: data.status})
+    } catch (e: any) {
+      setDlNotice(e?.message || '申领下载失败')
+    } finally {
+      setDlBusy(false)
+    }
+  }
+
+  async function saveDownloadedFile() {
+    if (!dlResult?.downloadUrl) return
+    setDlBusy(true)
+    setDlNotice('')
+    try {
+      const r = await fetch(dlResult.downloadUrl)
+      if (!r.ok) throw new Error('文件暂不可领取，请稍后重试')
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? `${dlResult.skillName}.zip`
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      const st = await fetch('/api/tickets/' + encodeURIComponent(dlResult.ticketNo))
+      if (st.ok) {
+        const updated = await st.json()
+        setDlResult(prev => prev ? {...prev, ok: updated.ok, status: updated.status, downloadUrl: updated.downloadUrl} : null)
+      }
+      setRefresh(v => v + 1)
+    } catch (e: any) {
+      setDlNotice(e?.message || '文件下载失败')
+    } finally {
+      setDlBusy(false)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -176,7 +228,25 @@ export function SkillWarehouse({role}: {role: Role; onWorkOrder?: (title: string
         {nextCursor && <button className="secondary-button" disabled={loading} onClick={() => { setLoading(true); setCursor(nextCursor) }}>加载更多</button>}
       </div>
 
-      {/* 5. 内嵌可滑动 Dify 风格矩形图标块展示区 + 右侧详情抽屉 */}
+      {/* 5. 页内即办下载结果区 */}
+      {dlNotice && <div className="app-banner danger" role="alert" style={{marginBottom: 12}}>{dlNotice}</div>}
+      {dlResult && (
+        <div className="app-banner info" data-testid="skill-download-result" style={{marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10}}>
+          <span>
+            <strong>{dlResult.skillName}</strong> · {dlResult.ok ? '交付已完成（可在「我的申请」查看回执）' : '已生成免审下载回执，请点击右侧保存压缩包'}
+          </span>
+          <div style={{display: 'flex', gap: 8}}>
+            {dlResult.downloadUrl && (
+              <button type="button" className="primary-button compact" disabled={dlBusy} onClick={() => void saveDownloadedFile()}>
+                <Download size={14} /> 下载文件
+              </button>
+            )}
+            <button type="button" className="secondary-button compact" onClick={() => setDlResult(null)}>收起</button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. 内嵌可滑动 Dify 风格矩形图标块展示区 + 右侧详情抽屉 */}
       <div className="warehouse-layout">
         <div className="dify-catalog-scroll">
           <div className="dify-tile-grid" data-testid="skill-grid">
@@ -213,10 +283,10 @@ export function SkillWarehouse({role}: {role: Role; onWorkOrder?: (title: string
                         <button
                           type="button"
                           className="secondary-button compact"
+                          disabled={dlBusy}
                           onClick={(event) => {
                             event.stopPropagation()
-                            window.history.pushState({}, '', '/manual/SKL-03')
-                            window.dispatchEvent(new PopStateEvent('popstate'))
+                            void requestDownload(item)
                           }}
                         >
                           申请下载

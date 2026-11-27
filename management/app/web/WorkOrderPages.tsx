@@ -348,7 +348,7 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
   useEffect(()=>{
     if(view==='todo') return
     let active=true
-    const params=view==='query'?'view=query':'account='+encodeURIComponent(personOf(role).account)
+    const params=view==='query'?'view=query':'view=mine'
     fetch('/api/tickets?'+params).then(async response=>{
       if(!response.ok) throw Error('读取工单失败')
       const {items:tickets}=await response.json()
@@ -387,7 +387,15 @@ export function TicketList({ view, role }: { view: 'mine' | 'todo' | 'query'; ro
         </button>
       ))}
     </nav>
-    {activeTab === 'applications' && <ApplicationDesk view={view} account={personOf(role).account}/>}
+    {activeTab === 'applications' && <>
+      <ApplicationDesk view={view} account={personOf(role).account}/>
+      {view === 'mine' && items.length > 0 && (
+        <section className="panel list-panel" style={{marginTop: 16}}>
+          <div className="panel-header"><div><h3>近期即办执行流水（下载 / 免审执行）</h3></div></div>
+          <DataTable columns={columns} rows={rows} onAction={row=>{setSelected(row[0]);setActiveTab('tickets')}}/>
+        </section>
+      )}
+    </>}
     {activeTab === 'events' && <EventDesk view={view} account={personOf(role).account}/>}
     {activeTab === 'accounts' && role === 'admin' && <AccountDesk view={view}/>}
     {activeTab === 'skills' && (role === 'ops' || role === 'admin') && view === 'todo' && <SkillCancellationDesk/>}

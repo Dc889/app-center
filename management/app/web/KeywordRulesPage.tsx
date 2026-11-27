@@ -29,6 +29,8 @@ type DryRunResult = {
 
 const CATEGORIES = ['全部', '涉密标识', '个人隐私', '凭据明文', '业务合规']
 
+const TARGET_OPTIONS = ['知识库文档', 'Skill 包', 'MCP 响应'] as const
+
 export function KeywordRulesPage() {
   const [version, setVersion] = useState(1)
   const [items, setItems] = useState<KeywordRule[]>([])
@@ -40,10 +42,12 @@ export function KeywordRulesPage() {
   const {submitTicket, pendingDialog} = useConfigTicketSubmission('CFG-02', setNotice, setBusy)
   const [reload, setReload] = useState(0)
 
+  const [editingRuleId, setEditingRuleId] = useState('')
   const [category, setCategory] = useState('涉密标识')
   const [pattern, setPattern] = useState('')
   const [matchMode, setMatchMode] = useState('关键词包含')
   const [severity, setSeverity] = useState('阻断')
+  const [targets, setTargets] = useState<string[]>(['知识库文档', 'Skill 包', 'MCP 响应'])
   const [note, setNote] = useState('')
   const [reason, setReason] = useState('')
 
@@ -83,23 +87,55 @@ export function KeywordRulesPage() {
 
   async function submitAdd() {
     if (!pattern.trim()) { setNotice('请填写关键词或正则表达式'); return }
-    const finalReason = reason.trim() || `新增${category}规则：${pattern.trim()}`
-    const ticketNo = await submitTicket(finalReason, {
+    if (targets.length === 0) { setNotice('请至少勾选一项适用范围'); return }
+    const isEdit = Boolean(editingRuleId)
+    const finalReason = reason.trim() || `${isEdit ? '修改' : '新增'}${category}规则：${pattern.trim()}`
+    const ticketNo = await submitTicket(finalReason, isEdit ? {
+      operation: '修改词条', ruleId: editingRuleId, category, pattern: pattern.trim(), matchMode, severity,
+      targets, note: note.trim(),
+    } : {
       operation: '新增词条', category, pattern: pattern.trim(), matchMode, severity,
-      targets: ['知识库文档', 'Skill 包', 'MCP 响应'], note: note.trim(),
+      targets, note: note.trim(),
     })
     if (!ticketNo) return
     setNotice(`已提交变更单 ${ticketNo}，请在下方审批记录中批准生效`)
+    setEditingRuleId('')
     setPattern('')
     setNote('')
     setReason('')
+    setTargets(['知识库文档', 'Skill 包', 'MCP 响应'])
     setReload(v => v + 1)
+  }
+
+  function startEdit(rule: KeywordRule) {
+    setEditingRuleId(rule.ruleId)
+    setCategory(rule.category)
+    setPattern(rule.pattern)
+    setMatchMode(rule.matchMode)
+    setSeverity(rule.severity)
+    setTargets(rule.targets?.length ? rule.targets : ['知识库文档'])
+    setNote(rule.note || '')
+    setReason('')
   }
 
   async function disableRule(rule: KeywordRule) {
     const ticketNo = await submitTicket(`停用敏感词条：${rule.pattern}`, {operation: '停用词条', ruleId: rule.ruleId})
     if (!ticketNo) return
     setNotice(`已提交停用工单 ${ticketNo}`)
+    setReload(v => v + 1)
+  }
+
+  async function enableRule(rule: KeywordRule) {
+    const ticketNo = await submitTicket(`恢复启用敏感词条：${rule.pattern}`, {operation: '启用词条', ruleId: rule.ruleId})
+    if (!ticketNo) return
+    setNotice(`已提交恢复启用工单 ${ticketNo}`)
+    setReload(v => v + 1)
+  }
+
+  async function deleteRule(rule: KeywordRule) {
+    const ticketNo = await submitTicket(`删除敏感词条：${rule.pattern}`, {operation: '删除词条', ruleId: rule.ruleId})
+    if (!ticketNo) return
+    setNotice(`已提交删除工单 ${ticketNo}`)
     setReload(v => v + 1)
   }
 
@@ -192,10 +228,15 @@ export function KeywordRulesPage() {
         )}
       </section>
 
-      {/* 卡片 2：新增敏感词条 */}
+      {/* 卡片 2：新增/编辑敏感词条 */}
       <section className="org-card">
-        <div className="org-card-head">
-          <h3>新增敏感词条</h3>
+        <div className="org-card-head" style={{justifyContent: 'space-between'}}>
+          <h3>{editingRuleId ? '编辑敏感词条' : '新增敏感词条'}</h3>
+          {editingRuleId && (
+            <button type="button" className="app-icon-btn" onClick={() => { setEditingRuleId(''); setPattern(''); setNote(''); setReason(''); setTargets(['知识库文档', 'Skill 包', 'MCP 响应']) }}>
+              取消编辑
+            </button>
+          )}
         </div>
         <div className="cfg-kw-grid">
           <label className="org-field">
@@ -231,9 +272,22 @@ export function KeywordRulesPage() {
           <div className="org-field org-field-action">
             <span aria-hidden="true">&nbsp;</span>
             <button type="button" className="primary-button" disabled={busy} onClick={() => void submitAdd()}>
-              <Plus size={14} /> 新增词条
+              <Plus size={14} /> {editingRuleId ? '提交修改工单' : '新增词条'}
             </button>
           </div>
+        </div>
+        <div style={{marginTop: 10, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', fontSize: 13}}>
+          <span style={{fontWeight: 500, color: '#334155'}}>适用范围：</span>
+          {TARGET_OPTIONS.map(opt => (
+            <label key={opt} style={{display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer'}}>
+              <input
+                type="checkbox"
+                checked={targets.includes(opt)}
+                onChange={e => setTargets(prev => e.target.checked ? [...prev, opt] : prev.filter(x => x !== opt))}
+              />
+              {opt}
+            </label>
+          ))}
         </div>
       </section>
 
@@ -279,9 +333,15 @@ export function KeywordRulesPage() {
                   <td className="org-muted-cell">{r.targets.join('、')}</td>
                   <td><span className={`app-status-pill tone-${r.enabled ? 'success' : 'muted'}`}>{r.enabled ? '启用' : '停用'}</span></td>
                   <td style={{textAlign: 'right'}}>
-                    {r.enabled ? (
-                      <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void disableRule(r)}>申请停用</button>
-                    ) : <span className="org-muted-text">—</span>}
+                    <div className="org-row-actions" style={{justifyContent: 'flex-end'}}>
+                      <button type="button" className="app-icon-btn" disabled={busy} onClick={() => startEdit(r)}>编辑</button>
+                      {r.enabled ? (
+                        <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void disableRule(r)}>申请停用</button>
+                      ) : (
+                        <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void enableRule(r)}>恢复启用</button>
+                      )}
+                      <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void deleteRule(r)}>删除</button>
+                    </div>
                   </td>
                 </tr>
               ))}

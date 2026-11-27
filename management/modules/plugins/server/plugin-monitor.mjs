@@ -24,10 +24,10 @@ export async function pluginMonitorReport({
   check(admin || ops, 403, 'ACCESS_DENIED')
 
   const filterOrg = query.get('org') || null
-  if (!admin && filterOrg && filterOrg !== identity.org) {
+  if (!admin && !ops && filterOrg && filterOrg !== identity.org) {
     throw new (await import('../../../../runtime/http.mjs')).ApiError(403, 'ACCESS_DENIED', '无权查询其他组织的数据')
   }
-  const effectiveOrg = admin ? filterOrg : (filterOrg || identity.org)
+  const effectiveOrg = (admin || ops) ? filterOrg : (filterOrg || identity.org)
 
   const range = query.get('window') || '24h'
   const win = pluginMonitorWindow(range, now)
@@ -64,7 +64,7 @@ export async function pluginMonitorReport({
   let publishedCount = null
   let runningCount = null
   if (catalogItems !== null) {
-    const activePlugins = catalogItems.filter(i => ['available', 'published', '已上架'].includes(i.status))
+    const activePlugins = catalogItems.filter(i => ['approved', 'available', 'published', '已上架'].includes(i.status))
     publishedCount = activePlugins.length
     runningCount = activePlugins.length * 4 // 近似运行实例预估
   }

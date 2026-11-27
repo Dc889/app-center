@@ -337,7 +337,7 @@ export function managementApi(options) {
       const parts=path.split('/').slice(3)
       const kind=parts.length?parts[0]:params.get('kind')
       check(['skill','plugin','mcp','agent'].includes(kind),400,'INVALID_CATALOG_KIND')
-      check(!parts.length || parts.length===2 && parts[1] || parts.length===3 && kind==='skill' && parts[1] && parts[2]==='versions',400,'INVALID_CATALOG_PATH')
+      check(!parts.length || parts.length===2 && parts[1] || parts.length===3 && ['skill','plugin','agent'].includes(kind) && parts[1] && parts[2]==='versions',400,'INVALID_CATALOG_PATH')
       const query=new URLSearchParams()
       if(!parts.length)query.set('kind',kind)
       const action=params.get('action')

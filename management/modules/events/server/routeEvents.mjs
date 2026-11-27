@@ -15,7 +15,7 @@ export async function routeEvents(services) {
         check(['mine','todo','query'].includes(view),400,'INVALID_VIEW')
         check(view==='mine' || operator || hasRole(identity,'admin'),403,'ACCESS_DENIED')
         return json(res,{items:events.all().filter(row=>view==='mine' ? directory.owns(row.account,identity) :
-          view==='query' || operator && row.status!=='已关闭').reverse().map(row=>({...row,handledByCurrent:directory.owns(row.handler,identity)}))})
+          view==='query' || (operator || hasRole(identity,'admin')) && row.status!=='已关闭').reverse().map(row=>({...row,handledByCurrent:directory.owns(row.handler,identity)}))})
       }
       check(req.method==='POST' && (!req.headers.origin || new URL(req.headers.origin).host===req.headers.host),403,'ACCESS_DENIED')
       const input=await body(req)
@@ -47,7 +47,7 @@ export async function routeEvents(services) {
           facts:input.facts.trim(),objectType:input.objectType,creationMode:'人工报告',alertId:'AL-'+id(),ruleCode:'MANUAL_REPORT',originalSeverity:severity,firstOccurredAt:at,lastOccurredAt:at,
           evidence:{facts:input.facts.trim()},status:'未研判',version:types.activeVersion('EVT-01'),revision:1,history:[{at,actor,action:'人工报告',fromStatus:null,toStatus:'未研判'}]}),201)
       }
-      check(operator,403,'ACCESS_DENIED')
+      check(operator || hasRole(identity,'admin'),403,'ACCESS_DENIED')
       check(previous,404,'NOT_FOUND')
       check(previous.revision===input.revision,409,'VERSION_CONFLICT','工单已更新，请刷新')
       check(typeof input.note==='string' && input.note.trim() && input.note.length<=4000,400,'INVALID_FIELDS','请填写办理依据')

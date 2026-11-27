@@ -7,8 +7,13 @@ import {useResourceSnapshot} from '../../shared-ui/useResourceSnapshot'
 import {AgentReplacementPicker} from '../../modules/agents/public.web'
 import {AgentImpactPanel} from '../../modules/agents/public.web'
 import type {AgentImpact} from '../../modules/agents/public.web'
+function defaultLocalDateTime() {
+  const d = new Date(Date.now() + 60_000 - new Date().getTimezoneOffset() * 60_000)
+  return d.toISOString().slice(0, 16)
+}
+
 export function WithdrawApplication({ticketType='AG-05'}:{ticketType?:'AG-04'|'AG-05'|'SKL-04'}) {
-  const [fields,setFields]=useState({resourceId:'',workspaceId:'',reason:'主动下架',explanation:'',effectiveAt:'',replacementAppId:''})
+  const [fields,setFields]=useState(()=>({resourceId:'',workspaceId:'',reason:'主动下架',explanation:'',effectiveAt:defaultLocalDateTime(),replacementAppId:''}))
   const [message,setMessage]=useState('')
   const [busy,setBusy]=useState(false)
   const resource=useResourceSnapshot()
@@ -81,7 +86,7 @@ export function WithdrawApplication({ticketType='AG-05'}:{ticketType?:'AG-04'|'A
     </>}
     {original && ticketType==='SKL-04' && <p>Skill · {String(original['Skill名称'])} · 当前版本 · {String(original['当前版本号'])}<br/>历史下载次数 · {String(original['历史下载次数'])} · 历史下载人数 · {String(original['历史下载人数'])}</p>}
     {impact && <AgentImpactPanel impact={impact}/>}
-    <label>原因说明<input value={fields.explanation} onChange={e=>setFields({...fields,explanation:e.target.value})}/></label>
+    <label>原因说明<textarea value={fields.explanation} rows={2} onChange={e=>setFields({...fields,explanation:e.target.value})}/></label>
     {ticketType==='AG-05' && <AgentReplacementPicker key={'replacement:'+replacementKey} sourceResourceId={fields.resourceId} value={fields.replacementAppId} enabled={!!original && !!resource.snapshot} onChange={(value,verified)=>{setFields(current=>({...current,replacementAppId:value}));setReplacementVerified(verified)}}/>}
     {ticketType!=='AG-04' && <><label>下架原因<select value={fields.reason} onChange={e=>setFields({...fields,reason:e.target.value})}>{(ticketType==='SKL-04'?['主动下架','安全问题','授权问题','过期','其他']:['主动下架','版本替换','安全事件','长期故障','其他']).map(s=><option key={s}>{s}</option>)}</select></label>
     <label>生效时间<input type="datetime-local" value={fields.effectiveAt} onChange={e=>setFields({...fields,effectiveAt:e.target.value})}/></label></>}

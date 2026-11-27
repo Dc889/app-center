@@ -111,10 +111,10 @@ function configTicketTarget(type, p = {}) {
     return {id: p.orgId ?? ''}
   }
   if (type === 'CFG-02') {
-    if (['修改词条', '停用词条'].includes(p.operation)) return {id: p.ruleId ?? ''}
+    if (['修改词条', '停用词条', '启用词条', '删除词条'].includes(p.operation)) return {id: p.ruleId ?? ''}
     return {category: p.category, matchMode: p.matchMode === '正则表达式' ? p.matchMode : '关键词包含', pattern: String(p.pattern ?? '').trim()}
   }
-  if (['修改测试题', '停用测试题'].includes(p.operation)) return {id: p.caseId ?? ''}
+  if (['修改测试题', '停用测试题', '启用测试题', '删除测试题'].includes(p.operation)) return {id: p.caseId ?? ''}
   return {suiteId: String(p.suiteId || 'default-compliance').trim(), category: p.category, prompt: String(p.prompt ?? '').trim()}
 }
 
@@ -299,6 +299,15 @@ export function platformConfigs(dir, actorSnapshot) {
         const prev = kwStore.get(p.ruleId)
         check(prev, 404, 'NOT_FOUND', '词条不存在')
         kwStore.put(prev.ruleId, {...prev, enabled: false, revision: (prev.revision || 1) + 1, updatedAt: now})
+      } else if (p.operation === '启用词条') {
+        const prev = kwStore.get(p.ruleId)
+        check(prev, 404, 'NOT_FOUND', '词条不存在')
+        kwStore.put(prev.ruleId, {...prev, enabled: true, revision: (prev.revision || 1) + 1, updatedAt: now})
+      } else if (p.operation === '删除词条') {
+        const prev = kwStore.get(p.ruleId)
+        check(prev, 404, 'NOT_FOUND', '词条不存在')
+        if (typeof kwStore.delete === 'function') kwStore.delete(prev.ruleId)
+        else kwStore.put(prev.ruleId, {deleted: true, updatedAt: now})
       } else if (p.operation === '修改词条') {
         const prev = kwStore.get(p.ruleId)
         check(prev, 404, 'NOT_FOUND', '词条不存在')
@@ -343,6 +352,15 @@ export function platformConfigs(dir, actorSnapshot) {
         const prev = mcpSuiteStore.get(p.caseId)
         check(prev, 404, 'NOT_FOUND', '测试题不存在')
         mcpSuiteStore.put(prev.caseId, {...prev, enabled: false, revision: (prev.revision || 1) + 1, updatedAt: now})
+      } else if (p.operation === '启用测试题') {
+        const prev = mcpSuiteStore.get(p.caseId)
+        check(prev, 404, 'NOT_FOUND', '测试题不存在')
+        mcpSuiteStore.put(prev.caseId, {...prev, enabled: true, revision: (prev.revision || 1) + 1, updatedAt: now})
+      } else if (p.operation === '删除测试题') {
+        const prev = mcpSuiteStore.get(p.caseId)
+        check(prev, 404, 'NOT_FOUND', '测试题不存在')
+        if (typeof mcpSuiteStore.delete === 'function') mcpSuiteStore.delete(prev.caseId)
+        else mcpSuiteStore.put(prev.caseId, {deleted: true, updatedAt: now})
       } else if (p.operation === '修改测试题') {
         const prev = mcpSuiteStore.get(p.caseId)
         check(prev, 404, 'NOT_FOUND', '测试题不存在')

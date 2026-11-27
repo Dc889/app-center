@@ -41,6 +41,7 @@ export function McpTestSuitesPage() {
   const {submitTicket, pendingDialog} = useConfigTicketSubmission('CFG-03', setNotice, setBusy)
   const [reload, setReload] = useState(0)
 
+  const [editingCaseId, setEditingCaseId] = useState('')
   const [category, setCategory] = useState('越权数据试探')
   const [prompt, setPrompt] = useState('')
   const [assertionRule, setAssertionRule] = useState('不得命中敏感词库')
@@ -86,22 +87,49 @@ export function McpTestSuitesPage() {
 
   async function submitAdd() {
     if (!prompt.trim()) { setNotice('请填写测试问题'); return }
-    const finalReason = reason.trim() || `新增${category}测试题`
-    const ticketNo = await submitTicket(finalReason, {
+    const isEdit = Boolean(editingCaseId)
+    const finalReason = reason.trim() || `${isEdit ? '修改' : '新增'}${category}测试题`
+    const ticketNo = await submitTicket(finalReason, isEdit ? {
+      operation: '修改测试题', caseId: editingCaseId, suiteId: 'default-compliance', category, prompt: prompt.trim(),
+      argumentsTemplate: '{}', assertionRule,
+    } : {
       operation: '新增测试题', suiteId: 'default-compliance', category, prompt: prompt.trim(),
       argumentsTemplate: '{}', assertionRule,
     })
     if (!ticketNo) return
     setNotice(`已提交变更单 ${ticketNo}，请在下方审批记录中批准生效`)
+    setEditingCaseId('')
     setPrompt('')
     setReason('')
     setReload(v => v + 1)
+  }
+
+  function startEditCase(c: McpCase) {
+    setEditingCaseId(c.caseId)
+    setCategory(c.category)
+    setPrompt(c.prompt)
+    setAssertionRule(c.assertionRule)
+    setReason('')
   }
 
   async function disableCase(c: McpCase) {
     const ticketNo = await submitTicket(`停用测试题 ${c.caseId}`, {operation: '停用测试题', caseId: c.caseId})
     if (!ticketNo) return
     setNotice(`已提交停用工单 ${ticketNo}`)
+    setReload(v => v + 1)
+  }
+
+  async function enableCase(c: McpCase) {
+    const ticketNo = await submitTicket(`恢复启用测试题 ${c.caseId}`, {operation: '启用测试题', caseId: c.caseId})
+    if (!ticketNo) return
+    setNotice(`已提交恢复启用工单 ${ticketNo}`)
+    setReload(v => v + 1)
+  }
+
+  async function deleteCase(c: McpCase) {
+    const ticketNo = await submitTicket(`删除测试题 ${c.caseId}`, {operation: '删除测试题', caseId: c.caseId})
+    if (!ticketNo) return
+    setNotice(`已提交删除工单 ${ticketNo}`)
     setReload(v => v + 1)
   }
 
@@ -189,10 +217,13 @@ export function McpTestSuitesPage() {
         )}
       </section>
 
-      {/* 卡片 2：新增预设测试题 */}
+      {/* 卡片 2：新增/编辑预设测试题 */}
       <section className="org-card">
-        <div className="org-card-head">
-          <h3>新增预设测试题</h3>
+        <div className="org-card-head" style={{justifyContent: 'space-between'}}>
+          <h3>{editingCaseId ? '编辑预设测试题' : '新增预设测试题'}</h3>
+          {editingCaseId && (
+            <button type="button" className="app-icon-btn" onClick={() => { setEditingCaseId(''); setPrompt(''); setReason('') }}>取消编辑</button>
+          )}
         </div>
         <div className="cfg-mcp-grid">
           <label className="org-field">
@@ -218,7 +249,7 @@ export function McpTestSuitesPage() {
           <div className="org-field org-field-action">
             <span aria-hidden="true">&nbsp;</span>
             <button type="button" className="primary-button" disabled={busy} onClick={() => void submitAdd()}>
-              <Plus size={14} /> 新增测试题
+              <Plus size={14} /> {editingCaseId ? '提交修改工单' : '新增测试题'}
             </button>
           </div>
         </div>
@@ -264,9 +295,15 @@ export function McpTestSuitesPage() {
                   <td className="org-muted-cell">{c.assertionRule}</td>
                   <td><span className={`app-status-pill tone-${c.enabled ? 'success' : 'muted'}`}>{c.enabled ? '启用' : '停用'}</span></td>
                   <td style={{textAlign: 'right'}}>
-                    {c.enabled ? (
-                      <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void disableCase(c)}>申请停用</button>
-                    ) : <span className="org-muted-text">—</span>}
+                    <div className="org-row-actions" style={{justifyContent: 'flex-end'}}>
+                      <button type="button" className="app-icon-btn" disabled={busy} onClick={() => startEditCase(c)}>编辑</button>
+                      {c.enabled ? (
+                        <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void disableCase(c)}>申请停用</button>
+                      ) : (
+                        <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void enableCase(c)}>恢复启用</button>
+                      )}
+                      <button type="button" className="app-icon-btn" disabled={busy} onClick={() => void deleteCase(c)}>删除</button>
+                    </div>
                   </td>
                 </tr>
               ))}
