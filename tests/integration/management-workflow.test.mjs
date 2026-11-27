@@ -30,6 +30,64 @@ async function setup(t) {
   return {branches,calls,request,login,async restart(){await api.close();api=await startManagement(options)}}
 }
 
+test('同一组织机构只允许一条待受理的变更工单，审批结束后可以重新提交', async t => {
+  const app = await setup(t)
+  const admin = await app.login('li.qiang')
+  const path = '/api/config-tickets'
+  const submit = (orgId, name) => app.request(path, admin, {
+    ticketType: 'CFG-01', reason: '调整机构名称', payload: {operation: '修改名称或映射', orgId, name},
+  })
+  const review = (ticketNo, action) => app.request(path + '/transition', admin, {ticketNo, action})
+  const orgId = 'org-l1-1'
+  const responses = await Promise.all([submit(orgId, '区厅'), submit(orgId, '区厅')])
+  assert.deepEqual(responses.map(r => r.status).sort(), [201, 409])
+  const first = await responses.find(r => r.status === 201).json()
+  const retry = await submit(orgId, '区厅新名称')
+  assert.equal(retry.status, 409)
+  assert.ok((await retry.json()).error.message.includes(first.ticketNo))
+  const list = await (await app.request(path + '?ticketType=CFG-01', admin)).json()
+  assert.deepEqual(list.items.map(ticket => ticket.ticketNo), [first.ticketNo])
+  assert.equal((await submit('org-l1-2', '其他机构')).status, 201)
+
+  assert.equal((await review(first.ticketNo, '批准')).status, 200)
+  const next = await submit(orgId, '区厅新名称')
+  assert.equal(next.status, 201)
+  assert.equal((await review((await next.json()).ticketNo, '驳回')).status, 200)
+  assert.equal((await submit(orgId, '再次调整')).status, 201)
+})
+
+test('配置申请按变更对象去重，跨账号重提返回原工单号且审批结束后可以重提', async t => {
+  const app = await setup(t)
+  const admin = await app.login('li.qiang')
+  const ops = await app.login('zhou.min')
+  const path = '/api/config-tickets'
+  const cases = [
+    ['CFG-01', {operation: '新增机构', level: 2, parentId: 'org-l1-1', name: '区厅'}, {externalCode: ''}, {parentId: 'org-l1-2'}],
+    ['CFG-01', {operation: '批量初始化占位', level: 1, batchCount: 3}, {names: []}, {batchCount: 4}],
+    ['CFG-02', {operation: '新增词条', category: '业务合规', pattern: '测试词'}, {pattern: ' 测试词 ', severity: '告警'}, {pattern: '其他词'}],
+    ['CFG-03', {operation: '新增测试题', category: '越权数据试探', prompt: '测试问题'}, {suiteId: 'default-compliance', prompt: ' 测试问题 '}, {suiteId: 'other'}],
+    ['CFG-02', {operation: '修改词条', ruleId: 'kw-secret-1'}, {operation: '停用词条'}, {ruleId: 'kw-secret-2'}],
+    ['CFG-03', {operation: '修改测试题', caseId: 'mcp-case-1'}, {operation: '停用测试题'}, {caseId: 'mcp-case-2'}],
+  ]
+  for (const [ticketType, payload, retry, different] of cases) {
+    const submit = (actor, changes, reason) => app.request(path, actor, {ticketType, reason, payload: {...payload, ...changes}})
+    const res = await Promise.all([
+      submit(admin, {}, '首次申请'), submit(ticketType === 'CFG-01' ? admin : ops, retry, '再次申请'),
+    ])
+    assert.deepEqual(res.map(r => r.status).sort(), [201, 409], payload.operation)
+    const {ticketNo} = await res.find(r => r.status === 201).json()
+    const {error} = await res.find(r => r.status === 409).json()
+    assert.equal(error.code, ticketType === 'CFG-01' ? 'ORG_CHANGE_PENDING' : 'CONFIG_CHANGE_PENDING')
+    assert.ok(error.message.includes(ticketNo))
+    assert.equal((await submit(admin, different, '独立申请')).status, 201)
+    assert.equal((await app.request(path + '/transition', admin, {ticketNo, action: '驳回'})).status, 200)
+    const next = await submit(admin, {}, '重新申请')
+    assert.equal(next.status, 201)
+    assert.equal((await app.request(path + '/transition', admin, {ticketNo: (await next.json()).ticketNo, action: '批准'})).status, 200)
+    assert.equal((await submit(admin, retry, '审批后申请')).status, 201)
+  }
+})
+
 test('类型发布按工作区核验所有分支，已发布版本持久化且不可覆盖',async t=>{
   const app=await setup(t)
   const admin=await app.login('li.qiang')

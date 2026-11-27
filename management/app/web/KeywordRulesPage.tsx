@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {AlertTriangle, Check, CheckCircle2, Play, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, X} from 'lucide-react'
 import {PageHeader} from '../../shared-ui/UiContext'
+import {useConfigTicketSubmission} from './useConfigTicketSubmission'
 
 type KeywordRule = {
   ruleId: string
@@ -36,6 +37,7 @@ export function KeywordRulesPage() {
   const [keyword, setKeyword] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const {submitTicket, pendingDialog} = useConfigTicketSubmission('CFG-02', setNotice, setBusy)
   const [reload, setReload] = useState(0)
 
   const [category, setCategory] = useState('涉密标识')
@@ -82,50 +84,23 @@ export function KeywordRulesPage() {
   async function submitAdd() {
     if (!pattern.trim()) { setNotice('请填写关键词或正则表达式'); return }
     const finalReason = reason.trim() || `新增${category}规则：${pattern.trim()}`
-    setBusy(true)
-    try {
-      const res = await fetch('/api/config-tickets', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({
-          ticketType: 'CFG-02',
-          reason: finalReason,
-          payload: {operation: '新增词条', category, pattern: pattern.trim(), matchMode, severity, targets: ['知识库文档', 'Skill 包', 'MCP 响应'], note: note.trim()},
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交变更单 ${data.ticketNo}，请在下方审批记录中批准生效`)
-      setPattern('')
-      setNote('')
-      setReason('')
-      setReload(v => v + 1)
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : '提交失败')
-    } finally {
-      setBusy(false)
-    }
+    const ticketNo = await submitTicket(finalReason, {
+      operation: '新增词条', category, pattern: pattern.trim(), matchMode, severity,
+      targets: ['知识库文档', 'Skill 包', 'MCP 响应'], note: note.trim(),
+    })
+    if (!ticketNo) return
+    setNotice(`已提交变更单 ${ticketNo}，请在下方审批记录中批准生效`)
+    setPattern('')
+    setNote('')
+    setReason('')
+    setReload(v => v + 1)
   }
 
   async function disableRule(rule: KeywordRule) {
-    setBusy(true)
-    try {
-      const res = await fetch('/api/config-tickets', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({
-          ticketType: 'CFG-02',
-          reason: `停用敏感词条：${rule.pattern}`,
-          payload: {operation: '停用词条', ruleId: rule.ruleId},
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交停用工单 ${data.ticketNo}`)
-      setReload(v => v + 1)
-    } finally {
-      setBusy(false)
-    }
+    const ticketNo = await submitTicket(`停用敏感词条：${rule.pattern}`, {operation: '停用词条', ruleId: rule.ruleId})
+    if (!ticketNo) return
+    setNotice(`已提交停用工单 ${ticketNo}`)
+    setReload(v => v + 1)
   }
 
   async function reviewTicket(ticketNo: string, action: '批准' | '驳回') {
@@ -182,6 +157,7 @@ export function KeywordRulesPage() {
       </div>
 
       {notice && <div className="app-banner info" role="status" data-testid="kw-notice">{notice}</div>}
+      {pendingDialog}
 
       {/* 卡片 1：在线试扫验证 */}
       <section className="org-card">

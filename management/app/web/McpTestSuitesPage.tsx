@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {AlertTriangle, Check, CheckCircle2, Layers, Network, Play, Plus, RefreshCw, Search, ShieldCheck, X} from 'lucide-react'
 import {PageHeader} from '../../shared-ui/UiContext'
+import {useConfigTicketSubmission} from './useConfigTicketSubmission'
 
 type McpCase = {
   caseId: string
@@ -37,6 +38,7 @@ export function McpTestSuitesPage() {
   const [keyword, setKeyword] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const {submitTicket, pendingDialog} = useConfigTicketSubmission('CFG-03', setNotice, setBusy)
   const [reload, setReload] = useState(0)
 
   const [category, setCategory] = useState('越权数据试探')
@@ -85,49 +87,22 @@ export function McpTestSuitesPage() {
   async function submitAdd() {
     if (!prompt.trim()) { setNotice('请填写测试问题'); return }
     const finalReason = reason.trim() || `新增${category}测试题`
-    setBusy(true)
-    try {
-      const res = await fetch('/api/config-tickets', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({
-          ticketType: 'CFG-03',
-          reason: finalReason,
-          payload: {operation: '新增测试题', suiteId: 'default-compliance', category, prompt: prompt.trim(), argumentsTemplate: '{}', assertionRule},
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交变更单 ${data.ticketNo}，请在下方审批记录中批准生效`)
-      setPrompt('')
-      setReason('')
-      setReload(v => v + 1)
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : '提交失败')
-    } finally {
-      setBusy(false)
-    }
+    const ticketNo = await submitTicket(finalReason, {
+      operation: '新增测试题', suiteId: 'default-compliance', category, prompt: prompt.trim(),
+      argumentsTemplate: '{}', assertionRule,
+    })
+    if (!ticketNo) return
+    setNotice(`已提交变更单 ${ticketNo}，请在下方审批记录中批准生效`)
+    setPrompt('')
+    setReason('')
+    setReload(v => v + 1)
   }
 
   async function disableCase(c: McpCase) {
-    setBusy(true)
-    try {
-      const res = await fetch('/api/config-tickets', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({
-          ticketType: 'CFG-03',
-          reason: `停用测试题 ${c.caseId}`,
-          payload: {operation: '停用测试题', caseId: c.caseId},
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交停用工单 ${data.ticketNo}`)
-      setReload(v => v + 1)
-    } finally {
-      setBusy(false)
-    }
+    const ticketNo = await submitTicket(`停用测试题 ${c.caseId}`, {operation: '停用测试题', caseId: c.caseId})
+    if (!ticketNo) return
+    setNotice(`已提交停用工单 ${ticketNo}`)
+    setReload(v => v + 1)
   }
 
   async function reviewTicket(ticketNo: string, action: '批准' | '驳回') {
@@ -184,6 +159,7 @@ export function McpTestSuitesPage() {
       </div>
 
       {notice && <div className="app-banner info" role="status" data-testid="mcp-suite-notice">{notice}</div>}
+      {pendingDialog}
 
       {/* 卡片 1：在线 MCP 违规探测联调 */}
       <section className="org-card">

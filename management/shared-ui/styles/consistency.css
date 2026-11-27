@@ -1397,6 +1397,20 @@ input[type='checkbox'], input[type='radio'] {
   color: #101828;
 }
 
+.org-pending-dialog {
+  width: min(420px, calc(100% - 32px));
+  margin: auto;
+  border: 0;
+  border-radius: 12px;
+  padding: 0;
+  color: var(--ink);
+  box-shadow: 0 16px 40px rgba(16, 24, 40, .18);
+}
+.org-pending-dialog::backdrop { background: rgba(16, 24, 43, .34); }
+.org-pending-dialog .org-card-head { justify-content: flex-start; }
+.org-pending-dialog p { line-height: 1.6; overflow-wrap: anywhere; }
+.org-pending-dialog form { align-self: flex-end; }
+
 .org-seg-switch {
   display: inline-flex;
   padding: 3px;
@@ -1594,6 +1608,8 @@ input[type='checkbox'], input[type='radio'] {
   flex-direction: column;
   gap: 12px;
 }
+.org-required-mark { color: #b42318; }
+.org-editor-body [aria-invalid="true"] { border-color: #b42318; }
 
 .org-row-actions {
   display: inline-flex;

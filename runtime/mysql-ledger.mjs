@@ -111,8 +111,8 @@ export function mysqlLedger(url, ledgerName, actorSnapshot, {check, same}) {
   }
 
   return {
-    get(key) {
-      const res = callWorker({op: 'get', url, clientId, ledgerName, key: String(key)})
+    get(key, {forUpdate = false} = {}) {
+      const res = callWorker({op: 'get', url, clientId, ledgerName, key: String(key), forUpdate})
       return res.body === null ? undefined : JSON.parse(res.body)
     },
     put(key, value) {

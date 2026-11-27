@@ -1,6 +1,7 @@
-import {useEffect, useState} from 'react'
+import {useEffect, useState, type FormEvent} from 'react'
 import {Building2, Check, Layers, Pencil, Plus, RefreshCw, Search, Tag, X} from 'lucide-react'
 import {PageHeader} from '../../shared-ui/UiContext'
+import {useConfigTicketSubmission} from './useConfigTicketSubmission'
 
 type OrgItem = {
   orgId: string
@@ -58,7 +59,9 @@ export function OrganizationsPage() {
   const [editParentId, setEditParentId] = useState('')
   const [editExtCode, setEditExtCode] = useState('')
   const [editReason, setEditReason] = useState('')
+  const [editAttempted, setEditAttempted] = useState(false)
   const [busy, setBusy] = useState(false)
+  const {submitTicket, pendingDialog} = useConfigTicketSubmission('CFG-01', setNotice, setBusy)
 
   useEffect(() => {
     let active = true
@@ -94,73 +97,54 @@ export function OrganizationsPage() {
       return
     }
     const reason = batchReason.trim() || (createMode === 'named' ? `新增${LEVEL_NAMES[batchLevel]}：${parsedNames.join('、')}` : `批量生成${LEVEL_NAMES[batchLevel]}占位 ${batchCount} 个`)
-    setBusy(true)
-    try {
-      const payload =
-        createMode === 'named' && parsedNames.length === 1
-          ? {
-              operation: '新增机构',
-              level: batchLevel,
-              name: parsedNames[0],
-              parentId: batchLevel > 1 ? batchParentId : '',
-              externalCode: newExtCode.trim(),
-            }
-          : {
-              operation: '批量初始化占位',
-              level: batchLevel,
-              batchCount: createMode === 'named' ? parsedNames.length : batchCount,
-              names: createMode === 'named' ? parsedNames : [],
-              parentId: batchLevel > 1 ? batchParentId : '',
-            }
-      const res = await fetch('/api/config-tickets', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({ticketType: 'CFG-01', reason, payload}),
-      })
-      const data = await res.json()
-      if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交变更单 ${data.ticketNo}，请在下方审批记录中批准生效`)
-      setNewNames('')
-      setNewExtCode('')
-      setBatchReason('')
-      setReload(v => v + 1)
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : '提交失败')
-    } finally {
-      setBusy(false)
-    }
+    const payload =
+      createMode === 'named' && parsedNames.length === 1
+        ? {
+            operation: '新增机构',
+            level: batchLevel,
+            name: parsedNames[0],
+            parentId: batchLevel > 1 ? batchParentId : '',
+            externalCode: newExtCode.trim(),
+          }
+        : {
+            operation: '批量初始化占位',
+            level: batchLevel,
+            batchCount: createMode === 'named' ? parsedNames.length : batchCount,
+            names: createMode === 'named' ? parsedNames : [],
+            parentId: batchLevel > 1 ? batchParentId : '',
+          }
+    const ticketNo = await submitTicket(reason, payload)
+    if (!ticketNo) return
+    setNotice(`已提交变更单 ${ticketNo}，请在下方审批记录中批准生效`)
+    setNewNames('')
+    setNewExtCode('')
+    setBatchReason('')
+    setReload(v => v + 1)
   }
 
-  async function submitEdit() {
-    if (!editing || !editReason.trim()) { setNotice('请填写变更原因'); return }
-    setBusy(true)
-    try {
-      const res = await fetch('/api/config-tickets', {
-        method: 'POST',
-        headers: {'content-type': 'application/json'},
-        body: JSON.stringify({
-          ticketType: 'CFG-01',
-          reason: editReason.trim(),
-          payload: {
-            operation: '修改名称或映射',
-            orgId: editing.orgId,
-            name: editName.trim(),
-            parentId: editing.level > 1 ? editParentId : '',
-            externalCode: editExtCode.trim(),
-          },
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw Error(data.error?.message ?? '提交失败')
-      setNotice(`已提交变更单 ${data.ticketNo}，批准后自动生效`)
-      setEditing(null)
-      setEditReason('')
-      setReload(v => v + 1)
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : '提交失败')
-    } finally {
-      setBusy(false)
+  const editParents = editing ? items.filter(item => item.level === editing.level - 1) : []
+  const missingParent = !!editing && editing.level > 1 && !editParents.some(parent => parent.orgId === editParentId)
+  const missingReason = !editReason.trim()
+  const missingFields = [missingParent && '上级机构', missingReason && '变更原因'].filter(Boolean)
+
+  async function submitEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!editing) return
+    if (missingFields.length) {
+      setEditAttempted(true)
+      const field = event.currentTarget.elements.namedItem(missingParent ? 'parentId' : 'reason')
+      if (field instanceof HTMLElement) field.focus()
+      return
     }
+    const ticketNo = await submitTicket(editReason.trim(), {
+      operation: '修改名称或映射', orgId: editing.orgId, name: editName.trim(),
+      parentId: editing.level > 1 ? editParentId : '', externalCode: editExtCode.trim(),
+    })
+    if (!ticketNo) return
+    setNotice(`已提交变更单 ${ticketNo}，批准后自动生效`)
+    setEditing(null)
+    setEditReason('')
+    setReload(v => v + 1)
   }
 
   async function reviewTicket(ticketNo: string, action: '批准' | '驳回') {
@@ -217,6 +201,7 @@ export function OrganizationsPage() {
       </div>
 
       {notice && <div className="app-banner info" role="status" data-testid="org-notice">{notice}</div>}
+      {pendingDialog}
 
       {/* 卡片 1：新增组织机构 */}
       <section className="org-card">
@@ -346,6 +331,7 @@ export function OrganizationsPage() {
                           setEditParentId(item.parentId)
                           setEditExtCode(item.externalCode)
                           setEditReason('')
+                          setEditAttempted(false)
                         }}
                       >
                         <Pencil size={13} />
@@ -370,17 +356,18 @@ export function OrganizationsPage() {
                 </div>
                 <button type="button" className="app-icon-btn" onClick={() => setEditing(null)}><X size={14} /></button>
               </div>
-              <div className="org-editor-body">
+              <form className="org-editor-body" noValidate onSubmit={submitEdit}>
                 <label className="org-field">
                   <span>机构名称</span>
                   <input value={editName} placeholder="输入正式机构名称" onChange={e => setEditName(e.target.value)} />
                 </label>
                 {editing.level > 1 && (
                   <label className="org-field">
-                    <span>上级机构</span>
-                    <select value={editParentId} onChange={e => setEditParentId(e.target.value)}>
-                      <option value="">无</option>
-                      {items.filter(i => i.level === editing.level - 1).map(p => (
+                    <span>上级机构 <b className="org-required-mark" aria-hidden="true">*</b></span>
+                    <select name="parentId" required aria-invalid={editAttempted && missingParent}
+                      value={editParentId} onChange={e => setEditParentId(e.target.value)}>
+                      <option value="">请选择上级机构</option>
+                      {editParents.map(p => (
                         <option key={p.orgId} value={p.orgId}>{p.code} · {p.name || p.placeholderKey}</option>
                       ))}
                     </select>
@@ -391,11 +378,15 @@ export function OrganizationsPage() {
                   <input value={editExtCode} placeholder="如 EXT_ORG_001" onChange={e => setEditExtCode(e.target.value)} />
                 </label>
                 <label className="org-field">
-                  <span>变更原因</span>
-                  <input value={editReason} placeholder="请输入本次修改原因" onChange={e => setEditReason(e.target.value)} />
+                  <span>变更原因 <b className="org-required-mark" aria-hidden="true">*</b></span>
+                  <input name="reason" required aria-invalid={editAttempted && missingReason}
+                    value={editReason} placeholder="请输入本次修改原因" onChange={e => setEditReason(e.target.value)} />
                 </label>
-                <button type="button" className="primary-button" disabled={busy} onClick={() => void submitEdit()}>提交变更审批</button>
-              </div>
+                {editAttempted && missingFields.length > 0 && (
+                  <p className="app-banner danger" role="alert">请补充必填项：{missingFields.join('、')}</p>
+                )}
+                <button type="submit" className="primary-button" disabled={busy}>提交变更审批</button>
+              </form>
             </aside>
           )}
         </div>

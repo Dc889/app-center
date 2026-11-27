@@ -1,4 +1,4 @@
-import {body, check, id, json, ledger} from '../../../runtime/http.mjs'
+import {body, check, id, json, ledger, same} from '../../../runtime/http.mjs'
 
 const KEYWORD_CATEGORIES = ['涉密标识', '个人隐私', '凭据明文', '业务合规']
 const MCP_CATEGORIES = ['违规内容诱导', '越权数据试探', '隐私泄露检测', '提示词投毒检测']
@@ -93,6 +93,35 @@ function sortOrgs(rows) {
   })
 }
 
+function configTicketTarget(type, p = {}) {
+  if (type === 'CFG-01') {
+    const level = Number(p.level)
+    const parentId = level === 1 ? '' : String(p.parentId || '')
+    if (p.operation === '批量初始化占位') {
+      const names = orgBatchNames(p.names)
+      return {level, parentId, names, count: names.length || Number(p.batchCount)}
+    }
+    if (p.operation === '新增机构') {
+      return {
+        level, parentId, name: String(p.name || '').trim(), code: String(p.code || '').trim(),
+        externalCode: String(p.externalCode || '').trim(), placeholderKey: String(p.placeholderKey || '').trim(),
+        aliases: Array.isArray(p.aliases) ? p.aliases : [], enabled: p.enabled !== false,
+      }
+    }
+    return {id: p.orgId ?? ''}
+  }
+  if (type === 'CFG-02') {
+    if (['修改词条', '停用词条'].includes(p.operation)) return {id: p.ruleId ?? ''}
+    return {category: p.category, matchMode: p.matchMode === '正则表达式' ? p.matchMode : '关键词包含', pattern: String(p.pattern ?? '').trim()}
+  }
+  if (['修改测试题', '停用测试题'].includes(p.operation)) return {id: p.caseId ?? ''}
+  return {suiteId: String(p.suiteId || 'default-compliance').trim(), category: p.category, prompt: String(p.prompt ?? '').trim()}
+}
+
+function orgBatchNames(names) {
+  return Array.isArray(names) ? names.map(v => String(v || '').trim()).filter(Boolean) : []
+}
+
 export function platformConfigs(dir, actorSnapshot) {
   const orgStore = ledger(dir, 'org-hierarchy', actorSnapshot)
   const kwStore = ledger(dir, 'keyword-rules', actorSnapshot)
@@ -102,6 +131,13 @@ export function platformConfigs(dir, actorSnapshot) {
   seedOrganizations(orgStore)
   seedKeywordRules(kwStore)
   seedMcpTestSuites(mcpSuiteStore)
+  if (!orgStore.get('__meta__')) orgStore.put('__meta__', {kind: 'meta'})
+
+  const configTypes = {
+    'CFG-01': {store: orgStore, idField: 'orgId', label: '机构', pendingCode: 'ORG_CHANGE_PENDING'},
+    'CFG-02': {store: kwStore, idField: 'ruleId', label: '词条', pendingCode: 'CONFIG_CHANGE_PENDING'},
+    'CFG-03': {store: mcpSuiteStore, idField: 'caseId', label: '测试题', pendingCode: 'CONFIG_CHANGE_PENDING'},
+  }
 
   function bumpMeta(store, field) {
     const meta = store.get('__meta__') || {kind: 'meta', [field]: 0}
@@ -156,13 +192,29 @@ export function platformConfigs(dir, actorSnapshot) {
     }
   }
 
+  function submitConfigTicket(ticket) {
+    const {ticketType, payload} = ticket
+    const {store, idField, label, pendingCode} = configTypes[ticketType]
+    const target = configTicketTarget(ticketType, payload)
+    if (target.id !== undefined) check(typeof target.id === 'string' && target.id, 400, 'INVALID_FIELDS', `请选择要变更的${label}`)
+    // 新增时尚无对象 ID，锁住本台账的元数据行，直到查重和建单完成。
+    return store.transaction(() => {
+      const row = store.get(target.id ?? '__meta__', {forUpdate: true})
+      if (target.id !== undefined) check(row?.[idField] === target.id, 404, 'NOT_FOUND', `目标${label}不存在`)
+      const pending = ticketStore.all().find(t => t.ticketType === ticketType && t.status === '待受理'
+        && same(configTicketTarget(ticketType, t.payload), target))
+      check(!pending, 409, pendingCode, `该${label}已有待审批的变更工单 ${pending?.ticketNo}，请先处理该工单，再提交新的申请。`)
+      return ticketStore.put(ticket.ticketNo, ticket)
+    })
+  }
+
   function applyConfigTicket(ticket) {
     const now = new Date().toISOString()
     const p = ticket.payload || {}
     if (ticket.ticketType === 'CFG-01') {
       if (p.operation === '批量初始化占位') {
         const level = Number(p.level)
-        const names = Array.isArray(p.names) ? p.names.map(v => String(v || '').trim()).filter(Boolean) : []
+        const names = orgBatchNames(p.names)
         const count = names.length > 0 ? names.length : Number(p.batchCount)
         check(level >= 1 && level <= 6 && count >= 1 && count <= 50, 400, 'INVALID_FIELDS')
         const existing = listOrgs(level)
@@ -412,7 +464,7 @@ export function platformConfigs(dir, actorSnapshot) {
         updatedAt: now,
         history: [{at: now, actor: identity.account, action: `提交 ${input.ticketType} 配置变更工单`}],
       }
-      const saved = ticketStore.put(ticketNo, record)
+      const saved = submitConfigTicket(record)
       return json(res, saved, 201)
     }
 
