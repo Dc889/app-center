@@ -353,10 +353,9 @@ export async function runAllBusinessChains(sessions, browser, reporter) {
       assert(hit, `SKL-04 下拉框未加载出「${skillName}」`)
       await sel.selectOption({label: hit})
       await ops.page.waitForTimeout(800)
-      const ta = ops.page.locator('.manual-form textarea').first()
-      if (await ta.count() > 0) await ta.fill('闭环测试完成自动清理下架')
-      await ops.page.locator('.manual-form button.primary-button').click()
-      await ops.page.waitForTimeout(1000)
+      await ops.page.getByLabel('原因说明').fill('闭环测试完成自动清理下架')
+      await ops.page.getByRole('button', {name: '提交下架审批'}).click()
+      await ops.page.waitForTimeout(1200)
 
       // Check if ops submitting SKL-04 still requires separate manual approval in /todo
       await gotoClean(ops, '/todo', 'main', 1000)

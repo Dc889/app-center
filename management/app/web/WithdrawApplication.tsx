@@ -8,7 +8,7 @@ import {AgentReplacementPicker} from '../../modules/agents/public.web'
 import {AgentImpactPanel} from '../../modules/agents/public.web'
 import type {AgentImpact} from '../../modules/agents/public.web'
 function defaultLocalDateTime() {
-  const d = new Date(Date.now() + 60_000 - new Date().getTimezoneOffset() * 60_000)
+  const d = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
   return d.toISOString().slice(0, 16)
 }
 
