@@ -32,3 +32,5 @@ test-results
 
 # Isolated acceptance evidence is a review deliverable, including failed-run logs.
 !验收记录/**/*.log
+
+tests/live-e2e/artifacts/

@@ -193,7 +193,7 @@ export function PluginWarehouse({role}: {role: Role}) {
               const badgeClass = blocked ? 'blocked' : direct ? 'usable' : 'pending'
               const badgeText = blocked ? '暂不可用' : direct ? '可使用' : '待申请'
               const versionText = typeof item.data?.version === 'string' ? `v${item.data.version}` : item.resourceId
-              const desc = typeof item.data?.description === 'string' && item.data.description ? item.data.description : item.status
+              const desc = typeof item.data?.description === 'string' && item.data.description ? item.data.description : (blocked ? '当前插件暂不可用' : '已审批入库的标准 Dify 插件')
               const accessTag = item.data?.installAccess === 'instant' ? '直接安装' : '申请安装'
               return (
                 <article

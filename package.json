@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test:module": "node dev/test-modules.mjs module",
     "test:browser": "node dev/test-modules.mjs browser",
+    "test:live-e2e": "node tests/live-e2e/run.mjs",
     "check:boundaries": "node dev/check-boundaries.mjs && node dev/check-capability-boundaries.mjs",
     "check": "npm run check:boundaries && npm run lint && npm run build && npm run test:integration",
     "check:capability-boundaries": "node dev/check-capability-boundaries.mjs",
