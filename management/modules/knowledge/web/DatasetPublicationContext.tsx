@@ -96,7 +96,7 @@ export function DatasetPublicationContext() {
   return <fieldset className="form-section" disabled={busy || resource.busy || draft.controller.busy}><legend>知识库分享申请</legend>
     <fieldset disabled={submitted}><legend>来源知识库</legend>
       <label>来源系统<select aria-label="来源系统" value={sourceSystem} onChange={e=>{controller.current?.abort();setAssociationVerified(false);setAssociationKey(key=>key+1);setSourceSystem(e.target.value);setResourceId('');scopeRef.current='';setWorkspaceId('');setContext(null);setPickerKey(key=>key+1);resource.reset();setMessage('')}}><option>RAGFlow</option><option>Dify</option></select></label>
-      <ResourcePicker key={pickerKey} kind={sourceSystem==='Dify'?'dify_dataset':'ragflow_dataset'} hideWorkspace nameOnly autoLoad searchLabel="知识库搜索" searchAction="搜索" resourceLabel="知识库名称" value={{resourceId,workspaceId}} onChange={(value,verified)=>{
+      <ResourcePicker key={pickerKey} kind={sourceSystem==='Dify'?'dify_dataset':'ragflow_dataset'} hideWorkspace={sourceSystem !== 'Dify'} nameOnly autoLoad searchLabel="知识库搜索" searchAction="搜索" resourceLabel="知识库名称" value={{resourceId,workspaceId}} onChange={(value,verified)=>{
         controller.current?.abort();setAssociationVerified(false);setAssociationKey(key=>key+1);resource.reset();setResourceId(value.resourceId);scopeRef.current=value.workspaceId;setWorkspaceId(value.workspaceId);setContext(null);setMessage('')
         if(verified)void resource.read(sourceSystem==='Dify'?'dify_dataset':'ragflow_dataset',value.resourceId,value.workspaceId).then(snapshot=>{
           if(!snapshot)return
