@@ -202,17 +202,10 @@ export function ChatApplication({ role, account, catalog }: { role: Role; accoun
               : <input aria-label={labels[key] ?? key} value={fields[key] ?? ''} onChange={event => setFields({ ...fields, [key]: event.target.value })} />}</label>)}
           </div>
           : <div className="draft-empty"><div><WandSparkles size={28} /></div><strong>从一句话开始</strong></div>}
-        <div className="draft-actions">
-          <button className="secondary-button" disabled={!selected || busy || !!submitted} onClick={save}>保存草稿</button>
-          <button className="secondary-button" disabled={!selected || busy} onClick={openInManualForm}>一键带入申请表单</button>
-          <button className="secondary-button" disabled={!selected || busy} onClick={check}>检查</button>
-          <button className="primary-button" disabled={!selected || busy || !!submitted} onClick={submit}>{submitted ? '已提交' : '提交申请'} <ArrowRight size={16} /></button>
-        </div>
-        <p role="status">{submitted ? `已提交 ${submitted}` : message}</p>
         {savedDrafts.length > 0 && (
-          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #e2e8f0' }}>
+          <div style={{ padding: '10px 18px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', flexShrink: 0 }}>
             <small style={{ color: '#64748b', display: 'block', marginBottom: 6 }}>已保存草稿（点击恢复）</small>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 72, overflowY: 'auto' }}>
               {savedDrafts.slice(0, 8).map(item => (
                 <button
                   key={item.draftId}
@@ -226,6 +219,13 @@ export function ChatApplication({ role, account, catalog }: { role: Role; accoun
             </div>
           </div>
         )}
+        <div className="draft-actions">
+          <button className="secondary-button" disabled={!selected || busy || !!submitted} onClick={save}>保存草稿</button>
+          <button className="secondary-button" disabled={!selected || busy} onClick={openInManualForm}>一键带入申请表单</button>
+          <button className="secondary-button" disabled={!selected || busy} onClick={check}>检查</button>
+          <button className="primary-button" disabled={!selected || busy || !!submitted} onClick={submit}>{submitted ? '已提交' : '提交申请'} <ArrowRight size={16} /></button>
+        </div>
+        { (submitted || message) && <p role="status" style={{ padding: '0 18px 10px', margin: 0, fontSize: 13 }}>{submitted ? `已提交 ${submitted}` : message}</p> }
       </section>
     </div>
   </>
