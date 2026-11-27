@@ -58,6 +58,10 @@ const TICKET_NAMES: Record<string,string> = {
   'KEY-01':'密钥申请','KEY-02':'密钥轮换与吊销','TOL-01':'自定义工具审批','SVC-01':'服务运维工单',
 }
 
+function isPublishingDataset(item: Application) {
+  return item.ticketType === 'KB-02' && item.status === '执行中' && !item.deliveryBlocked
+}
+
 function statusTone(status:string): 'pending'|'progress'|'success'|'danger'|'muted' {
   if(['待受理','待运维确认','待恢复审核','待所有者提交','待补正','已禁用待确认'].includes(status)) return 'pending'
   if(['执行中','待结果确认','观察中'].includes(status)) return 'progress'
@@ -100,22 +104,35 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
   const [externalAllowed,setExternalAllowed]=useState('禁止')
   const [risk,setRisk]=useState(false)
   const [error,setError]=useState('')
+  const [listError,setListError]=useState('')
   const [busy,setBusy]=useState(false)
   const [reload,setReload]=useState(0)
+  const watchPublication = view === 'todo' && items.some(isPublishingDataset)
 
-  useEffect(()=>{
-    let active=true
-    fetch('/api/applications?view='+view).then(async r=>{
-      if(!r.ok)throw Error('读取审批申请失败')
-      const data=await r.json()
-      if(active){
-        setItems(data.items)
-        setSelected(prev=>data.items.some((i:Application)=>i.ticketNo===prev)?prev:(data.items[0]?.ticketNo ?? ''))
-        setError('')
+  useEffect(() => {
+    const controller = new AbortController()
+    let timer: number | undefined
+    async function readList() {
+      try {
+        const response = await fetch('/api/applications?view=' + view, {signal: controller.signal})
+        if (!response.ok) throw Error('读取审批申请失败')
+        const {items: latest}: {items: Application[]} = await response.json()
+        if (controller.signal.aborted) return
+        setItems(latest)
+        setSelected(prev => latest.some(item => item.ticketNo === prev) ? prev : (latest[0]?.ticketNo ?? ''))
+        setListError('')
+      } catch (e) {
+        if (controller.signal.aborted) return
+        setListError(e instanceof Error ? e.message : '读取审批申请失败')
       }
-    }).catch(e=>{if(active)setError(e.message)})
-    return ()=>{active=false}
-  },[view,reload])
+      if (watchPublication) timer = window.setTimeout(readList, 2000)
+    }
+    void readList()
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [view, reload, watchPublication])
 
   const nameIndex = new Map<string, string>()
   for (const item of items) {
@@ -144,6 +161,10 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
         ticketNo:row.ticketNo,revision:row.revision,action,note,reviewVerdict,disposalScope,dispositionActions,recoveryCondition,historyPolicy,securityVerdict,securityNote,externalAllowed,confirmations:row.ticketType==='KB-04'?documents.filter(d=>documentVerdicts[JSON.stringify([d.documentId,d.sha256])]).map(d=>({documentId:d.documentId,sha256:d.sha256,verdict:documentVerdicts[JSON.stringify([d.documentId,d.sha256])]})):documents.filter(d=>confirmed.includes(JSON.stringify([d.documentId,d.sha256]))).map(d=>({documentId:d.documentId,sha256:d.sha256,verdict:'通过'})),warningDecision:risk?'确认风险并继续审批':undefined,...extra})})
       const data=await r.json()
       if(!r.ok)throw Error(data.error?.message ?? '办理失败')
+      if (view === 'todo' && data.ticketType === 'KB-02') {
+        setItems(current => current.map(item => item.ticketNo === data.ticketNo ? data : item))
+        setConfirmed([])
+      }
       setNote('');setError('');setRisk(false);setReload(v=>v+1)
     }catch(e){setError(e instanceof Error?e.message:'办理失败')}
     finally{setBusy(false)}
@@ -163,9 +184,10 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
 
   const actions=row && (view==='todo' && row.ticketType==='PLG-04' && row.status==='待恢复审核'?['批准恢复','驳回恢复']:view==='todo' && row.ticketType==='PLG-04' && row.status==='观察中'?['核对观察']:view==='mine' && row.ticketType==='KB-04' && (row.isApplicant || row.account===account) && ['待所有者提交','待补正'].includes(row.status)?['提交变更审查']:view==='todo' && row.ticketType==='KB-04' && row.status==='待受理'?['确认审查','退回补正']:view==='todo' && row.status==='待运维确认'?['批准']:view==='todo' && row.creationMode==='告警转单' && row.status==='待结果确认'?['确认结果']:view==='todo' && row.status==='待受理'?['批准','驳回']:view==='todo' && row.status==='执行失败'?row.execution?.result?.retryable?['重试执行','终止工单']:['终止工单']:view==='mine' && (row.isApplicant || row.account===account)?
     row.status==='待受理'?['撤回']:row.status==='待结果确认'?['确认结果']:[]:[]) || []
-  if(row?.canQueryExecution && view==='todo')actions.push('查证原执行')
+  const verifyDataset = view === 'todo' && row?.ticketType === 'KB-02' && row.canQueryExecution && row.deliveryBlocked
+  if (view === 'todo' && row?.canQueryExecution && (row.ticketType !== 'KB-02' || verifyDataset)) actions.push('查证原执行')
   const applicantAction=actions.length===1 && actions[0]==='撤回'
-  const noteLabel=applicantAction?'撤回原因':row?.ticketType==='KB-04' && view==='mine' && ['待所有者提交','待补正'].includes(row.status)?'变更原因':'审批意见'
+  const noteLabel=applicantAction?'撤回原因':verifyDataset?'查证说明':row?.ticketType==='KB-04' && view==='mine' && ['待所有者提交','待补正'].includes(row.status)?'变更原因':'审批意见'
   const when=(value?:string)=>value && Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('zh-CN',{hour12:false}):(value || '—')
   const historyText=(value:string)=>value.replaceAll('succeeded','已完成').replaceAll('failed','执行失败').replaceAll('cancelled','已终止').replaceAll('running','执行中')
   const uniqueStatuses = ['全部', ...Array.from(new Set(items.map(i => i.status)))]
@@ -239,6 +261,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
       </aside>
 
       <div className="app-workbench-detail">
+        {listError && <div className="app-banner danger" role="alert"><AlertTriangle size={15}/> {listError}</div>}
         {!row ? (
           <div className="app-detail-empty">
             <ShieldCheck size={36} strokeWidth={1.4} />
@@ -292,6 +315,7 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
               )}
               {secret && <div className="app-banner info"><label>一次性密钥<textarea aria-label="一次性密钥" readOnly value={secret}/></label><button className="secondary-button" onClick={()=>setSecret('')}>关闭密钥展示</button></div>}
               {row.deliveryBlocked && <div className="app-banner danger" role="alert"><AlertTriangle size={15}/> 执行结果需要查证 · {row.lastError?.code}</div>}
+              {view === 'todo' && isPublishingDataset(row) && <div className="app-banner info" role="status">已批准，正在发布知识库。</div>}
               {row.execution?.result?.failureCode && <div className="app-banner danger"><AlertTriangle size={15}/> {row.execution.result.failureCode} · {row.execution.result.failureReason}</div>}
 
               {row.ticketType==='SVC-01' && <div className="app-info-strip"><span>创建方式：{row.creationMode}</span><span>审批模式：{row.approvalMode}</span><span>目标服务：{row.submission.resourceId}</span></div>}
@@ -424,13 +448,13 @@ export function ApplicationDesk({view,account}:{view:string;account:string}) {
 
               {actions.length > 0 && (
                 <section className="app-action-card">
-                  <h4>{applicantAction ? '申请人操作' : '审批处理'}</h4>
+                  <h4>{applicantAction ? '申请人操作' : verifyDataset ? '发布结果查证' : '审批处理'}</h4>
                   <label className="app-action-field">
                     <span>{noteLabel} <em className="req">*</em></span>
                     <textarea
                       value={note}
                       onChange={e=>setNote(e.target.value)}
-                      placeholder={applicantAction ? '请输入撤回原因' : '请输入审批意见'}
+                      placeholder={'请输入' + noteLabel}
                       rows={3}
                     />
                   </label>
