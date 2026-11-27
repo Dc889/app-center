@@ -14,11 +14,32 @@ type ReconcileReport={capturedAt:string;syncedAt:string|null;scannedCounts:{apps
 const reconcileCategories:[string,string][]=[['','全部类别'],['plugin','未备案插件'],['mcp','未备案 MCP'],['key','未备案密钥'],['dataset','未备案共享知识库'],['app','已发布应用私自变更']]
 const reconcileStatuses:[string,string][]=[['','全部状态'],['待处置','待处置'],['已转安全事件','已转安全事件'],['已闭环','已闭环']]
 
-export function EventMonitor({role,onHandle}:{role:'user'|'ops'|'admin';onHandle:()=>void}) {
+export function EventMonitor({role,onHandle,onNavigate}:{role:'user'|'ops'|'admin';onHandle:()=>void;onNavigate?:(view:any,ticketType?:string|null)=>void}) {
   const [filters,setFilters]=useState({range:'24h',q:'',status:'',objectType:'',severity:''}),[draft,setDraft]=useState(''),[page,setPage]=useState(1),[revision,setRevision]=useState(0)
   const [model,setModel]=useState<Model|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[selected,setSelected]=useState(''),[detail,setDetail]=useState<Detail|null>(null),[detailError,setDetailError]=useState('')
   const [reconcile,setReconcile]=useState<ReconcileReport|null>(null),[reconcileLoading,setReconcileLoading]=useState(true),[reconcileError,setReconcileError]=useState(''),[reconcileNotice,setReconcileNotice]=useState('')
   const [recCategory,setRecCategory]=useState(''),[recStatus,setRecStatus]=useState(''),[recQ,setRecQ]=useState(''),[recPage,setRecPage]=useState(1),[recBusyId,setRecBusyId]=useState('')
+  const [cutoffSwitches,setCutoffSwitches]=useState<{enableWebAppCutoff:boolean;enableApiKeyCutoff:boolean}>({enableWebAppCutoff:false,enableApiKeyCutoff:false})
+  const [patrolBusy,setPatrolBusy]=useState(false)
+  useEffect(()=>{
+    const c=new AbortController()
+    fetch('/api/governance-policy',{signal:c.signal}).then(r=>r.ok?r.json():null).then(d=>{if(!c.signal.aborted && d?.policy?.cutoffSwitches)setCutoffSwitches(d.policy.cutoffSwitches)}).catch(()=>{})
+    return ()=>c.abort()
+  },[revision])
+  const runDeepPatrol=async ()=>{
+    setPatrolBusy(true);setReconcileNotice('');setReconcileError('')
+    try{
+      const r=await fetch('/api/governance-policy/patrol/run',{method:'POST'})
+      const d=await r.json().catch(()=>({}))
+      if(!r.ok)throw Error(d?.error?.message || d?.message || '旁路巡检执行失败')
+      setReconcileNotice(`旁路全量敏感词与暴露面巡检完成：新生成 ${d.summary?.createdCount ?? 0} 条安全告警单（去重跳过 ${d.summary?.skippedCount ?? 0} 条已有未关闭告警），仅告警未改原平台。`)
+      setRevision(n=>n+1)
+    }catch(e:any){
+      setReconcileError(e?.message || '旁路巡检执行失败')
+    }finally{
+      setPatrolBusy(false)
+    }
+  }
   const loadReconcile=(refresh=false,signal?:AbortSignal)=>{
     setReconcileLoading(true);setReconcileError('')
     const q=new URLSearchParams()
@@ -84,7 +105,9 @@ export function EventMonitor({role,onHandle}:{role:'user'|'ops'|'admin';onHandle
           </p>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button disabled={patrolBusy || reconcileLoading || !!recBusyId} onClick={runDeepPatrol}>{patrolBusy?'正在巡检敏感词与暴露面…':'执行全量敏感词与暴露面巡检'}</button>
           <button disabled={reconcileLoading || !!recBusyId} onClick={()=>{setRecPage(1);loadReconcile(true)}}>{reconcileLoading?'正在对账…':'立即重新对账'}</button>
+          {onNavigate && <button onClick={()=>onNavigate('manual','CFG-05')}>巡检与断流策略（{cutoffSwitches.enableWebAppCutoff || cutoffSwitches.enableApiKeyCutoff ? '反制已解锁' : '反制默认关闭 🔒'}）</button>}
           {recPendingBatch.length>0 && <button disabled={!!recBusyId} onClick={()=>createReconcileEvents(recPendingBatch.map(i=>i.findingId),'batch')}>{recBusyId==='batch'?'正在建单…':`批量转安全事件（${recPendingBatch.length}条）`}</button>}
         </div>
       </div>

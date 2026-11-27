@@ -26,7 +26,7 @@ export type View =
   | 'knowledgeWarehouse' | 'pluginWarehouse' | 'mcpWarehouse' | 'skillWarehouse'
   | 'plugins' | 'mcp' | 'skills' | 'serviceMonitor'
   | 'security' | 'accounts' | 'tenantModelMonitor' | 'audit'
-  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'profile' | 'types' | 'subsystems' | 'organizations' | 'keywordRules' | 'mcpTestSuites'
+  | 'chat' | 'manual' | 'mine' | 'todo' | 'query' | 'profile' | 'types' | 'subsystems' | 'organizations' | 'keywordRules' | 'mcpTestSuites' | 'governancePolicy'
 
 export type Identity = {
   role: Role
@@ -122,6 +122,7 @@ export const pageMeta: Record<View, { title: string; eyebrow: string; desc: stri
   organizations: { title: '组织机构配置', eyebrow: '1～6 级组织体系', desc: '仅系统管理员可见。管理 1～6 级组织机构占位序号（1.1~1.N）、真实名称与外部映射，变更走 CFG-01 工单留痕。' },
   keywordRules: { title: '敏感词库配置', eyebrow: '安全扫描基线', desc: '管理知识库文档、Skill 与 MCP 响应自动扫描所使用的敏感关键词与正则规则，变更走 CFG-02 工单审批生效。' },
   mcpTestSuites: { title: 'MCP 合规题库', eyebrow: '违规探测基线', desc: '管理 MCP 上架审核所使用的预设测试问题集与违规判定规则，变更走 CFG-03 工单审批生效。' },
+  governancePolicy: { title: '巡检与反制策略', eyebrow: '旁路监管总控', desc: '管理旁路敏感词/私装插件/外部暴露告警巡检规则及默认关闭的一键断流反制总闸门，全部变更走 CFG-05 工单留痕。' },
 }
 
 

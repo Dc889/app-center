@@ -1780,6 +1780,301 @@ function connectDefaultDifyDb(store) {
     }
   }
 
+  async function getDifyAppExposure({appId}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    try {
+      await client.connect()
+      const appRes = await client.query(
+        `SELECT a.id::text AS app_id, a.name AS app_name, a.mode, a.enable_site, a.enable_api,
+                a.tenant_id::text AS workspace_id, t.name AS workspace_name,
+                ac.name AS owner_name, ac.email AS owner_email,
+                s.status AS site_status, s.code AS site_code, s.title AS site_title, s.updated_at AS site_updated_at
+         FROM apps a
+         LEFT JOIN tenants t ON t.id = a.tenant_id
+         LEFT JOIN accounts ac ON ac.id = a.created_by
+         LEFT JOIN sites s ON s.app_id = a.id
+         WHERE a.id::text = $1 LIMIT 1`,
+        [appId],
+      )
+      if (appRes.rows.length === 0) return {ok: false, error: 'APP_NOT_FOUND'}
+      const row = appRes.rows[0]
+
+      const keyRes = await client.query(
+        `SELECT id::text AS key_id, token, created_at, last_used_at
+         FROM api_tokens
+         WHERE app_id::text = $1 AND type = 'app'
+         ORDER BY created_at DESC LIMIT 50`,
+        [appId],
+      )
+      const apiKeys = keyRes.rows.map(k => {
+        const raw = String(k.token || '')
+        const mask = raw.length > 10 ? `${raw.slice(0, 6)}****${raw.slice(-4)}` : (raw ? 'app-****' : '—')
+        return {
+          keyId: k.key_id,
+          tokenMask: mask,
+          createdAt: k.created_at ? new Date(k.created_at).toISOString() : null,
+          lastUsedAt: k.last_used_at ? new Date(k.last_used_at).toISOString() : null,
+        }
+      })
+
+      const chRes = await client.query(
+        `SELECT COALESCE(NULLIF(from_source, ''), 'unknown') AS src, COUNT(*)::int AS cnt,
+                COUNT(DISTINCT from_end_user_id)::int AS end_users
+         FROM messages
+         WHERE app_id::text = $1 AND created_at >= CURRENT_TIMESTAMP - INTERVAL '30 days'
+         GROUP BY 1`,
+        [appId],
+      ).catch(() => ({rows: []}))
+
+      let apiCalls = 0, webCalls = 0, consoleCalls = 0, uniqueEndUsers = 0
+      for (const c of chRes.rows) {
+        const cnt = Number(c.cnt || 0)
+        if (c.src === 'api') apiCalls += cnt
+        else if (c.src === 'console') consoleCalls += cnt
+        else { webCalls += cnt; uniqueEndUsers += Number(c.end_users || 0) }
+      }
+
+      return {
+        ok: true,
+        appId: row.app_id,
+        appName: row.app_name,
+        mode: row.mode || 'chat',
+        workspaceId: row.workspace_id,
+        workspaceName: row.workspace_name || '',
+        ownerName: row.owner_name || row.owner_email || '',
+        enableSite: Boolean(row.enable_site),
+        enableApi: Boolean(row.enable_api),
+        siteStatus: row.site_status || (row.enable_site ? 'normal' : 'pause'),
+        siteCode: row.site_code || '',
+        siteUpdatedAt: row.site_updated_at ? new Date(row.site_updated_at).toISOString() : null,
+        apiKeys,
+        channelStats30d: {apiCalls, webCalls, consoleCalls, uniqueEndUsers},
+      }
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
+  async function executeDifyAppCutoff({action, appId, keyId}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED'}
+    try {
+      await client.connect()
+      if (action === 'pause_webapp') {
+        const r1 = await client.query(`UPDATE apps SET enable_site = false, updated_at = CURRENT_TIMESTAMP WHERE id::text = $1 RETURNING name`, [appId])
+        if (r1.rows.length === 0) return {ok: false, error: 'APP_NOT_FOUND'}
+        await client.query(`UPDATE sites SET status = 'pause', updated_at = CURRENT_TIMESTAMP WHERE app_id::text = $1`, [appId])
+        return {ok: true, action, appId, appName: r1.rows[0].name, summary: '已暂停该应用的 WebApp / iframe 公开访问，工作台编辑不受影响'}
+      }
+      if (action === 'resume_webapp') {
+        const r1 = await client.query(`UPDATE apps SET enable_site = true, updated_at = CURRENT_TIMESTAMP WHERE id::text = $1 RETURNING name`, [appId])
+        if (r1.rows.length === 0) return {ok: false, error: 'APP_NOT_FOUND'}
+        await client.query(`UPDATE sites SET status = 'normal', updated_at = CURRENT_TIMESTAMP WHERE app_id::text = $1`, [appId])
+        return {ok: true, action, appId, appName: r1.rows[0].name, summary: '已恢复该应用的 WebApp / iframe 公开访问'}
+      }
+      if (action === 'pause_api') {
+        const r1 = await client.query(`UPDATE apps SET enable_api = false, updated_at = CURRENT_TIMESTAMP WHERE id::text = $1 RETURNING name`, [appId])
+        if (r1.rows.length === 0) return {ok: false, error: 'APP_NOT_FOUND'}
+        return {ok: true, action, appId, appName: r1.rows[0].name, summary: '已暂停该应用的外部 API 通道访问'}
+      }
+      if (action === 'resume_api') {
+        const r1 = await client.query(`UPDATE apps SET enable_api = true, updated_at = CURRENT_TIMESTAMP WHERE id::text = $1 RETURNING name`, [appId])
+        if (r1.rows.length === 0) return {ok: false, error: 'APP_NOT_FOUND'}
+        return {ok: true, action, appId, appName: r1.rows[0].name, summary: '已恢复该应用的外部 API 通道访问'}
+      }
+      if (action === 'revoke_api_key') {
+        if (!keyId) return {ok: false, error: 'KEY_ID_REQUIRED'}
+        const r1 = await client.query(
+          `DELETE FROM api_tokens WHERE id::text = $1 AND app_id::text = $2 AND type = 'app' RETURNING token`,
+          [keyId, appId],
+        )
+        if (r1.rows.length === 0) return {ok: false, error: 'KEY_NOT_FOUND'}
+        const raw = String(r1.rows[0].token || '')
+        const mask = raw.length > 10 ? `${raw.slice(0, 6)}****${raw.slice(-4)}` : 'app-****'
+        return {ok: true, action, appId, keyId, tokenMask: mask, summary: `已吊销外部 API 密钥 ${mask}，第三方调用将立即返回 401`}
+      }
+      return {ok: false, error: 'UNSUPPORTED_ACTION'}
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err)}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
+  async function scanDifySensitiveAlerts({keywordRules = [], enableDatasetScan = true, enableChatScan = true, enableWebAppScan = true} = {}) {
+    const client = connectDefaultDifyDb(store)
+    if (!client) return {ok: false, error: 'NO_DIFY_DB_CONFIGURED', findings: []}
+    const compiled = (keywordRules || [])
+      .filter(r => r && r.enabled !== false && r.pattern)
+      .map(r => {
+        if (r.matchMode === '正则表达式') {
+          try { return {...r, re: new RegExp(r.pattern, 'i')} } catch { return null }
+        }
+        return {...r, literal: String(r.pattern).toLowerCase()}
+      })
+      .filter(Boolean)
+
+    const matchText = (text) => {
+      if (!text || !compiled.length) return []
+      const lower = String(text).toLowerCase()
+      const hits = []
+      for (const r of compiled) {
+        if (r.re ? r.re.test(text) : lower.includes(r.literal)) {
+          hits.push({ruleId: r.ruleId, category: r.category, pattern: r.pattern, severity: r.severity})
+          if (hits.length >= 5) break
+        }
+      }
+      return hits
+    }
+
+    const findings = []
+    try {
+      await client.connect()
+
+      // A. Scan personal/shared Dify dataset segments for sensitive words (read-only)
+      if (enableDatasetScan && compiled.length > 0) {
+        const segRes = await client.query(
+          `SELECT ds.id::text AS dataset_id, ds.name AS dataset_name, ds.tenant_id::text AS workspace_id,
+                  t.name AS workspace_name, ac.name AS owner_name, d.name AS doc_name,
+                  LEFT(s.content, 2000) AS snippet, s.updated_at
+           FROM document_segments s
+           JOIN documents d ON d.id = s.document_id
+           JOIN datasets ds ON ds.id = s.dataset_id
+           LEFT JOIN tenants t ON t.id = ds.tenant_id
+           LEFT JOIN accounts ac ON ac.id = ds.created_by
+           WHERE COALESCE(s.enabled, true) = true AND COALESCE(d.archived, false) = false
+           ORDER BY s.updated_at DESC NULLS LAST
+           LIMIT 400`,
+        ).catch(() => ({rows: []}))
+
+        const hitByDataset = new Map()
+        for (const r of segRes.rows) {
+          const hits = matchText(r.snippet)
+          if (!hits.length) continue
+          const cur = hitByDataset.get(r.dataset_id) ?? {
+            datasetId: r.dataset_id,
+            datasetName: r.dataset_name,
+            workspaceId: r.workspace_id,
+            workspaceName: r.workspace_name || '',
+            ownerName: r.owner_name || '',
+            docs: new Set(),
+            patterns: new Set(),
+            count: 0,
+            updatedAt: r.updated_at,
+          }
+          cur.docs.add(r.doc_name || '未命名文档')
+          for (const h of hits) cur.patterns.add(h.pattern)
+          cur.count += 1
+          hitByDataset.set(r.dataset_id, cur)
+        }
+        for (const item of hitByDataset.values()) {
+          findings.push({
+            ruleCode: 'PATROL_DATASET_SENSITIVE',
+            objectType: '知识库',
+            severity: '严重',
+            resourceId: item.datasetId,
+            resourceName: item.datasetName,
+            workspaceId: item.workspaceId,
+            workspaceName: item.workspaceName,
+            ownerName: item.ownerName,
+            facts: `旁路知识库巡检发现工作区「${item.workspaceName || '默认'}」知识库「${item.datasetName}」中有 ${item.count} 个分段命中敏感词规则（命中词：${[...item.patterns].slice(0, 5).join('、')}；涉及文档：${[...item.docs].slice(0, 3).join('、')}）。当前策略为仅告警，未修改原知识库。`,
+            detectedAt: item.updatedAt ? new Date(item.updatedAt).toISOString() : new Date().toISOString(),
+          })
+        }
+      }
+
+      // B. Scan apps with public WebApp/iframe or external API enabled
+      if (enableWebAppScan) {
+        const expRes = await client.query(
+          `SELECT a.id::text AS app_id, a.name AS app_name, a.mode, a.enable_site, a.enable_api,
+                  a.tenant_id::text AS workspace_id, t.name AS workspace_name, ac.name AS owner_name,
+                  s.status AS site_status, s.code AS site_code,
+                  (SELECT COUNT(*)::int FROM api_tokens k WHERE k.app_id = a.id AND k.type = 'app') AS key_count,
+                  (SELECT COUNT(*)::int FROM messages m WHERE m.app_id = a.id AND COALESCE(m.from_source, '') <> 'console' AND m.created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days') AS ext_calls_7d
+           FROM apps a
+           LEFT JOIN tenants t ON t.id = a.tenant_id
+           LEFT JOIN accounts ac ON ac.id = a.created_by
+           LEFT JOIN sites s ON s.app_id = a.id
+           WHERE (a.enable_site = true AND COALESCE(s.status, 'normal') = 'normal') OR a.enable_api = true
+           ORDER BY ext_calls_7d DESC, a.updated_at DESC
+           LIMIT 200`,
+        ).catch(() => ({rows: []}))
+
+        for (const r of expRes.rows) {
+          if (Number(r.ext_calls_7d || 0) <= 0 && Number(r.key_count || 0) <= 0) continue
+          findings.push({
+            ruleCode: 'PATROL_EXTERNAL_EXPOSURE',
+            objectType: '智能体',
+            severity: Number(r.ext_calls_7d || 0) > 0 ? '严重' : '一般',
+            resourceId: r.app_id,
+            resourceName: r.app_name,
+            workspaceId: r.workspace_id,
+            workspaceName: r.workspace_name || '',
+            ownerName: r.owner_name || '',
+            enableSite: Boolean(r.enable_site && r.site_status !== 'pause'),
+            enableApi: Boolean(r.enable_api),
+            keyCount: Number(r.key_count || 0),
+            extCalls7d: Number(r.ext_calls_7d || 0),
+            facts: `检测到应用「${r.app_name}」（工作区：${r.workspace_name || '默认'}）对外开放访问（WebApp 公开：${r.enable_site && r.site_status !== 'pause' ? '已开启' : '未开启'}，API 密钥：${r.key_count} 把，近 7 日外部非控制台调用 ${r.ext_calls_7d} 次）。请核对是否已履行审批备案。`,
+            detectedAt: new Date().toISOString(),
+          })
+        }
+      }
+
+      // C. Scan recent external messages (query + answer) for sensitive content leaks
+      if (enableChatScan && compiled.length > 0) {
+        const msgRes = await client.query(
+          `SELECT m.app_id::text AS app_id, a.name AS app_name, a.tenant_id::text AS workspace_id,
+                  t.name AS workspace_name, m.from_source, LEFT(COALESCE(m.query, ''), 1000) AS q,
+                  LEFT(COALESCE(m.answer, ''), 1500) AS ans, m.created_at
+           FROM messages m
+           JOIN apps a ON a.id = m.app_id
+           LEFT JOIN tenants t ON t.id = a.tenant_id
+           WHERE m.created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+             AND COALESCE(m.from_source, '') <> 'console'
+           ORDER BY m.created_at DESC
+           LIMIT 300`,
+        ).catch(() => ({rows: []}))
+
+        const hitByApp = new Map()
+        for (const r of msgRes.rows) {
+          const hits = matchText(`${r.q}\n${r.ans}`)
+          if (!hits.length) continue
+          const cur = hitByApp.get(r.app_id) ?? {
+            appId: r.app_id, appName: r.app_name, workspaceId: r.workspace_id, workspaceName: r.workspace_name || '',
+            patterns: new Set(), count: 0, at: r.created_at,
+          }
+          for (const h of hits) cur.patterns.add(h.pattern)
+          cur.count += 1
+          hitByApp.set(r.app_id, cur)
+        }
+        for (const item of hitByApp.values()) {
+          findings.push({
+            ruleCode: 'PATROL_CHAT_SENSITIVE',
+            objectType: '智能体',
+            severity: '紧急',
+            resourceId: item.appId,
+            resourceName: item.appName,
+            workspaceId: item.workspaceId,
+            workspaceName: item.workspaceName,
+            ownerName: '',
+            facts: `旁路对话审计发现应用「${item.appName}」近 7 日外部调用中有 ${item.count} 条问答命中敏感词规则（命中词：${[...item.patterns].slice(0, 5).join('、')}）。当前仅生成安全告警，请核查调用来源 IP 与外部系统。`,
+            detectedAt: item.at ? new Date(item.at).toISOString() : new Date().toISOString(),
+          })
+        }
+      }
+
+      return {ok: true, scannedAt: new Date().toISOString(), findings}
+    } catch (err) {
+      return {ok: false, error: err?.message || String(err), findings: []}
+    } finally {
+      await client.end().catch(() => {})
+    }
+  }
+
   return {
     handle: async (req, res, path, actor) => {
       if (path === '/api/subsystems' && req.method === 'GET') {
@@ -1802,6 +2097,9 @@ function connectDefaultDifyDb(store) {
     copyDifyDatasetToWorkspace,
     getDifyAppInsights,
     getDifyHighFreqApps,
+    getDifyAppExposure,
+    executeDifyAppCutoff,
+    scanDifySensitiveAlerts,
     refreshDifyInventory: async () => {
       const enabled = store.all().filter(r => !r.deleted && r.type === 'dify' && r.enabled && r.dbHost && r.dbUser && r.secrets?.dbPassword)
       for (const rec of enabled) {

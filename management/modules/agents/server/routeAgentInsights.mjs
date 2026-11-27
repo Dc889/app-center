@@ -1,6 +1,7 @@
 import {existsSync} from 'node:fs'
 import http from 'node:http'
 import {body, check, id, json} from '../../../../runtime/http.mjs'
+import {getActiveGovernancePolicy} from '../../events/server/routeGovernancePolicy.mjs'
 
 const DEFAULT_PROMPT_TEMPLATE = `你是一名资深 AI 应用架构师。下面是 Dify 平台上一个应用的 DSL 配置（YAML 格式）。
 请用中文输出该应用的功能分析报告，包含以下部分（Markdown 格式）：
@@ -64,9 +65,9 @@ function demuxDockerLogs(buf) {
   return buf.toString('utf8')
 }
 
-async function probeDifyNginxCallerIps(appId = '') {
+async function probeDifyNginxCallerIps(appId = '', siteCode = '') {
   if (!existsSync('/var/run/docker.sock')) {
-    return {available: false, source: 'not_collected', appIps: [], gatewayIps: []}
+    return {available: false, source: 'not_collected', appIps: [], gatewayIps: [], externalTraces: []}
   }
   try {
     const rawList = await dockerSockGet('/containers/json?all=false', 5000)
@@ -76,20 +77,23 @@ async function probeDifyNginxCallerIps(appId = '') {
       const img = String(c.Image || '').toLowerCase()
       return !names.some(n => n.startsWith('app-center-')) && (names.some(n => n.includes('nginx')) || img.includes('nginx'))
     })
-    if (!nginx?.Id) return {available: false, source: 'not_collected', appIps: [], gatewayIps: []}
+    if (!nginx?.Id) return {available: false, source: 'not_collected', appIps: [], gatewayIps: [], externalTraces: []}
 
-    const logBuf = await dockerSockGet(`/containers/${encodeURIComponent(nginx.Id)}/logs?stdout=true&stderr=false&tail=2000`, 6000)
+    const logBuf = await dockerSockGet(`/containers/${encodeURIComponent(nginx.Id)}/logs?stdout=true&stderr=false&tail=2500`, 6000)
     const text = demuxDockerLogs(logBuf)
     const appIpMap = new Map()
     const gwIpMap = new Map()
-    const lineRe = /^(\d{1,3}(?:\.\d{1,3}){3}|[a-f0-9:]+)\s+\S+\s+\S+\s+\[[^\]]+\]\s+"[A-Z]+\s+([^\s"]+)\s+HTTP\/[^"]+"\s+(\d{3})/i
+    const traceMap = new Map()
+    // Standard nginx combined format: ip - user [time] "METHOD /path HTTP/x" status bytes "referer" "ua"
+    const lineRe = /^(\d{1,3}(?:\.\d{1,3}){3}|[a-f0-9:]+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"[A-Z]+\s+([^\s"]+)\s+HTTP\/[^"]+"\s+(\d{3})\s+\d+(?:\s+"([^"]*)")?/i
 
     for (const line of text.split(/\r?\n/)) {
       const m = lineRe.exec(line.trim())
       if (!m) continue
       const ip = m[1]
-      const urlPath = m[2]
-      const status = Number(m[3])
+      const urlPath = m[3]
+      const status = Number(m[4])
+      const rawReferer = (m[5] && m[5] !== '-') ? m[5].trim() : ''
       // Only count API / console / app interaction endpoints, ignore static assets
       if (!/^\/(v1|api|console\/api|chat|workflow|completion)\b/i.test(urlPath)) continue
       const gw = gwIpMap.get(ip) ?? {ip, count: 0, errors: 0}
@@ -97,23 +101,48 @@ async function probeDifyNginxCallerIps(appId = '') {
       if (status >= 400) gw.errors += 1
       gwIpMap.set(ip, gw)
 
-      if (appId && urlPath.includes(appId)) {
+      const matchedApp = (appId && urlPath.includes(appId)) || (siteCode && (urlPath.includes(siteCode) || rawReferer.includes(siteCode)))
+      if (matchedApp) {
         const ae = appIpMap.get(ip) ?? {ip, count: 0, errors: 0}
         ae.count += 1
         if (status >= 400) ae.errors += 1
         appIpMap.set(ip, ae)
       }
+
+      // Classify external integration traces (API, WebApp, or third-party iframe Referer)
+      let channel = ''
+      if (/^\/v1\//i.test(urlPath)) channel = '外部 API 调用'
+      else if (/^\/(api\/chat-messages|api\/completion-messages|api\/workflows|chat\/|workflow\/|completion\/)/i.test(urlPath)) {
+        channel = rawReferer && !/\/(app|apps|explore|datasets)\b/i.test(rawReferer) ? 'WebApp / 第三方嵌入' : 'WebApp 公开页'
+      }
+      if (channel && (matchedApp || /^\/v1\//i.test(urlPath) || /^\/api\/(chat-messages|completion-messages|workflows)/i.test(urlPath))) {
+        let refOrigin = ''
+        if (rawReferer && /^https?:\/\//i.test(rawReferer)) {
+          try {
+            const u = new URL(rawReferer)
+            refOrigin = `${u.origin}${u.pathname}`.slice(0, 120)
+          } catch { refOrigin = rawReferer.slice(0, 120) }
+        }
+        const traceKey = `${ip}|${channel}|${refOrigin}`
+        const tr = traceMap.get(traceKey) ?? {ip, channel, referer: refOrigin || '直接调用（无 Referer）', count: 0, errors: 0, matchedApp: Boolean(matchedApp)}
+        tr.count += 1
+        if (status >= 400) tr.errors += 1
+        if (matchedApp) tr.matchedApp = true
+        traceMap.set(traceKey, tr)
+      }
     }
     const sortDesc = map => [...map.values()].sort((a, b) => b.count - a.count).slice(0, 30)
+    const traces = [...traceMap.values()].sort((a, b) => Number(b.matchedApp) - Number(a.matchedApp) || b.count - a.count).slice(0, 30)
     return {
       available: true,
       source: 'docker-nginx',
       containerName: (nginx.Names?.[0] || '').replace(/^\//, ''),
       appIps: sortDesc(appIpMap),
       gatewayIps: sortDesc(gwIpMap),
+      externalTraces: traces,
     }
   } catch {
-    return {available: false, source: 'not_collected', appIps: [], gatewayIps: []}
+    return {available: false, source: 'not_collected', appIps: [], gatewayIps: [], externalTraces: []}
   }
 }
 
@@ -210,24 +239,35 @@ export async function routeAgentInsights(services) {
     })
   }
 
-  // 2. Per-app deep insights (model breakdown + caller IPs + DSL/YAML static + latest AI report)
+  // 2. Per-app deep insights (model breakdown + caller IPs + external exposure + DSL/YAML static + latest AI report)
   if (req.method === 'GET' && path === '/api/agent-insights/app-detail') {
     const appId = String(url.searchParams.get('appId') ?? '').trim()
     const days = Number(url.searchParams.get('days') ?? 30) || 30
     check(appId, 400, 'APP_ID_REQUIRED', '请指定要分析的应用 ID')
 
-    const [detail, ipInfo] = await Promise.all([
+    const [detail, exposure] = await Promise.all([
       subsystems.getDifyAppInsights({appId, days}),
-      probeDifyNginxCallerIps(appId),
+      subsystems.getDifyAppExposure ? subsystems.getDifyAppExposure({appId}) : Promise.resolve(null),
     ])
     check(detail?.ok, detail?.error === 'APP_NOT_FOUND' ? 404 : 502, detail?.error || 'APP_INSIGHTS_FAILED')
+    const ipInfo = await probeDifyNginxCallerIps(appId, exposure?.siteCode || '')
 
     const activeCfg = getActiveAiConfig(store)
     const latestReport = store.get(`agent-ai-report:${appId}`) ?? null
+    const govPolicy = getActiveGovernancePolicy(store)
+    const approvedPub = Boolean(
+      services.applications?.records?.().some(
+        a => ['AG-02', 'AG-04'].includes(a.ticketType)
+          && ['已完成', '已通过', '待结果确认'].includes(a.status)
+          && String(a.submission?.resourceId || a.snapshot?.resourceId || '').toLowerCase() === appId.toLowerCase(),
+      ),
+    )
 
     return json(res, {
       ...detail,
       callerIps: ipInfo,
+      exposure: exposure?.ok ? {...exposure, approvedPublished: approvedPub} : null,
+      cutoffSwitches: govPolicy.cutoffSwitches,
       aiReady: activeCfg.configured,
       aiModel: activeCfg.aiModel || null,
       latestReport,

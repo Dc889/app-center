@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {Activity, Cpu, Download, FileCode2, Globe, Play, Settings2, Sparkles} from 'lucide-react'
+import {Activity, Cpu, Download, FileCode2, Globe, Lock, Play, Settings2, ShieldAlert, ShieldOff, Sparkles} from 'lucide-react'
 import type {View} from '../../../shared-ui/UiContextData'
 
 type ModelRow = {
@@ -50,7 +50,18 @@ type AppInsightDetail = {
     containerName?: string
     appIps: IpRow[]
     gatewayIps: IpRow[]
+    externalTraces?: {ip: string; channel: string; referer: string; count: number; errors: number; matchedApp: boolean}[]
   }
+  exposure?: {
+    enableSite: boolean
+    enableApi: boolean
+    siteStatus: string
+    siteCode: string
+    approvedPublished: boolean
+    apiKeys: {keyId: string; tokenMask: string; createdAt: string | null; lastUsedAt: string | null}[]
+    channelStats30d: {apiCalls: number; webCalls: number; consoleCalls: number; uniqueEndUsers: number}
+  } | null
+  cutoffSwitches?: {enableWebAppCutoff: boolean; enableApiKeyCutoff: boolean}
   aiReady: boolean
   aiModel: string | null
   latestReport: {
@@ -110,7 +121,9 @@ export function AgentAppInsightsPanel({
   onNavigate?: (view: View, ticketType?: string | null) => void
 }) {
   const [days, setDays] = useState<7 | 30 | 90>(30)
-  const [subTab, setSubTab] = useState<'models' | 'ips' | 'dsl'>('models')
+  const [subTab, setSubTab] = useState<'models' | 'ips' | 'dsl' | 'exposure'>('models')
+  const [cutoffBusy, setCutoffBusy] = useState('')
+  const [cutoffNotice, setCutoffNotice] = useState('')
   const [detail, setDetail] = useState<AppInsightDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -290,6 +303,9 @@ export function AgentAppInsightsPanel({
           <button type="button" className={subTab === 'dsl' ? 'active' : ''} onClick={() => setSubTab('dsl')}>
             <FileCode2 size={13} style={{marginRight: 4, verticalAlign: -2}} /> YAML 与 AI 作用分析
           </button>
+          <button type="button" className={subTab === 'exposure' ? 'active' : ''} onClick={() => setSubTab('exposure')}>
+            <ShieldAlert size={13} style={{marginRight: 4, verticalAlign: -2}} /> 对外暴露与第三方溯源
+          </button>
         </div>
       </div>
 
@@ -466,6 +482,151 @@ export function AgentAppInsightsPanel({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Tab 4: 对外暴露与第三方集成溯源 + 受控一键断流反制 */}
+          {subTab === 'exposure' && (
+            <div style={{display: 'flex', flexDirection: 'column', gap: 16}} data-testid="agent-exposure-tab">
+              {detail.exposure ? (
+                <>
+                  <div className="metric-grid four">
+                    <article className="metric-card">
+                      <span>平台审批备案状态</span>
+                      <strong style={{color: detail.exposure.approvedPublished ? '#027a48' : '#b45309'}}>
+                        {detail.exposure.approvedPublished ? '已审批备案' : '未走平台审批'}
+                      </strong>
+                    </article>
+                    <article className="metric-card">
+                      <span>WebApp / iframe 公开访问</span>
+                      <strong style={{color: detail.exposure.enableSite && detail.exposure.siteStatus !== 'pause' ? '#b42318' : '#475569'}}>
+                        {detail.exposure.enableSite && detail.exposure.siteStatus !== 'pause' ? '已开启' : '已暂停'}
+                      </strong>
+                    </article>
+                    <article className="metric-card">
+                      <span>外部 API 通道 / 密钥数</span>
+                      <strong>{detail.exposure.enableApi ? '开启' : '暂停'} · {detail.exposure.apiKeys.length} 把</strong>
+                    </article>
+                    <article className="metric-card">
+                      <span>近 30 日外部非控制台调用</span>
+                      <strong>{(detail.exposure.channelStats30d.apiCalls + detail.exposure.channelStats30d.webCalls).toLocaleString()} 次</strong>
+                    </article>
+                  </div>
+
+                  {/* 受控一键断流反制动作区（默认关闭，需 CFG-05 开启） */}
+                  <div style={{border: '1px solid #fed7aa', background: '#fffbeb', borderRadius: 8, padding: 14}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8}}>
+                      <strong style={{fontSize: 14, color: '#9a3412', display: 'inline-flex', alignItems: 'center', gap: 6}}>
+                        <ShieldOff size={15} /> 受控一键断流反制（默认关闭，需经 CFG-05 工单开启）
+                      </strong>
+                      <button type="button" className="secondary-button compact" onClick={() => onNavigate?.('manual', 'CFG-05')}>
+                        <Settings2 size={13} /> 管理反制总开关（CFG-05）
+                      </button>
+                    </div>
+                    {!detail.cutoffSwitches?.enableWebAppCutoff && !detail.cutoffSwitches?.enableApiKeyCutoff ? (
+                      <p style={{margin: 0, fontSize: 13, color: '#9a3412', display: 'flex', alignItems: 'center', gap: 6}}>
+                        <Lock size={14} /> 当前处于纯告警监管模式，WebApp 断流与 API 密钥吊销总开关均默认关闭 🔒。如需启用一键断流，请先点击右侧前往 CFG-05 提交配置变更工单并由管理员批准。
+                      </p>
+                    ) : (
+                      <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
+                        {detail.cutoffSwitches?.enableWebAppCutoff && (
+                          <button
+                            type="button"
+                            className="primary-button compact"
+                            disabled={!!cutoffBusy}
+                            onClick={async () => {
+                              const act = detail.exposure!.enableSite && detail.exposure!.siteStatus !== 'pause' ? 'pause_webapp' : 'resume_webapp'
+                              setCutoffBusy(act); setCutoffNotice('')
+                              try {
+                                const r = await fetch('/api/governance-policy/cutoff/request', {
+                                  method: 'POST',
+                                  headers: {'content-type': 'application/json'},
+                                  body: JSON.stringify({
+                                    appId: detail.app.appId,
+                                    action: act,
+                                    reason: act === 'pause_webapp' ? '在智能体监控发现外部暴露风险，申请暂停 WebApp/iframe 公开访问' : '经核查确认合规，申请恢复 WebApp 公开访问',
+                                  }),
+                                })
+                                const b = await r.json().catch(() => ({}))
+                                if (!r.ok) throw new Error(b?.error?.message || '提交失败')
+                                setCutoffNotice(`已发起断流/恢复审批工单（${b.ticket?.actionLabel}），请前往 SEC-01 或系统管理员审批执行。`)
+                              } catch (e: any) {
+                                setCutoffNotice(e?.message || '提交失败')
+                              } finally { setCutoffBusy('') }
+                            }}
+                          >
+                            {detail.exposure.enableSite && detail.exposure.siteStatus !== 'pause' ? '一键申请关停 Web 公开访问' : '申请恢复 Web 公开访问'}
+                          </button>
+                        )}
+                        {detail.cutoffSwitches?.enableApiKeyCutoff && (
+                          <button
+                            type="button"
+                            className="secondary-button compact"
+                            onClick={() => onNavigate?.('manual', 'SEC-01')}
+                          >
+                            前往 SEC-01 暂停 API 通道 / 吊销密钥
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {cutoffNotice && <p role="status" style={{margin: '8px 0 0', fontSize: 13, color: '#0f766e', fontWeight: 500}}>{cutoffNotice}</p>}
+                  </div>
+
+                  {/* 第三方集成与外部调用溯源表（IP + 渠道 + Referer 第三方业务系统地址） */}
+                  <div style={{border: '1px solid #e5e7eb', borderRadius: 8, padding: 14}}>
+                    <strong style={{fontSize: 14, display: 'block', marginBottom: 8}}>第三方业务系统集成与外部调用溯源（Nginx 旁路日志）</strong>
+                    <div className="org-table-wrap">
+                      <table className="org-table">
+                        <thead>
+                          <tr>
+                            <th>来源真实 IP</th>
+                            <th>调用渠道</th>
+                            <th>第三方系统来源地址（HTTP Referer）</th>
+                            <th>调用次数</th>
+                            <th>异常次数</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(detail.callerIps.externalTraces ?? []).length > 0 ? (detail.callerIps.externalTraces ?? []).slice(0, 15).map((t, i) => (
+                            <tr key={`${t.ip}-${t.channel}-${i}`}>
+                              <td><code className="org-code">{t.ip}</code></td>
+                              <td><span className="app-status-pill tone-progress">{t.channel}</span></td>
+                              <td style={{fontSize: 12, wordBreak: 'break-all'}}>{t.referer}</td>
+                              <td>{t.count}</td>
+                              <td style={{color: t.errors > 0 ? '#b42318' : '#027a48'}}>{t.errors}</td>
+                            </tr>
+                          )) : (
+                            <tr><td colSpan={5} style={{textAlign: 'center', color: '#9ca3af', padding: '14px 0'}}>近期网关日志中未捕获到外部 API / WebApp / 第三方 iframe 调用</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 应用名下 API 密钥清单 */}
+                  <div style={{border: '1px solid #e5e7eb', borderRadius: 8, padding: 14}}>
+                    <strong style={{fontSize: 14, display: 'block', marginBottom: 8}}>应用名下 API 密钥台账（仅脱敏展示）</strong>
+                    <div className="org-table-wrap">
+                      <table className="org-table">
+                        <thead><tr><th>密钥掩码</th><th>创建时间</th><th>最近调用时间</th></tr></thead>
+                        <tbody>
+                          {detail.exposure.apiKeys.length > 0 ? detail.exposure.apiKeys.map(k => (
+                            <tr key={k.keyId}>
+                              <td><code className="org-code">{k.tokenMask}</code></td>
+                              <td style={{fontSize: 12}}>{k.createdAt ? new Date(k.createdAt).toLocaleString('zh-CN', {hour12: false}) : '—'}</td>
+                              <td style={{fontSize: 12}}>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString('zh-CN', {hour12: false}) : '尚未使用'}</td>
+                            </tr>
+                          )) : (
+                            <tr><td colSpan={3} style={{textAlign: 'center', color: '#9ca3af', padding: '14px 0'}}>该应用尚未在 Dify 创建外部 API 密钥</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p style={{color: '#64748b', fontSize: 13}}>未采集到该应用的对外暴露面信息。</p>
+              )}
             </div>
           )}
 

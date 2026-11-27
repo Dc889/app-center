@@ -29,6 +29,7 @@ export const VIEW_PATHS: Record<View, string> = {
   organizations: '/organizations',
   keywordRules: '/keyword-rules',
   mcpTestSuites: '/mcp-test-suites',
+  governancePolicy: '/governance-policy',
 }
 
 const PATH_TO_VIEW: Record<string, View> = Object.fromEntries(

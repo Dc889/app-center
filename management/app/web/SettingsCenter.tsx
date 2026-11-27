@@ -1,18 +1,20 @@
-import {BookKey, Building2, FlaskConical, ServerCog, Settings, Workflow} from 'lucide-react'
+import {BookKey, Building2, FlaskConical, ServerCog, Settings, ShieldAlert, Workflow} from 'lucide-react'
 import type {Role, View} from '../../shared-ui/UiContextData'
 import {OrganizationsPage} from './OrganizationsPage'
 import {SubsystemsPage} from './SubsystemsPage'
 import {KeywordRulesPage} from './KeywordRulesPage'
 import {McpTestSuitesPage} from './McpTestSuitesPage'
 import {TicketTypes} from './WorkOrderPages'
+import {GovernancePolicyPage} from '../../modules/events/web/GovernancePolicyPage'
 
-export type SettingsTabView = 'organizations' | 'subsystems' | 'keywordRules' | 'mcpTestSuites' | 'types'
+export type SettingsTabView = 'organizations' | 'subsystems' | 'keywordRules' | 'mcpTestSuites' | 'governancePolicy' | 'types'
 
 export const SETTINGS_VIEWS: readonly SettingsTabView[] = [
   'organizations',
   'subsystems',
   'keywordRules',
   'mcpTestSuites',
+  'governancePolicy',
   'types',
 ]
 
@@ -34,6 +36,7 @@ export function SettingsCenter({
     {id: 'subsystems', label: '纳管子系统', icon: ServerCog, adminOnly: true},
     {id: 'keywordRules', label: '敏感词库', icon: BookKey},
     {id: 'mcpTestSuites', label: 'MCP 题库', icon: FlaskConical},
+    {id: 'governancePolicy', label: '巡检与反制策略', icon: ShieldAlert},
     {id: 'types', label: '工单类型', icon: Workflow, adminOnly: true},
   ]
   const tabs = allTabs.filter(t => !t.adminOnly || role === 'admin')
@@ -73,6 +76,7 @@ export function SettingsCenter({
         {effectiveTab === 'subsystems' && role === 'admin' && <SubsystemsPage />}
         {effectiveTab === 'keywordRules' && <KeywordRulesPage />}
         {effectiveTab === 'mcpTestSuites' && <McpTestSuitesPage />}
+        {effectiveTab === 'governancePolicy' && <GovernancePolicyPage onNavigate={onNavigate} />}
         {effectiveTab === 'types' && role === 'admin' && <TicketTypes />}
       </div>
     </div>
