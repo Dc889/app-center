@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 应用中心 · 运维快速上手指南</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --border: #e4e7ec;
+      --ink: #101828;
+      --sub: #475467;
+      --muted: #667085;
+      --brand: #175cd3;
+      --brand-bg: #eff8ff;
+      --brand-border: #b2ddff;
+      --success: #027a48;
+      --success-bg: #ecfdf3;
+      --success-border: #abefc6;
+      --warn: #b54708;
+      --warn-bg: #fffaeb;
+      --warn-border: #fedf89;
+      --danger: #b42318;
+      --danger-bg: #fef3f2;
+      --danger-border: #fecdca;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 24px 56px;
+    }
+
+    /* Hero Banner */
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #175cd3 100%);
+      color: #fff;
+      border-radius: 16px;
+      padding: 32px 36px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      margin-bottom: 12px;
+    }
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .hero p {
+      margin: 0 0 20px;
+      font-size: 14.5px;
+      color: rgba(255, 255, 255, 0.88);
+      max-width: 820px;
+    }
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hero-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .hero-link:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+    .hero-link code {
+      background: rgba(15, 23, 42, 0.35);
+      color: #e0f2fe;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px;
+    }
+
+    /* Section Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f2f4f7;
+    }
+    .step-badge {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: var(--brand-bg);
+      color: var(--brand);
+      border: 1px solid var(--brand-border);
+      font-size: 13px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .card-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      text-align: left;
+    }
+    th {
+      background: #f9fafb;
+      color: var(--sub);
+      font-weight: 600;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f2f4f7;
+      vertical-align: top;
+      color: var(--ink);
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* Pills & Code */
+    .pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .pill-admin { background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    .pill-ops { background: var(--brand-bg); color: var(--brand); border: 1px solid var(--brand-border); }
+    .pill-user { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      background: #f2f4f7;
+      color: #1d2939;
+      padding: 2px 6px;
+      border-radius: 5px;
+    }
+
+    /* Callout */
+    .callout {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: var(--brand-bg);
+      border: 1px solid var(--brand-border);
+      color: #1849a9;
+      font-size: 13px;
+    }
+    .callout strong { color: #102a56; }
+
+    /* 2x2 Workflow Grid */
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+      gap: 16px;
+    }
+    .wf-box {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      background: #fcfcfd;
+    }
+    .wf-box h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .wf-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .wf-box ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--sub);
+      font-size: 13.5px;
+    }
+    .wf-box li { margin-bottom: 6px; }
+    .wf-box li:last-child { margin-bottom: 0; }
+
+    /* Quick Ticket Map */
+    .ticket-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .ticket-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 12.5px;
+      color: var(--sub);
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12.5px;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 640px) {
+      .hero { padding: 24px 20px; }
+      .card { padding: 18px 16px; }
+      .workflow-grid { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      .container { padding: 0; max-width: 100%; }
+      .card { box-shadow: none; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Hero -->
+    <header class="hero">
+      <span class="hero-eyebrow">AI 应用中心 · 运维操作手册</span>
+      <h1>AI 应用中心运维快速上手指南</h1>
+      <p>
+        面向 Dify / RAGFlow 等底层 AI 平台的统一治理与运营管控平台，集“共享资源仓库、全流程工单审批、全维度运行监控、旁路合规对账与模型配额熔断”于一体。所有敏感变更均通过工单审批并自动下发底层平台生效，全程审计留痕。
+      </p>
+      <div class="hero-links">
+        <a class="hero-link" href="http://192.168.0.7:8088" target="_blank" rel="noreferrer">
+          应用中心入口 <code>http://192.168.0.7:8088</code>
+        </a>
+        <a class="hero-link" href="http://192.168.0.7:8081" target="_blank" rel="noreferrer">
+          底层 Dify 平台 <code>http://192.168.0.7:8081</code>
+        </a>
+      </div>
+    </header>
+
+    <!-- Section 1: Roles -->
+    <section class="card">
+      <div class="card-header">
+        <span class="step-badge">1</span>
+        <h2>支持的角色与权责边界</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 160px;">角色名称</th>
+              <th style="width: 190px;">适用人员</th>
+              <th>可见菜单与核心操作权限</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill pill-user">普通用户</span><div style="margin-top:4px;"><code>user</code></div></td>
+              <td>各业务部门研发人员、一线使用人员</td>
+              <td>
+                可见 <strong>共享仓库</strong>（智能体 / 知识库 / 插件 / MCP / Skill）、<strong>工单中心</strong>（对话申请、手工申请、我的申请）与 <strong>个人中心</strong>。<br />
+                可发起资源上架/申领、<code>MOD-01</code> 模型调额、<code>ACC-03</code> 资源交接、<code>ACC-04</code> 组织角色变更申请；不可查看监控大盘与系统后台配置。
+              </td>
+            </tr>
+            <tr>
+              <td><span class="pill pill-ops">运维人员</span><div style="margin-top:4px;"><code>operator</code></div></td>
+              <td>平台日常运营、安全合规审核、运维值班</td>
+              <td>
+                在普通用户权限基础上，开放 <strong>全部 11 个运行监控页面</strong>、<strong>我的待办 / 工单查询</strong> 及 <strong>系统设置</strong>（敏感词库、MCP 合规题库）。<br />
+                负责日常业务工单审批、安全事件研判处置、旁路未备案资源对账整改、模型配额审批与超限巡检。
+              </td>
+            </tr>
+            <tr>
+              <td><span class="pill pill-admin">系统管理员</span><div style="margin-top:4px;"><code>admin</code></div></td>
+              <td>平台总体负责人、信息化系统管理员</td>
+              <td>
+                <strong>全平台最高权限</strong>：在运维权限基础上，额外管理 <strong>组织机构、纳管子系统、工单类型定义</strong>，并负责审批 <strong>账号开通与变更（<code>ACC-01</code>）、账号更名（<code>ACC-02</code>）、资源交接（<code>ACC-03</code>）、个人组织与角色变更（<code>ACC-04</code>）</strong>。
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Section 2: Accounts -->
+    <section class="card">
+      <div class="card-header">
+        <span class="step-badge">2</span>
+        <h2>当前预置与已纳管账号清单</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>登录账号</th>
+              <th>姓名</th>
+              <th>角色</th>
+              <th>所属组织</th>
+              <th>初始密码</th>
+              <th>用途说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>li.qiang</code></td>
+              <td><strong>李强</strong></td>
+              <td><span class="pill pill-admin">系统管理员</span></td>
+              <td>系统管理组</td>
+              <td><code>Kpw@2026!</code></td>
+              <td>全平台系统设置、子系统接入、账号类工单审批</td>
+            </tr>
+            <tr>
+              <td><code>zhou.min</code></td>
+              <td><strong>周敏</strong></td>
+              <td><span class="pill pill-ops">运维人员</span></td>
+              <td>平台运营组</td>
+              <td><code>Kpw@2026!</code></td>
+              <td>日常运行监控、业务工单审批、安全事件与旁路处置</td>
+            </tr>
+            <tr>
+              <td><code>chen.yu</code></td>
+              <td><strong>陈宇</strong></td>
+              <td><span class="pill pill-user">普通用户</span></td>
+              <td>业务一部</td>
+              <td><code>Kpw@2026!</code></td>
+              <td>普通业务用户演示账号（已关联 Dify 工作区）</td>
+            </tr>
+            <tr>
+              <td><code>tenant01@kpw.com</code> ～ <code>tenant10@kpw.com</code></td>
+              <td>10 个业务租户</td>
+              <td><span class="pill pill-user">普通用户</span></td>
+              <td>刑侦 / 经侦 / 待归属等</td>
+              <td><code>Kpw@2026!</code></td>
+              <td>Dify 存量租户所有者账号，使用原 Dify 邮箱密码实时验密登录</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <strong>存量账号平滑纳管说明：</strong>
+        应用中心不留存 Dify 用户密码。Dify 中尚未归属组织的存量账号（如 <code>tenant04@kpw.com</code> ～ <code>tenant10@kpw.com</code>）首次登录应用中心时，会自动弹出不可跳过的<strong>「首次登录身份信息完善」</strong>页，填写真实姓名并选择所属组织后即刻生效进入平台。
+      </div>
+    </section>
+
+    <!-- Section 3: Daily Operations -->
+    <section class="card">
+      <div class="card-header">
+        <span class="step-badge">3</span>
+        <h2>运维人员日常使用指南（4 步核心工作流）</h2>
+      </div>
+      <div class="workflow-grid">
+        <div class="wf-box">
+          <h3><span class="wf-num">1</span>每日运行巡检（左侧「运行监控」）</h3>
+          <ul>
+            <li><strong>服务监控</strong>（<code>/service-monitor</code>）：查看宿主机 <code>ecs-5e28</code> CPU、内存、磁盘及 11 个 Dify 容器实时状态与资源消耗；容器异常时可执行受控重启。</li>
+            <li><strong>资源资产监控</strong>：查看智能体、知识库、插件、MCP、Skill 的全量纳管明细与调用记录。</li>
+            <li><strong>租户与模型监控</strong>（<code>/tenant-model-monitor</code>）：按账号全景查看每人名下的应用、知识库、插件、MCP 数量及本月 Token 消耗；点击「查看模型额度」自动定位至该工作区模型台账。</li>
+          </ul>
+        </div>
+
+        <div class="wf-box">
+          <h3><span class="wf-num">2</span>办理工单审批（左侧「工单中心 → 我的待办」）</h3>
+          <ul>
+            <li>受理并审批业务用户提交的知识库上架/绑定（<code>KB-*</code>）、智能体发布/授权/下架（<code>AG-*</code>）、API 密钥申领/吊销（<code>KEY-*</code>）、插件安装（<code>PLG-*</code>）、MCP 绑定/隔离（<code>MCP-*</code>）、Skill 上架/下架（<code>SKL-*</code>）工单。</li>
+            <li>审批通过后，系统自动调用底层 Dify 接口真实下发并回写执行回执，无需人工登录 Dify 手工操作。</li>
+          </ul>
+        </div>
+
+        <div class="wf-box">
+          <h3><span class="wf-num">3</span>旁路对账与安全处置（左侧「运行监控 → 安全事件」）</h3>
+          <ul>
+            <li>在「安全事件」页顶部点击<strong>「立即重新对账」</strong>，自动比对 Dify 只读库与应用中心审批台账，识别绕过审批私自安装的插件、绑定的 MCP、生成的密钥、开放共享的知识库及私自修改的已发布应用。</li>
+            <li>对检出的异常点击<strong>「转安全事件单」</strong>（支持批量建单），按「未研判 → 处理中 → 待复核 → 双人复核关闭」完成安全闭环。</li>
+          </ul>
+        </div>
+
+        <div class="wf-box">
+          <h3><span class="wf-num">4</span>模型额度熔断与账号生命周期管控</h3>
+          <ul>
+            <li><strong>模型限额与自动禁用</strong>：在「租户与模型监控」发起 <code>MOD-01</code> 工单并审批生效；系统每 60 秒自动巡检消耗，达到 100% 自动在 Dify 禁用该工作区的对应模型，用户提交调额单审批通过后自动解禁。</li>
+            <li><strong>离职交接与有效期回收</strong>：在「账号与集成」页签中审批员工提交的 <code>ACC-03</code> 资源交接单、<code>ACC-04</code> 组织角色变更单，并对临期/已过期的密钥与共享授权执行续期或一键回收。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Common Work Orders Quick Reference -->
+    <section class="card">
+      <div class="card-header">
+        <span class="step-badge">4</span>
+        <h2>高频工单速查</h2>
+      </div>
+      <div class="ticket-chips">
+        <span class="ticket-chip"><code>ACC-01</code> 账号开通与变更（管理员）</span>
+        <span class="ticket-chip"><code>ACC-02</code> 账号更名申请（管理员）</span>
+        <span class="ticket-chip"><code>ACC-03</code> 离职/调岗资源交接</span>
+        <span class="ticket-chip"><code>ACC-04</code> 个人组织与角色变更</span>
+        <span class="ticket-chip"><code>MOD-01</code> 模型配额与开关管控</span>
+        <span class="ticket-chip"><code>KB-02 / 03</code> 知识库上架与绑定</span>
+        <span class="ticket-chip"><code>AG-02 / 03</code> 智能体发布与授权</span>
+        <span class="ticket-chip"><code>KEY-01 / 02</code> API 密钥申领与吊销</span>
+        <span class="ticket-chip"><code>PLG-01 / 03</code> 插件上架与安装</span>
+        <span class="ticket-chip"><code>MCP-01 / 02 / 03</code> MCP 登记、绑定与隔离</span>
+        <span class="ticket-chip"><code>EVT-01</code> 安全事件研判与双人复核</span>
+      </div>
+    </section>
+
+    <footer>
+      AI 应用中心运行管理平台 · 运维快速上手指南 · 可直接浏览器打开或打印导出为 PDF
+    </footer>
+  </div>
+</body>
+</html>

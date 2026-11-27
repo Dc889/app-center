@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 应用中心 · 管控逻辑逐项梳理互动手册</title>
+  <style>
+    :root {
+      --bg: #f4f6fa;
+      --surface: #ffffff;
+      --border: #e4e7ec;
+      --ink: #101828;
+      --sub: #475467;
+      --muted: #667085;
+      --brand: #175cd3;
+      --brand-soft: #eff8ff;
+      --brand-border: #b2ddff;
+      --ok: #027a48;
+      --ok-soft: #ecfdf3;
+      --ok-border: #abefc6;
+      --warn: #b54708;
+      --warn-soft: #fffaeb;
+      --warn-border: #fedf89;
+      --danger: #b42318;
+      --danger-soft: #fef3f2;
+      --danger-border: #fecdca;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .brand p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .progress-box {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+    }
+    .progress-track {
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #34d399);
+      transition: width 0.25s ease;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .nav-btn {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #cbd5e1;
+      padding: 11px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13.5px;
+      transition: all 0.15s ease;
+    }
+    .nav-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+    .nav-btn.active {
+      background: rgba(23, 92, 211, 0.32);
+      border-color: rgba(96, 165, 250, 0.5);
+      color: #fff;
+      font-weight: 600;
+    }
+    .nav-left { display: flex; align-items: center; gap: 10px; }
+    .nav-num {
+      width: 22px; height: 22px; border-radius: 6px;
+      background: rgba(255, 255, 255, 0.12);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .nav-status {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+    }
+    .nav-status.done { background: rgba(16, 185, 129, 0.22); color: #6ee7b7; }
+    .nav-status.has-note { background: rgba(245, 158, 11, 0.24); color: #fcd34d; }
+
+    .sidebar-actions {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .side-action-btn {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.08);
+      color: #f8fafc;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .side-action-btn:hover { background: rgba(255, 255, 255, 0.16); }
+    .side-action-btn.primary {
+      background: #2563eb;
+      border-color: #3b82f6;
+      font-weight: 600;
+    }
+    .side-action-btn.primary:hover { background: #1d4ed8; }
+
+    /* Main Content */
+    .main {
+      padding: 28px 32px 60px;
+      max-width: 980px;
+      width: 100%;
+    }
+
+    .module-panel { display: none; }
+    .module-panel.active { display: block; }
+
+    .module-hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--brand);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .module-tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brand);
+      background: var(--brand-soft);
+      border: 1px solid var(--brand-border);
+      padding: 2px 10px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .module-hero h2 { margin: 0 0 8px; font-size: 22px; }
+    .one-liner {
+      margin: 0;
+      font-size: 14.5px;
+      color: var(--sub);
+      background: #f8fafc;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px dashed #cbd5e1;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .card h3 {
+      margin: 0 0 14px;
+      font-size: 15.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* Flow steps */
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .flow-step {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fcfcfd;
+      position: relative;
+    }
+    .flow-step-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .flow-idx {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--brand); color: #fff;
+      font-size: 11px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .flow-step strong { font-size: 13px; color: var(--ink); }
+    .flow-step p { margin: 0; font-size: 12.5px; color: var(--sub); line-height: 1.5; }
+    .flow-code {
+      display: inline-block;
+      margin-top: 6px;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11px;
+      background: #eef2ff;
+      color: #3730a3;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* Boundary 2-col */
+    .boundary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .boundary-box {
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+    .boundary-box.free {
+      background: var(--ok-soft);
+      border: 1px solid var(--ok-border);
+    }
+    .boundary-box.strict {
+      background: var(--warn-soft);
+      border: 1px solid var(--warn-border);
+    }
+    .boundary-box h4 { margin: 0 0 6px; font-size: 13.5px; }
+    .boundary-box ul { margin: 0; padding-left: 18px; color: var(--sub); }
+
+    /* FAQ / Blocker Accordion */
+    .faq-list { display: flex; flex-direction: column; gap: 10px; }
+    details.faq-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      background: #fff;
+    }
+    details.faq-item[open] {
+      border-color: var(--brand-border);
+      background: #fafcff;
+    }
+    details.faq-item summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--ink);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    details.faq-item summary::after {
+      content: "展开";
+      font-size: 12px;
+      color: var(--brand);
+      font-weight: 500;
+    }
+    details.faq-item[open] summary::after { content: "收起"; }
+    .faq-body {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eef2f6;
+      font-size: 13.5px;
+      color: var(--sub);
+    }
+
+    /* Interactive Checklist + Editable Notes */
+    .check-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fcfcfd;
+      cursor: pointer;
+      font-size: 13.5px;
+    }
+    .check-item input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--ok); }
+    .check-item.checked {
+      background: var(--ok-soft);
+      border-color: var(--ok-border);
+      color: #065f46;
+    }
+
+    .note-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+    textarea.note-box {
+      width: 100%;
+      min-height: 110px;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 13.5px;
+      line-height: 1.6;
+      resize: vertical;
+      color: var(--ink);
+      background: #fff;
+    }
+    textarea.note-box:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(23, 92, 211, 0.12);
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn:hover { background: #f8fafc; }
+    .btn.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    .btn.primary:hover { background: #1849a9; }
+    .btn.ok {
+      background: var(--ok);
+      border-color: var(--ok);
+      color: #fff;
+    }
+
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      background: #0f172a;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12px;
+      background: #f2f4f7;
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: #1d2939;
+    }
+
+    @media (max-width: 820px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .boundary-grid { grid-template-columns: 1fr; }
+      .main { padding: 18px 16px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>管控逻辑梳理手册</h1>
+        <p>逐模块打通卡点 · 笔记自动保存在本地</p>
+      </div>
+
+      <div class="progress-box">
+        <div class="progress-top">
+          <span>梳理进度</span>
+          <strong id="progressText">0 / 4 已打通</strong>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <nav class="nav-list" id="navList">
+        <button class="nav-btn active" data-target="kb">
+          <span class="nav-left"><span class="nav-num">1</span> 知识库（KB）</span>
+          <span class="nav-status" id="st-kb">待梳理</span>
+        </button>
+        <button class="nav-btn" data-target="mcp">
+          <span class="nav-left"><span class="nav-num">2</span> MCP 服务</span>
+          <span class="nav-status" id="st-mcp">待梳理</span>
+        </button>
+        <button class="nav-btn" data-target="plugin">
+          <span class="nav-left"><span class="nav-num">3</span> 插件（Plugin）</span>
+          <span class="nav-status" id="st-plugin">待梳理</span>
+        </button>
+        <button class="nav-btn" data-target="agent">
+          <span class="nav-left"><span class="nav-num">4</span> 智能体（Agent）</span>
+          <span class="nav-status" id="st-agent">待梳理</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-actions">
+        <button class="side-action-btn primary" id="exportAllBtn">复制全部卡点笔记（发给 AI）</button>
+        <button class="side-action-btn" id="downloadMdBtn">导出梳理报告（.md 文件）</button>
+        <button class="side-action-btn" id="resetBtn">清空勾选与笔记</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- ==================== 1. 知识库 ==================== -->
+      <section class="module-panel active" id="panel-kb">
+        <div class="module-hero">
+          <span class="module-tag">模块 01 · 知识库管控</span>
+          <h2>一、知识库（KB）是怎么管起来的？</h2>
+          <p class="one-liner">
+            <strong>一句话打通：</strong>个人在 Dify 里自己建知识库、传文档、自己用，<strong>完全不管</strong>；只有当你打算把知识库<strong>共享给别人 / 上架知识库仓库</strong>时，才必须过「敏感词全文扫描 + 运营审批」。
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>管控边界：什么管、什么不管？</h3>
+          <div class="boundary-grid">
+            <div class="boundary-box free">
+              <h4>放开不管（不打扰日常干活）</h4>
+              <ul>
+                <li>在自己 Dify 工作区新建知识库（权限 <code>only_me</code>）</li>
+                <li>个人上传文档、切片、调试检索</li>
+                <li>自己名下草稿智能体挂载自己的知识库</li>
+              </ul>
+            </div>
+            <div class="boundary-box strict">
+              <h4>必须走工单严管（对外扩散节点）</h4>
+              <ul>
+                <li><strong>上架共享</strong>（<code>KB-02</code>）：扫描全文敏感词 + 划定开放组织边界</li>
+                <li><strong>跨人绑定使用</strong>（<code>KB-03</code>）：在授权边界内申请使用，带有效期</li>
+                <li><strong>违规下架/剔除文档</strong>（<code>KB-05</code>）：发现涉密立刻止损</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>全生命周期流程图（5 步闭环）</h3>
+          <div class="flow">
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">1</span><strong>Dify 建库传文档</strong></div>
+              <p>业务员在 Dify 自建知识库，应用中心后台自动只读同步清单。</p>
+              <span class="flow-code">免审批 · 自动同步</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">2</span><strong>申请共享上架</strong></div>
+              <p>发起 <code>KB-02</code>，系统自动拉取文档全文切片，按 <code>CFG-02</code> 敏感词库扫描。</p>
+              <span class="flow-code">KB-02 · 敏感词扫描</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">3</span><strong>运营审批入库</strong></div>
+              <p>运营核验扫描结果与组织边界，批准后上架「知识库仓库」。</p>
+              <span class="flow-code">人工复核</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">4</span><strong>他人申领绑定</strong></div>
+              <p>有权限同事在仓库点申请（<code>KB-03</code>），记录授权关系与到期时间。</p>
+              <span class="flow-code">KB-03 · 到期回收</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">5</span><strong>防绕过与处置</strong></div>
+              <p>若私自在 Dify 改权限为共享，P0 合规对账标红告警；违规走 <code>KB-05</code> 处置。</p>
+              <span class="flow-code">P0 对账 / KB-05</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>最容易卡壳的 3 个问题（点击展开）</h3>
+          <div class="faq-list">
+            <details class="faq-item" open>
+              <summary>卡点 1：用户直接在 Dify 里把知识库权限改成「团队所有人可见」，不走 KB-02 怎么办？</summary>
+              <div class="faq-body">
+                应用中心的 <strong>P0 合规对账</strong>（在「安全事件」页顶部）会读取 Dify <code>datasets.permission</code> 字段：只要发现权限不是 <code>only_me</code>、又没有已批准的 <code>KB-02</code> 工单，就会立刻检出「未备案共享知识库」，运营一键转 <code>EVT-01</code> 安全事件要求整改或回收权限。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 2：知识库已经审批上架了，用户事后又偷偷往里面传了一份涉密文档怎么办？</summary>
+              <div class="faq-body">
+                <code>KB-02</code> 审批时会锁定当时的文档清单指纹；后续知识库发生新增/修改文档，触发 <code>KB-04</code> 变更复审机制，重新跑敏感词扫描；发现违规由运营通过 <code>KB-05</code> 暂停分享或停用文档。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 3：Dify 跨工作区的知识库，A 租户能直接把库挂到 B 租户画布里吗？</summary>
+              <div class="faq-body">
+                这里要分清底层机制：Dify 原生知识库是按 Workspace 强隔离的。同工作区内可以直接调整权限共享；跨工作区复用时，应用中心负责审批留痕与边界授权，底层若要跨租户直接检索，需通过 RAGFlow 或外部知识库 API 桥接。
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>你的确认与卡点记录（自动保存）</h3>
+          <div class="check-list">
+            <label class="check-item"><input type="checkbox" data-check="kb-1" /> 我已理解：个人自建自用不审批，对外共享上架必须走 <code>KB-02</code> 敏感词扫描。</label>
+            <label class="check-item"><input type="checkbox" data-check="kb-2" /> 我已理解：私自改 Dify 权限会被 P0 合规对账揪出来，违规走 <code>KB-05</code> 处置。</label>
+          </div>
+          <label class="note-label" for="note-kb">关于「知识库」我还有哪些疑问 / 觉得流程需要调整的地方：</label>
+          <textarea class="note-box" id="note-kb" placeholder="直接在这里写下你的卡点、疑问或想改的规则（例如：希望个人知识库达到多少篇文档也要扫描…）"></textarea>
+          <div class="card-footer">
+            <button class="btn" onclick="copyModuleNote('kb', '知识库')">复制本模块卡点发给 AI</button>
+            <button class="btn primary" onclick="switchModule('mcp')">下一项：02 MCP 服务 →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 2. MCP ==================== -->
+      <section class="module-panel" id="panel-mcp">
+        <div class="module-hero">
+          <span class="module-tag">模块 02 · MCP 外部工具服务管控</span>
+          <h2>二、MCP 是怎么管起来的？</h2>
+          <p class="one-liner">
+            <strong>一句话打通：</strong>MCP 本质是<strong>外部接口工具</strong>（可能泄露内网数据或返回违规内容）。所以<strong>先登记测安全再进仓库（<code>MCP-01</code>）→ 审核后自动下发绑定到 Dify 工作区（<code>MCP-02</code>）→ 隐藏真实内网 URL → 发现违规随时解绑隔离（<code>MCP-03</code>）</strong>。
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>全生命周期流程图（5 步闭环）</h3>
+          <div class="flow">
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">1</span><strong>登记上架申请</strong></div>
+              <p>提交 MCP 地址与说明（<code>MCP-01</code>），系统自动连通探测工具列表。</p>
+              <span class="flow-code">MCP-01</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">2</span><strong>预设题库合规测试</strong></div>
+              <p>用 <code>CFG-03</code> 测试题库实际调用 <code>tools/call</code>，并用 <code>CFG-02</code> 敏感词库扫响应。</p>
+              <span class="flow-code">自动合规探测</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">3</span><strong>上架 MCP 仓库</strong></div>
+              <p>审批通过进入「MCP 仓库」，前端展示能力说明，<strong>隐藏内网 URL 原文</strong>。</p>
+              <span class="flow-code">隐藏真实 URL</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">4</span><strong>工作区绑定下发</strong></div>
+              <p>用户点申请绑定（<code>MCP-02</code>），审批通过后自动调用 Dify API 写入该工作区。</p>
+              <span class="flow-code">MCP-02 · 真下发</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">5</span><strong>旁路发现与隔离</strong></div>
+              <p>私自在 Dify 填的 MCP 会被 P0 对账揪出；违规走 <code>MCP-03</code> 真实从 Dify 解绑并下架。</p>
+              <span class="flow-code">P0 对账 / MCP-03</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>最容易卡壳的 3 个问题（点击展开）</h3>
+          <div class="faq-list">
+            <details class="faq-item" open>
+              <summary>卡点 1：MCP-01 上架和 MCP-02 绑定有什么区别？为什么要分两步？</summary>
+              <div class="faq-body">
+                <strong>两步分工明确：</strong><br />
+                • <code>MCP-01</code> 是<strong>“进货安检”</strong>：把一个外部 MCP 服务测完安全性、确认没问题后放进公司「MCP 仓库」（只需测一次）；<br />
+                • <code>MCP-02</code> 是<strong>“领用安装”</strong>：哪个业务工作区要用，就点一下绑定，公开服务免审即办、受限服务审批后，系统自动帮他配进 Dify 工作区，用户不需要知道底层内网地址和 Token。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 2：如果用户自己在 Dify「工具 → MCP」里手填了一个外部 MCP 地址怎么办？</summary>
+              <div class="faq-body">
+                Dify 里的所有 MCP 绑定都会被只读同步回应用中心。<strong>P0 合规对账</strong>（安全事件页）会自动比对：凡是没有对应 <code>MCP-01/02</code> 审批单的绑定，全部标为「未备案 MCP」，运营可直接转安全事件整改。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 3：某个 MCP 突然出漏洞或返回敏感信息，怎么紧急止损？</summary>
+              <div class="faq-body">
+                运维发起 <code>MCP-03</code>（处置类型可选：单工作区解绑 / 目录隔离 / 目录下架），审批通过后直接调 Dify 接口把该 MCP 从工作区移除，并禁止新用户继续绑定。
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>你的确认与卡点记录（自动保存）</h3>
+          <div class="check-list">
+            <label class="check-item"><input type="checkbox" data-check="mcp-1" /> 我已理解：<code>MCP-01</code> 是入库安检（题库探测），<code>MCP-02</code> 是下发绑定到工作区。</label>
+            <label class="check-item"><input type="checkbox" data-check="mcp-2" /> 我已理解：绕过平台在 Dify 私配的 MCP 会被 P0 对账识别，违规通过 <code>MCP-03</code> 真实解绑。</label>
+          </div>
+          <label class="note-label" for="note-mcp">关于「MCP」我还有哪些疑问 / 觉得流程需要调整的地方：</label>
+          <textarea class="note-box" id="note-mcp" placeholder="写下你对 MCP 管控的疑问或调整建议…"></textarea>
+          <div class="card-footer">
+            <button class="btn" onclick="copyModuleNote('mcp', 'MCP 服务')">复制本模块卡点发给 AI</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn" onclick="switchModule('kb')">← 上一项</button>
+              <button class="btn primary" onclick="switchModule('plugin')">下一项：03 插件 →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 3. 插件 ==================== -->
+      <section class="module-panel" id="panel-plugin">
+        <div class="module-hero">
+          <span class="module-tag">模块 03 · 插件（Plugin）管控</span>
+          <h2>三、插件（.difypkg）是怎么管起来的？</h2>
+          <p class="one-liner">
+            <strong>一句话打通：</strong>插件是<strong>直接跑在服务器上的可执行 Python 代码</strong>，风险最高。所以<strong>必须先上传 .difypkg 代码包做静态安全扫描上架（<code>PLG-01</code>）→ 审核后各工作区从仓库按权限安装（<code>PLG-03</code>）→ 跑起来后监控故障率，异常可禁用与复核恢复（<code>PLG-04</code>）</strong>。
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>全生命周期流程图（5 步闭环）</h3>
+          <div class="flow">
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">1</span><strong>上传包体安检</strong></div>
+              <p>提交 <code>.difypkg</code> 包（<code>PLG-01</code>），自动解压扫描危险 Python 代码并算包体指纹。</p>
+              <span class="flow-code">PLG-01 · 代码扫描</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">2</span><strong>审核上架插件仓库</strong></div>
+              <p>运营复核扫描报告与开放范围，批准后入库「插件仓库」（升级走 <code>PLG-02</code>）。</p>
+              <span class="flow-code">PLG-01 / PLG-02</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">3</span><strong>工作区安装/卸载</strong></div>
+              <p>用户在仓库点安装（<code>PLG-03</code>），公开即办/受限审批，真实调用 Dify 插件守护进程安装。</p>
+              <span class="flow-code">PLG-03 · 真安装</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">4</span><strong>运行监控与对账</strong></div>
+              <p>插件监控读取 <code>dify_plugin</code> 全租户安装明细；P0 对账揪出私自上传的未备案插件。</p>
+              <span class="flow-code">全量监控 + P0 对账</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">5</span><strong>异常禁用与复核恢复</strong></div>
+              <p>发现高危/异常时禁用止损，修复后须走 <code>PLG-04</code> 复核恢复，防止带病上线。</p>
+              <span class="flow-code">PLG-04</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>最容易卡壳的 3 个问题（点击展开）</h3>
+          <div class="faq-list">
+            <details class="faq-item" open>
+              <summary>卡点 1：Dify 本身有官方插件市场，为什么还要建应用中心的「插件仓库」？</summary>
+              <div class="faq-body">
+                因为内网/政企环境既可能断网无法直连 Dify 官方市场，又严禁未经代码审查的第三方 Python 代码直接跑在核心服务器上。应用中心插件仓库相当于<strong>“企业内部白名单应用商店”</strong>——经过安全扫描和运营批准的包才能进仓库供全员复用。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 2：如果研发人员直接在 Dify 界面上传了一个 .difypkg 安装，平台知道吗？</summary>
+              <div class="faq-body">
+                <strong>知道。</strong>应用中心直连 <code>dify_plugin</code> 只读库，实时同步全部租户已装插件；<strong>P0 合规对账</strong>会自动比对出所有没有 <code>PLG-01/03</code> 审批单的「未备案插件」（当前测试服就实时检出了 33 条），支持一键转安全事件整改。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 3：插件（Plugin）和技能包（Skill）有什么区别？</summary>
+              <div class="faq-body">
+                • <strong>插件（<code>PLG-*</code>）</strong>：装在 Dify 服务端运行的代码包（<code>.difypkg</code>），由平台调用 Dify API 直接安装到工作区；<br />
+                • <strong>技能包（<code>SKL-*</code>）</strong>：给研发人员下载到本机/代码工程里使用的资料或技能压缩包（<code>SKL-03</code> 只管受控下载与回执，不装进 Dify 服务端）。
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>你的确认与卡点记录（自动保存）</h3>
+          <div class="check-list">
+            <label class="check-item"><input type="checkbox" data-check="plg-1" /> 我已理解：<code>PLG-01</code> 审包入白名单仓库，<code>PLG-03</code> 真正调用 Dify 安装到工作区。</label>
+            <label class="check-item"><input type="checkbox" data-check="plg-2" /> 我已理解：私自上传的插件会被 P0 对账检出，插件与 Skill 的边界已分清。</label>
+          </div>
+          <label class="note-label" for="note-plugin">关于「插件」我还有哪些疑问 / 觉得流程需要调整的地方：</label>
+          <textarea class="note-box" id="note-plugin" placeholder="写下你对插件管控的疑问或调整建议…"></textarea>
+          <div class="card-footer">
+            <button class="btn" onclick="copyModuleNote('plugin', '插件')">复制本模块卡点发给 AI</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn" onclick="switchModule('mcp')">← 上一项</button>
+              <button class="btn primary" onclick="switchModule('agent')">下一项：04 智能体 →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 4. 智能体 ==================== -->
+      <section class="module-panel" id="panel-agent">
+        <div class="module-hero">
+          <span class="module-tag">模块 04 · 智能体（Agent / App）管控</span>
+          <h2>四、智能体是怎么管起来的？（把前面三项串起来！）</h2>
+          <p class="one-liner">
+            <strong>一句话打通：</strong>智能体是<strong>最终成品</strong>（组合了提示词 + 知识库 + 插件 + MCP + 大模型）。在 Dify 里自己搭草稿不管；一旦要<strong>正式发布上架（<code>AG-02</code>）</strong>，系统会把里面的<strong>依赖组件全部拉出来做合规体检</strong>；上线后管住<strong>访问授权（<code>AG-03</code>）、API 密钥（<code>KEY-01</code>）、模型额度（<code>MOD-01</code>）与私自篡改（P0 对账）</strong>。
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>全生命周期流程图（6 步总闭环）</h3>
+          <div class="flow">
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">1</span><strong>Dify 编排调试</strong></div>
+              <p>业务员在 Dify 画布自由编排，自动同步进「智能体监控」，个人调试免审批。</p>
+              <span class="flow-code">免审批 · 自动同步</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">2</span><strong>发布体检上架</strong></div>
+              <p>发起 <code>AG-02</code>，自动解析绑定的知识库/插件/MCP 合规状态 + 锁定版本时间戳。</p>
+              <span class="flow-code">AG-02 · 依赖体检</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">3</span><strong>授权使用与发 Key</strong></div>
+              <p>人员使用走 <code>AG-03</code>；外部系统集成调 API 走 <code>KEY-01</code>（带有效期与到期回收）。</p>
+              <span class="flow-code">AG-03 / KEY-01</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">4</span><strong>模型水电表管控</strong></div>
+              <p>按工作区×模型通过 <code>MOD-01</code> 设 Token 与次数上限，超限自动在 Dify 禁用模型。</p>
+              <span class="flow-code">MOD-01 · 自动熔断</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">5</span><strong>变更再审与防篡改</strong></div>
+              <p>正式更新走 <code>AG-04</code>；若绕过审批在 Dify 私改，P0 对账比对修改时间自动告警。</p>
+              <span class="flow-code">AG-04 / P0 对账</span>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-head"><span class="flow-idx">6</span><strong>下架与离职交接</strong></div>
+              <p>下线走 <code>AG-05</code> 撤销授权；负责人离职/调岗走 <code>ACC-03</code> 一键移交接任同事。</p>
+              <span class="flow-code">AG-05 / ACC-03</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>最容易卡壳的 3 个问题（点击展开）</h3>
+          <div class="faq-list">
+            <details class="faq-item" open>
+              <summary>卡点 1：为什么智能体发布（AG-02）要把知识库、插件、MCP 都串起来审？</summary>
+              <div class="faq-body">
+                因为智能体本身是一个“壳子”，真正的风险藏在它绑定的组件里：如果它绑了一个<strong>没审过的知识库</strong>或<strong>未备案的 MCP</strong>，对外发布后就会间接泄露数据。所以 <code>AG-02</code> 会自动抽出它用到的全部组件，列出合规核验卡给运营一眼把关。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 2：智能体审批通过后，研发去 Dify 把提示词改坏了怎么办？</summary>
+              <div class="faq-body">
+                两道防线：<br />
+                1. <strong>审批期间防调包</strong>：提交 <code>AG-02</code> 时锁定 Dify 真实 <code>updated_at</code> 版本快照，审批期间如果改过，下发执行前自动拦截；<br />
+                2. <strong>上线后防私改</strong>：<strong>P0 合规对账</strong>会持续比对 Dify 应用最近修改时间与审批通过时间，发现晚于审批时间即标出「已发布应用私自变更」，可一键转安全事件。
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>卡点 3：应用要被其他业务系统通过 API 调用，是怎么管的？</summary>
+              <div class="faq-body">
+                不让用户直接在 Dify 里随便建 Key（私建的会被 P0 对账揪出「未备案密钥」）。规范流程是走 <code>KEY-01</code> 登记调用方名称、CIDR、QPS 与有效期 → 审批通过后由平台调 Dify 生成真实 Key 一次性交付 → 到期前在「账号与集成 → 有效期回收」与「个人中心」提醒，到期或不用走 <code>KEY-02</code> 轮换/吊销。
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>你的确认与卡点记录（自动保存）</h3>
+          <div class="check-list">
+            <label class="check-item"><input type="checkbox" data-check="ag-1" /> 我已理解：智能体草稿自用不管，对外发布走 <code>AG-02</code> 做组件合规体检。</label>
+            <label class="check-item"><input type="checkbox" data-check="ag-2" /> 我已理解：对外 API 调走 <code>KEY-01/02</code>，模型成本走 <code>MOD-01</code>，私改走 P0 对账，离职走 <code>ACC-03</code>。</label>
+          </div>
+          <label class="note-label" for="note-agent">关于「智能体」及整体串联，我还有哪些疑问 / 想改的地方：</label>
+          <textarea class="note-box" id="note-agent" placeholder="写下你对智能体或整体 4 个模块串联的卡点、疑问或希望优化的设计…"></textarea>
+          <div class="card-footer">
+            <button class="btn" onclick="copyModuleNote('agent', '智能体')">复制本模块卡点发给 AI</button>
+            <div style="display:flex;gap:8px;">
+              <button class="btn" onclick="switchModule('plugin')">← 上一项</button>
+              <button class="btn ok" id="finishCopyBtn">全部过完了 · 复制汇总发给 AI</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast">已复制到剪贴板</div>
+
+  <script>
+    const STORAGE_KEY = 'app-center-governance-walkthrough-v1';
+    const MODULES = [
+      { id: 'kb', name: '01 知识库（KB）', checks: ['kb-1', 'kb-2'] },
+      { id: 'mcp', name: '02 MCP 服务', checks: ['mcp-1', 'mcp-2'] },
+      { id: 'plugin', name: '03 插件（Plugin）', checks: ['plg-1', 'plg-2'] },
+      { id: 'agent', name: '04 智能体（Agent）', checks: ['ag-1', 'ag-2'] },
+    ];
+
+    function loadState() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function saveState(state) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {}
+    }
+
+    const state = loadState();
+    state.checks = state.checks || {};
+    state.notes = state.notes || {};
+
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      el.textContent = text;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2200);
+    }
+
+    function switchModule(id) {
+      document.querySelectorAll('.module-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('panel-' + id)?.classList.add('active');
+      document.querySelector(`.nav-btn[data-target="${id}"]`)?.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function refreshUI() {
+      let doneCount = 0;
+      for (const m of MODULES) {
+        const allChecked = m.checks.every(k => Boolean(state.checks[k]));
+        const hasNote = Boolean((state.notes[m.id] || '').trim());
+        const badge = document.getElementById('st-' + m.id);
+        badge.className = 'nav-status';
+        if (allChecked && !hasNote) {
+          badge.textContent = '已打通';
+          badge.classList.add('done');
+          doneCount++;
+        } else if (hasNote) {
+          badge.textContent = allChecked ? '有笔记' : '有卡点';
+          badge.classList.add('has-note');
+          if (allChecked) doneCount++;
+        } else {
+          badge.textContent = '待梳理';
+        }
+      }
+      document.getElementById('progressText').textContent = `${doneCount} / ${MODULES.length} 已打通`;
+      document.getElementById('progressFill').style.width = `${(doneCount / MODULES.length) * 100}%`;
+
+      document.querySelectorAll('input[data-check]').forEach(cb => {
+        const k = cb.getAttribute('data-check');
+        cb.checked = Boolean(state.checks[k]);
+        cb.closest('.check-item')?.classList.toggle('checked', cb.checked);
+      });
+    }
+
+    // Bind nav
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchModule(btn.getAttribute('data-target')));
+    });
+
+    // Bind checkboxes
+    document.querySelectorAll('input[data-check]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const k = cb.getAttribute('data-check');
+        state.checks[k] = cb.checked;
+        saveState(state);
+        refreshUI();
+      });
+    });
+
+    // Bind notes
+    for (const m of MODULES) {
+      const box = document.getElementById('note-' + m.id);
+      if (!box) continue;
+      box.value = state.notes[m.id] || '';
+      box.addEventListener('input', () => {
+        state.notes[m.id] = box.value;
+        saveState(state);
+        refreshUI();
+      });
+    }
+
+    function buildMarkdown(onlyModuleId = null) {
+      const lines = ['# AI 应用中心管控逻辑梳理笔记', ''];
+      const list = onlyModuleId ? MODULES.filter(m => m.id === onlyModuleId) : MODULES;
+      for (const m of list) {
+        const allChecked = m.checks.every(k => Boolean(state.checks[k]));
+        const note = (state.notes[m.id] || '').trim();
+        lines.push(`## ${m.name}（${allChecked ? '已理解主流程' : '待进一步确认'}）`);
+        lines.push(note ? `**我的卡点 / 疑问 / 调整意见：**\n${note}` : '_暂无额外卡点记录_');
+        lines.push('');
+      }
+      return lines.join('\n');
+    }
+
+    async function copyText(text, okMsg) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(okMsg);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        showToast(okMsg);
+      }
+    }
+
+    window.copyModuleNote = (id, label) => {
+      copyText(buildMarkdown(id), `已复制「${label}」梳理笔记，可直接粘贴发给 AI`);
+    };
+
+    document.getElementById('exportAllBtn').addEventListener('click', () => {
+      copyText(buildMarkdown(), '已复制全部 4 个模块梳理笔记，可直接粘贴发给 AI');
+    });
+    document.getElementById('finishCopyBtn').addEventListener('click', () => {
+      copyText(buildMarkdown(), '已复制全部 4 个模块梳理笔记，可直接粘贴发给 AI');
+    });
+
+    document.getElementById('downloadMdBtn').addEventListener('click', () => {
+      const blob = new Blob([buildMarkdown()], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'AI应用中心管控梳理笔记.md';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('已导出 AI应用中心管控梳理笔记.md');
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (!confirm('确认清空所有勾选状态和笔记内容吗？')) return;
+      state.checks = {};
+      state.notes = {};
+      saveState(state);
+      for (const m of MODULES) {
+        const box = document.getElementById('note-' + m.id);
+        if (box) box.value = '';
+      }
+      refreshUI();
+      showToast('已清空所有记录');
+    });
+
+    refreshUI();
+  </script>
+</body>
+</html>
