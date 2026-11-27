@@ -62,13 +62,22 @@ export function ExternalCutoffTicketForm() {
           if (gov.policy?.cutoffSwitches) setSwitches(gov.policy.cutoffSwitches)
           setTickets(gov.cutoffTickets ?? [])
         }
-        const list: AppOption[] = (mon?.apps ?? mon?.items ?? []).map((a: any) => ({
-          appId: a.appId || a.id,
-          name: a.name || a.appName || a.appId,
-          workspaceName: a.workspaceName || a.org || '',
-        })).filter((a: AppOption) => Boolean(a.appId))
-        setApps(list)
-        if (!appId && list.length > 0) setAppId(list[0].appId)
+        const rawApps: AppOption[] = []
+        const seen = new Set<string>()
+        for (const g of mon?.accountGroups ?? []) {
+          for (const a of g?.apps ?? []) {
+            const aid = String(a?.appId || a?.id || '').trim()
+            if (!aid || seen.has(aid)) continue
+            seen.add(aid)
+            rawApps.push({
+              appId: aid,
+              name: a.name || a.appName || aid,
+              workspaceName: g.name ? `${g.name}${g.org ? ` · ${g.org}` : ''}` : (g.org || ''),
+            })
+          }
+        }
+        setApps(rawApps)
+        if (!appId && rawApps.length > 0) setAppId(rawApps[0].appId)
       })
       .catch(() => {})
     return () => c.abort()
